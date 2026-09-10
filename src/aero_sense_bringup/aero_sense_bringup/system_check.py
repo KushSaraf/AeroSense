@@ -15,6 +15,8 @@ PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 MIN_FREE_DISK_GB = 2.0
 TOPIC_DISCOVERY_S = 2.0
 HEARTBEAT_TIMEOUT_S = 3.0
+#: MAVProxy's diagnostics output (simulation.launch.py); 14550 is left to the GCS.
+MAVLINK_DIAGNOSTICS_URL = "udpin:127.0.0.1:14552"
 UAV_WS = Path(os.environ.get("UAV_WS", Path.home() / "uav_ws"))
 WORKSPACE_PACKAGES = ("aero_sense_interfaces", "aero_sense_bringup", "aero_sense_description",
                       "aero_sense_gazebo", "aero_sense_mission")
@@ -93,7 +95,10 @@ def check_topics() -> tuple:
 
 def check_mavlink() -> tuple:
     from pymavlink import mavutil
-    conn = mavutil.mavlink_connection("udpin:127.0.0.1:14550", source_system=245)
+    try:
+        conn = mavutil.mavlink_connection(MAVLINK_DIAGNOSTICS_URL, source_system=245)
+    except OSError as exc:
+        return FAIL, f"cannot listen on {MAVLINK_DIAGNOSTICS_URL}: {exc}"
     try:
         beat = conn.wait_heartbeat(timeout=HEARTBEAT_TIMEOUT_S)
     finally:

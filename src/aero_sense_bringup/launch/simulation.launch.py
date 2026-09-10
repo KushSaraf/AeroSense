@@ -18,8 +18,12 @@ from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
 SITL_TCP_PORT = 5760
-#: MAVProxy outputs: 14550 for a GCS / system_check, 14551 for the onboard drone_interface.
-MAVLINK_OUTS = ("127.0.0.1:14550", "127.0.0.1:14551")
+#: MAVProxy outputs. 14550 is the conventional GCS port (QGroundControl listens there), so
+#: onboard software and diagnostics each get their own and never contend with an open GCS.
+GCS_OUT = "127.0.0.1:14550"
+ONBOARD_OUT = "127.0.0.1:14551"        # drone_interface
+DIAGNOSTICS_OUT = "127.0.0.1:14552"    # system_check
+MAVLINK_OUTS = (GCS_OUT, ONBOARD_OUT, DIAGNOSTICS_OUT)
 #: SITL must be listening on its TCP port before MAVProxy connects to it.
 MAVPROXY_DELAY_S = 3.0
 SITL_DIR = Path.home() / ".ros" / "aero_sense" / "sitl"
@@ -77,7 +81,7 @@ def _launch(context, *args, **kwargs):
                   parameters=[{"config_file": str(gazebo_share / "config" / "bridge.yaml")}],
                   output="screen")
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
-                 parameters=[{"mavlink_url": f"udpin:{MAVLINK_OUTS[1]}"}], output="screen")
+                 parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}"}], output="screen")
     return [gz_server, gz_gui, sitl, mavproxy, bridge, drone]
 
 

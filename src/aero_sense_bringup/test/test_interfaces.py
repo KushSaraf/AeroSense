@@ -1,5 +1,6 @@
 """Phase 1 checks: every interface builds, serialises and round-trips; system_check logic."""
 import math
+import socket
 
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import Point, Point32
@@ -54,6 +55,17 @@ def test_services_have_expected_fields():
     assert SetSearchArea.Request(pattern="LAWNMOWER", spacing_m=12.0).spacing_m == 12.0
     assert SetPriority.Request(victim_id="V002", priority="P1").priority == "P1"
     assert InjectFailure.Request(failure="GPS_LOSS").failure == "GPS_LOSS"
+
+
+def test_mavlink_check_reports_busy_port_instead_of_crashing():
+    host, port = system_check.MAVLINK_DIAGNOSTICS_URL.split(":", 1)[1].rsplit(":", 1)
+    blocker = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    blocker.bind((host, int(port)))           # e.g. a GCS already holding the port
+    try:
+        status, detail = system_check.check_mavlink()
+    finally:
+        blocker.close()
+    assert status == system_check.FAIL and "cannot listen" in detail
 
 
 def test_system_check_reports_failures_without_aborting():
