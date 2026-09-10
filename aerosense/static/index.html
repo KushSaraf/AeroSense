@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aero Sense Command Centre</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --critical: #ff4d4f; --high: #ff9f1a; --medium: #f5d90a; --low: #3ddc84; --accent: #39c5f7;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 16px; margin: 0 12px 0 0; letter-spacing: .08em; }
+  h1 span { color: var(--accent); }
+  .chip { padding: 3px 9px; border: 1px solid var(--line); border-radius: 999px; white-space: nowrap; }
+  .chip b { color: var(--muted); font-weight: 500; margin-right: 4px; }
+  .chip.ok { border-color: var(--low); color: var(--low); }
+  .chip.bad { border-color: var(--critical); color: var(--critical); animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  button { margin-left: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 10px; cursor: pointer; font: inherit; }
+  button:hover { border-color: var(--accent); }
+  main { display: grid; grid-template-columns: minmax(300px, 1.1fr) minmax(320px, 1fr) minmax(280px, .9fr);
+         gap: 12px; padding: 12px; }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px; min-width: 0; }
+  section h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 8px; }
+  .feed { position: relative; background: #000; border-radius: 6px; overflow: hidden; aspect-ratio: 4 / 3; }
+  .feed img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .feed .stale { position: absolute; inset: 0; display: grid; place-items: center; background: #000a;
+                 color: var(--critical); font-weight: 700; letter-spacing: .1em; }
+  [hidden] { display: none !important; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
+  td:first-child { color: var(--muted); }
+  canvas { width: 100%; display: block; background: #0a0d12; border-radius: 6px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .survivor { border: 1px solid var(--line); border-left: 4px solid var(--muted); border-radius: 6px;
+              padding: 6px 8px; margin-bottom: 6px; }
+  .survivor .top { display: flex; justify-content: space-between; font-weight: 600; }
+  .survivor .meta { color: var(--muted); font-size: 12px; }
+  .badge { font-size: 11px; padding: 1px 6px; border-radius: 4px; color: #000; font-weight: 700; }
+  .list { max-height: 300px; overflow-y: auto; }
+  .event { padding: 3px 0; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .event span { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .empty { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AERO <span>SENSE</span> · COMMAND CENTRE</h1>
+  <span class="chip" id="link">LINK …</span>
+  <span class="chip"><b>PHASE</b><span id="phase">-</span></span>
+  <span class="chip"><b>MODE</b><span id="mode">-</span></span>
+  <span class="chip"><b>ALT</b><span id="alt">-</span></span>
+  <span class="chip"><b>BATT</b><span id="batt">-</span></span>
+  <span class="chip"><b>T+</b><span id="clock">-</span></span>
+  <button id="linkBtn" type="button">Simulate comm loss</button>
+</header>
+<main>
+  <section>
+    <h2>Live feed · RGB detections + LWIR inset</h2>
+    <div class="feed"><img src="/video.mjpg" alt="Drone camera feed"><div class="stale" id="stale" hidden>NO DOWNLINK · FEED FROZEN</div></div>
+    <table><tbody id="telemetry"></tbody></table>
+  </section>
+  <section>
+    <h2>Geo-referenced map · safe routes from base</h2>
+    <canvas id="map" width="560" height="640" aria-label="Map of survivors, hazards and routes"></canvas>
+    <div class="legend">
+      <span><i style="background:#2b3440"></i>explored</span><span><i style="background:#8a8f98"></i>building</span>
+      <span><i style="background:#a0703c"></i>debris</span><span><i style="background:#2f7fd0"></i>flood</span>
+      <span><i style="background:#ff5a1f"></i>fire</span><span><i style="background:#39c5f7"></i>drone track</span>
+    </div>
+  </section>
+  <section>
+    <h2>Rescue priority</h2>
+    <div class="list" id="survivors"><p class="empty">No survivors confirmed yet</p></div>
+    <h2 style="margin-top:12px">Hazards</h2>
+    <div class="list" id="hazards" style="max-height:120px"><p class="empty">None mapped</p></div>
+    <h2 style="margin-top:12px">Mission log</h2>
+    <div class="list" id="events" style="max-height:220px"></div>
+  </section>
+</main>
+<script>
+const LEVEL_COLOR = { CRITICAL: "#ff4d4f", HIGH: "#ff9f1a", MEDIUM: "#f5d90a", LOW: "#3ddc84" };
+const CELL_COLOR = ["#0a0d12", "#2b3440", "#8a8f98", "#a0703c", "#2f7fd0", "#ff5a1f"];
+const LIVE_CONTACT_S = 2;
+const $ = (id) => document.getElementById(id);
+let forcedDown = false;
+
+function el(tag, cls, text) {
+  const node = document.createElement(tag);
+  if (cls) node.className = cls;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderHeader(s) {
+  const t = s.telemetry;
+  const live = s.contact_age_s !== null && s.contact_age_s < LIVE_CONTACT_S;
+  const link = $("link");
+  link.className = "chip " + (live ? "ok" : "bad");
+  link.textContent = live ? "LINK LIVE" : `NO CONTACT ${s.contact_age_s ?? "-"}s`;
+  $("stale").hidden = live;
+  forcedDown = s.sim_link_forced_down;
+  $("linkBtn").textContent = forcedDown ? "Restore comm link" : "Simulate comm loss";
+  if (!t) return;
+  $("phase").textContent = t.phase;
+  $("mode").textContent = t.mode + (t.armed ? " · ARMED" : "");
+  $("alt").textContent = `${t.alt.toFixed(1)} m`;
+  $("batt").textContent = t.battery >= 0 ? `${t.battery}%` : "-";
+  $("clock").textContent = `${t.t.toFixed(0)} s`;
+  const rows = [["Position N/E", `${t.n.toFixed(1)} / ${t.e.toFixed(1)} m`],
+                ["GPS", `${t.lat.toFixed(6)}, ${t.lon.toFixed(6)}`],
+                ["Heading", `${((t.yaw * 180 / Math.PI + 360) % 360).toFixed(0)}°`],
+                ["Commanded alt", `${t.alt_cmd.toFixed(0)} m`],
+                ["Reports received", s.rx_count]];
+  $("telemetry").replaceChildren(...rows.map(([k, v]) => {
+    const tr = el("tr"); tr.append(el("td", null, k), el("td", null, String(v))); return tr;
+  }));
+}
+
+function drawMap(s) {
+  const canvas = $("map"), ctx = canvas.getContext("2d"), m = s.map;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!m) return;
+  const px = Math.min(canvas.width / m.cols, canvas.height / m.rows);
+  const toXY = (n, e) => [(e - m.origin[1]) / m.cell * px, canvas.height - (n - m.origin[0]) / m.cell * px];
+  for (let i = 0; i < m.rows; i++)
+    for (let j = 0; j < m.cols; j++) {
+      ctx.fillStyle = CELL_COLOR[+m.grid[i * m.cols + j]];
+      ctx.fillRect(j * px, canvas.height - (i + 1) * px, px, px);
+    }
+  const [bx0, by0] = toXY(m.search.north[1], m.search.east[0]);
+  const [bx1, by1] = toXY(m.search.north[0], m.search.east[1]);
+  ctx.setLineDash([4, 4]); ctx.strokeStyle = "#8b949e"; ctx.strokeRect(bx0, by0, bx1 - bx0, by1 - by0);
+  for (const sv of s.survivors) {
+    if (!sv.route) continue;
+    ctx.strokeStyle = LEVEL_COLOR[sv.level]; ctx.lineWidth = 2; ctx.beginPath();
+    sv.route.forEach(([n, e], k) => { const [x, y] = toXY(n, e); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.stroke();
+  }
+  ctx.setLineDash([]); ctx.strokeStyle = "#39c5f7"; ctx.lineWidth = 1.5; ctx.beginPath();
+  m.track.forEach(([n, e], k) => { const [x, y] = toXY(n, e); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+  ctx.stroke();
+  const [sx, sy] = toXY(...m.staging);
+  ctx.fillStyle = "#fff"; ctx.fillRect(sx - 5, sy - 5, 10, 10);
+  ctx.font = "11px system-ui"; ctx.fillText("BASE", sx + 8, sy + 4);
+  for (const sv of s.survivors) {
+    const [x, y] = toXY(sv.n, sv.e);
+    ctx.fillStyle = LEVEL_COLOR[sv.level]; ctx.beginPath(); ctx.arc(x, y, 7, 0, 2 * Math.PI); ctx.fill();
+    ctx.fillStyle = "#000"; ctx.font = "bold 10px system-ui"; ctx.textAlign = "center";
+    ctx.fillText(sv.id, x, y + 3.5); ctx.textAlign = "start";
+  }
+  const t = s.telemetry;
+  if (t) {
+    const [x, y] = toXY(t.n, t.e);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(t.yaw);
+    ctx.fillStyle = "#39c5f7"; ctx.beginPath(); ctx.moveTo(0, -10); ctx.lineTo(6, 7); ctx.lineTo(-6, 7); ctx.fill();
+    ctx.restore();
+  }
+}
+
+function routeLength(route) {
+  let len = 0;
+  for (let k = 1; k < (route || []).length; k++) len += Math.hypot(route[k][0] - route[k-1][0], route[k][1] - route[k-1][1]);
+  return len;
+}
+
+function renderLists(s) {
+  $("survivors").replaceChildren(...(s.survivors.length ? s.survivors.map((sv) => {
+    const card = el("div", "survivor"); card.style.borderLeftColor = LEVEL_COLOR[sv.level];
+    const top = el("div", "top"); top.append(el("span", null, `Survivor #${sv.id}`));
+    const badge = el("span", "badge", `${sv.level} ${sv.score.toFixed(2)}`); badge.style.background = LEVEL_COLOR[sv.level];
+    top.append(badge);
+    const route = sv.route ? `ground route ${routeLength(sv.route).toFixed(0)} m` : "no safe ground route";
+    card.append(top,
+      el("div", "meta", `P(survivor) ${sv.p.toFixed(2)} · ${sv.thermal ? "thermal ✓" : "RGB only"} · seen ${sv.hits}×`),
+      el("div", "meta", `hazard ${sv.hazard} (${sv.danger.toFixed(2)}) · access ${sv.access.toFixed(2)} · ${route}`),
+      el("div", "meta", `N ${sv.n.toFixed(1)} m, E ${sv.e.toFixed(1)} m`));
+    return card;
+  }) : [el("p", "empty", "No survivors confirmed yet")]));
+  const hazards = (s.map && s.map.hazards) || [];
+  $("hazards").replaceChildren(...(hazards.length ? hazards.map((h) =>
+    el("div", "event", `${h.kind.toUpperCase()} · ${h.area_m2} m² at N ${h.n}, E ${h.e}`))
+    : [el("p", "empty", "None mapped")]));
+  $("events").replaceChildren(...s.events.map((ev) => {
+    const row = el("div", "event"); row.append(el("span", null, `T+${ev.t.toFixed(0)}s`), ev.text); return row;
+  }));
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/state");
+    if (!res.ok) throw new Error(res.statusText);
+    const s = await res.json();
+    renderHeader(s); drawMap(s); renderLists(s);
+  } catch (err) {
+    $("link").className = "chip bad"; $("link").textContent = "DASHBOARD SERVER UNREACHABLE";
+  }
+}
+
+$("linkBtn").addEventListener("click", async () => {
+  await fetch("/api/link", { method: "POST", headers: { "Content-Type": "application/json" },
+                             body: JSON.stringify({ down: !forcedDown }) });
+  refresh();
+});
+setInterval(refresh, 500);
+refresh();
+</script>
+</body>
+</html>

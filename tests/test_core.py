@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from aerosense import geo, planner, risk, world_model  # noqa: E402
+from aerosense import dashboard, geo, mission, planner, risk, world_model  # noqa: E402
 from aerosense.comms import StoreAndForwardLink  # noqa: E402
 
 INTRINSICS = (500.0, 500.0, 320.0, 240.0)
@@ -128,6 +128,8 @@ def test_depth_points_build_height_map_and_obstacles():
     i, j = world_model.to_cell(10.2, 0.3)
     assert wm.height[i, j] == 6.0 and world_model.obstacle_mask(wm)[i, j]
     assert np.isnan(world_model.empty_map().height).all()
+    looked_up = world_model.heights_at(wm, [10.2, 50.0, 999.0], [0.3, 0.0, 0.0])
+    assert looked_up[0] == 6.0 and np.isnan(looked_up[1]) and len(looked_up) == 2
 
 
 def test_survivor_detections_merge_nearby_and_split_far():
@@ -156,6 +158,72 @@ def test_survivor_is_not_its_own_collapse_hazard():
 def test_encoded_map_covers_whole_grid():
     code = world_model.encode_map(world_model.empty_map())
     assert len(code) == world_model.SHAPE[0] * world_model.SHAPE[1] and set(code) == {"0"}
+
+
+# -- mission logic ------------------------------------------------------------
+
+class _State:
+    def __init__(self, n, e, alt):
+        self.n, self.e, self.d = n, e, -alt
+
+
+def test_lawnmower_alternates_lane_direction():
+    wps = mission.lawnmower((10.0, 30.0), (-5.0, 5.0), 10.0)
+    assert wps == ((10.0, -5.0), (10.0, 5.0), (20.0, 5.0), (20.0, -5.0), (30.0, -5.0), (30.0, 5.0))
+
+
+def test_tall_obstacle_on_track_triggers_climb_and_clear_track_returns():
+    wm = world_model.add_depth_points(world_model.empty_map(), [[36.5, 0.5, -12.0]])
+    tallest = mission.tallest_ahead(wm, _State(36.5, -10.0, 15.0), (36.5, 20.0))
+    assert tallest == 12.0
+    assert mission.avoid_altitude(tallest, mission.SEARCH_ALT_M) == 20.0
+    assert mission.tallest_ahead(wm, _State(36.5, 10.0, 20.0), (36.5, 20.0)) == 0.0
+    assert mission.avoid_altitude(0.0, 20.0) == mission.SEARCH_ALT_M
+
+
+def test_low_obstacle_does_not_trigger_climb():
+    assert mission.avoid_altitude(3.0, mission.SEARCH_ALT_M) == mission.SEARCH_ALT_M
+
+
+def test_outage_argument_validation():
+    assert mission.parse_outage("45:85") == (45.0, 85.0)
+    for bad in ("85:45", "abc", "1:2:3", "-5:10"):
+        try:
+            mission.parse_outage(bad)
+        except Exception:
+            continue
+        raise AssertionError(f"accepted bad outage {bad!r}")
+
+
+# -- dashboard ----------------------------------------------------------------
+
+def test_ground_station_replaces_survivor_list_and_ranks_it():
+    ground = dashboard.GroundStation()
+    ground.deliver({"type": "survivors", "items": [{"id": 1, "score": 0.3}, {"id": 5, "score": 0.4}]})
+    ground.deliver({"type": "survivors", "items": [{"id": 1, "score": 0.9}, {"id": 2, "score": 0.8}]})
+    ground.deliver({"type": "bogus"})
+    snap = ground.snapshot()
+    assert [s["id"] for s in snap["survivors"]] == [1, 2] and snap["rx_count"] == 2
+
+
+def test_survivor_tracks_that_drift_together_are_merged():
+    wm = world_model.add_survivor(world_model.empty_map(), 30.0, 5.0, 0.5, True, 0.0)
+    wm = world_model.add_survivor(wm, 34.0, 5.0, 0.6, False, 1.0)       # 4 m away: new track
+    assert len(wm.survivors) == 2
+    wm = world_model.add_survivor(wm, 31.5, 5.0, 0.5, True, 2.0)        # drags #1 to 30.75
+    wm = world_model.add_survivor(wm, 32.5, 5.0, 0.5, True, 3.0)        # now within 3 m of #2
+    assert len(wm.survivors) == 1
+    (only,) = wm.survivors
+    assert only.id == 1 and only.hits == 4 and only.thermal
+
+
+def test_link_endpoint_validates_input():
+    link = StoreAndForwardLink(lambda m: None)
+    client = dashboard.create_app(dashboard.GroundStation(), link).test_client()
+    assert client.post("/api/link", json={"down": "yes"}).status_code == 400
+    assert client.post("/api/link", data="not json").status_code == 400
+    assert client.post("/api/link", json={"down": True}).status_code == 200 and link.forced_down
+    assert client.get("/api/state").get_json()["sim_link_forced_down"] is True
 
 
 if __name__ == "__main__":

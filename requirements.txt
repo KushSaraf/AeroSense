@@ -1,0 +1,11 @@
+# Python deps for the onboard stack. ROS 2 Humble (rclpy, sensor_msgs), Gazebo Harmonic,
+# ros_gz_bridge and ArduPilot SITL come from the system / ~/uav_ws, not pip.
+numpy>=1.24
+scipy>=1.10
+opencv-python>=4.8
+pymavlink>=2.4
+flask>=3.0
+torch>=2.1
+ultralytics>=8.3
+lap>=0.5.12
+transformers>=4.40

@@ -1,0 +1,24 @@
+# ros_gz_bridge: Gazebo camera topics -> ROS 2, consumed by aerosense/sensors.py
+- ros_topic_name: /rgbd/image
+  gz_topic_name: /rgbd/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /rgbd/depth_image
+  gz_topic_name: /rgbd/depth_image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /rgbd/camera_info
+  gz_topic_name: /rgbd/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+
+- ros_topic_name: /thermal/image
+  gz_topic_name: /thermal/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS

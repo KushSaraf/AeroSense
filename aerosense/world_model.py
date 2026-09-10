@@ -23,6 +23,8 @@ FIRE_MIN_HITS = 2
 WATER_MIN_HITS = 3
 SURVIVOR_MERGE_M = 3.0
 SURVIVOR_CONFIRM_HITS = 3
+#: Each re-sighting adds a little evidence; heavily damped because video frames are correlated.
+RESIGHT_WEIGHT = 0.05
 #: Cells around a survivor ignored when measuring debris distance (the person is "debris-tall").
 SELF_MASK_CELLS = 2
 
@@ -63,6 +65,17 @@ def cell_centre(i: int, j: int) -> tuple:
     return (ORIGIN_NE[0] + (i + 0.5) * CELL_M, ORIGIN_NE[1] + (j + 0.5) * CELL_M)
 
 
+def in_bounds(cell: tuple) -> bool:
+    return 0 <= cell[0] < SHAPE[0] and 0 <= cell[1] < SHAPE[1]
+
+
+def heights_at(wm: "WorldMap", n, e) -> np.ndarray:
+    """Mapped heights at NED (n, e) positions; NaN where unseen, points off-map dropped."""
+    n = np.asarray(n, dtype=float)
+    i, j, _ = _cells(np.column_stack([n, np.asarray(e, dtype=float), np.zeros_like(n)]))
+    return wm.height[i, j]
+
+
 def _cells(points_ned: np.ndarray):
     """Grid indices of NED points inside the map, plus the in-bounds mask."""
     pts = np.asarray(points_ned, dtype=float).reshape(-1, 3)
@@ -97,9 +110,28 @@ def add_survivor(wm: WorldMap, n: float, e: float, p: float, thermal: bool, t: f
         new = Survivor(wm.next_id, n, e, p, 1, thermal, t)
         return replace(wm, survivors=wm.survivors + (new,), next_id=wm.next_id + 1)
     k = nearest.hits
+    fused_p = 1 - (1 - max(nearest.p, p)) * (1 - RESIGHT_WEIGHT * p)
     merged = replace(nearest, n=(nearest.n * k + n) / (k + 1), e=(nearest.e * k + e) / (k + 1),
-                     p=max(nearest.p, p), hits=k + 1, thermal=nearest.thermal or thermal, last_seen=t)
-    return replace(wm, survivors=tuple(merged if s.id == nearest.id else s for s in wm.survivors))
+                     p=fused_p, hits=k + 1, thermal=nearest.thermal or thermal, last_seen=t)
+    updated = tuple(merged if s.id == nearest.id else s for s in wm.survivors)
+    return replace(wm, survivors=_merge_duplicates(updated))
+
+
+def _merge_duplicates(survivors: tuple) -> tuple:
+    """Fold survivors whose running-mean positions drifted within SURVIVOR_MERGE_M of each
+    other: two early, noisy fixes of one person otherwise stay two people forever."""
+    kept = ()
+    for s in sorted(survivors, key=lambda x: x.id):
+        twin = next((o for o in kept if math.hypot(o.n - s.n, o.e - s.e) <= SURVIVOR_MERGE_M), None)
+        if twin is None:
+            kept = kept + (s,)
+            continue
+        a, b = twin.hits, s.hits
+        folded = replace(twin, n=(twin.n * a + s.n * b) / (a + b), e=(twin.e * a + s.e * b) / (a + b),
+                         p=max(twin.p, s.p), hits=a + b, thermal=twin.thermal or s.thermal,
+                         last_seen=max(twin.last_seen, s.last_seen))
+        kept = tuple(folded if o.id == twin.id else o for o in kept)
+    return kept
 
 
 def obstacle_mask(wm: WorldMap) -> np.ndarray:
@@ -108,17 +140,19 @@ def obstacle_mask(wm: WorldMap) -> np.ndarray:
 
 def hazard_masks(wm: WorldMap) -> dict:
     h = np.nan_to_num(wm.height, nan=0.0)
+    debris = (h > OBSTACLE_HEIGHT_M) & (h < DEBRIS_MAX_HEIGHT_M)
     return {
         "fire": wm.fire_hits >= FIRE_MIN_HITS,
         "flood": wm.water_hits >= WATER_MIN_HITS,
-        "collapse": (h > OBSTACLE_HEIGHT_M) & (h < DEBRIS_MAX_HEIGHT_M),
+        # Opening drops 1-cell specks (people, poles) so only real rubble counts as debris.
+        "collapse": ndimage.binary_opening(debris, structure=np.ones((2, 2), bool)),
     }
 
 
 def hazard_distances(wm: WorldMap, n: float, e: float) -> dict:
     """Metres from (n, e) to the nearest cell of each hazard kind (kinds never seen are omitted)."""
     i, j = to_cell(n, e)
-    if not (0 <= i < SHAPE[0] and 0 <= j < SHAPE[1]):
+    if not in_bounds((i, j)):
         return {}
     out = {}
     for kind, mask in hazard_masks(wm).items():

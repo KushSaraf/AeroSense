@@ -3,7 +3,7 @@ queues its reports; on reconnect the queue is flushed to the ground in order."""
 import threading
 
 #: Message types where only the newest one is worth sending after an outage.
-COALESCED = frozenset({"telemetry", "map", "frame"})
+COALESCED = frozenset({"telemetry", "map", "frame", "survivors"})
 
 
 def _enqueue(buffer: tuple, msg: dict) -> tuple:
@@ -24,6 +24,10 @@ class StoreAndForwardLink:
 
     def set_forced_down(self, is_down: bool) -> None:
         self._forced_down = is_down
+
+    @property
+    def forced_down(self) -> bool:
+        return self._forced_down
 
     def is_up(self, t: float) -> bool:
         return not self._forced_down and not any(a <= t < b for a, b in self._outages)
