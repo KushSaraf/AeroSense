@@ -36,6 +36,23 @@ ros2 run aero_sense_bringup system_check
 The single-process prototype below still works (`./run_sim.sh`) until its pieces are
 migrated into the packages.
 
+## Reference assets
+
+The disaster world is built from open GitHub model repos, used in place (not vendored, so
+`reference/` is gitignored). Clone or unpack them into `reference/`, or point
+`AERO_SENSE_REFERENCE` at another directory:
+
+| Directory in `reference/` | Used for |
+|---|---|
+| `tdf_gazebo-main` | collapsed houses / industrial / fire & police stations, vehicles, trees, radio mast, water tower |
+| `gazebo_models_worlds_collection-master` | debris meshes, broken brick walls (wrapped in `aero_sense_gazebo/models` with PBR materials) |
+| `Autonomous-robot-for-fire-detection-main` | `suv` textures used by the tdf bus; fire model (Phase 14) |
+| `darpa_subt_worlds-main` | jersey barriers; survivor and tunnel models for later phases |
+
+`ros2 run aero_sense_bringup system_check` reports them missing. Their meshes name textures by
+bare filename, so each model's `materials/textures` goes on `GZ_SIM_RESOURCE_PATH`
+(`aero_sense_bringup/worlds.py`).
+
 ## Quick start (prototype)
 
 Needs the existing `~/uav_ws` (ArduPilot SITL, `ardupilot_gazebo`, `ros_gz`) and ROS 2 Humble.

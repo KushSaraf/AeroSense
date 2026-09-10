@@ -63,8 +63,7 @@
         <update_rate>{{ p.thermal.rate_hz }}</update_rate>
         <always_on>1</always_on>
         <camera>
-          <camera_info_topic>{{ topics.thermal_info }}</camera_info_topic>
-          <horizontal_fov>{{ cfg.camera_hfov_rad }}</horizontal_fov>
+          <camera_info_topic>{{ topics.thermal_info }}</camera_info_topic>          <horizontal_fov>{{ cfg.camera_hfov_rad }}</horizontal_fov>
           <image><width>{{ p.thermal.width }}</width><height>{{ p.thermal.height }}</height><format>L16</format></image>
           <clip><near>{{ cfg.thermal.clip_m[0] }}</near><far>{{ cfg.thermal.clip_m[1] }}</far></clip>
           <!-- No <noise>: gz-sensors 8 ThermalCameraSensor passes it to the non-image NoiseFactory,

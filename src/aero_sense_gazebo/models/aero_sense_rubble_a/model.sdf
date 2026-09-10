@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<!-- Rubble spread (~6 x 10 x 0.4 m): the debris_2_1 mesh from gazebo_models_worlds_collection
+     scaled x4, in a concrete-dust colour (its OGRE-script texture is ignored by Harmonic).
+     ponytail: colour, not texture. An SDF albedo_map on this mesh (some submeshes lack normals)
+     aborts the gz 8 thermal camera's shader compile (undeclared texIndex_diffuseIdx); a plain
+     colour renders in every camera. Visual only: the same submeshes crash DART's ODE mesh
+     collider, and nothing flies below 0.4 m. Add a box collision if ground robots arrive. -->
+<sdf version="1.9">
+  <model name="aero_sense_rubble_a">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <geometry><mesh><uri>model://debris_2_1/meshes/debris_2_1.dae</uri><scale>4 4 4</scale></mesh></geometry>
+        <material><ambient>0.26 0.24 0.22 1</ambient><diffuse>0.26 0.24 0.22 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

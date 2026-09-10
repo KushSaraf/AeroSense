@@ -68,6 +68,15 @@ def check_sitl() -> tuple:
     return (PASS, str(binary)) if binary.exists() else (FAIL, f"missing {binary}")
 
 
+def check_reference_assets() -> tuple:
+    from aero_sense_bringup import worlds
+    try:
+        paths = worlds.reference_model_paths()
+    except FileNotFoundError as exc:
+        return FAIL, str(exc)
+    return PASS, f"{sum(1 for p in paths for _ in p.iterdir())} models in {len(paths)} repos"
+
+
 def check_disk() -> tuple:
     free_gb = shutil.disk_usage(Path.home()).free / 1e9
     status = PASS if free_gb >= MIN_FREE_DISK_GB else FAIL
@@ -113,6 +122,7 @@ CHECKS = (
     ("Interfaces", check_interfaces),
     ("Gazebo", check_gazebo),
     ("ArduPilot SITL", check_sitl),
+    ("Reference assets", check_reference_assets),
     ("Disk", check_disk),
     ("ROS topics", check_topics),
     ("MAVLink", check_mavlink),

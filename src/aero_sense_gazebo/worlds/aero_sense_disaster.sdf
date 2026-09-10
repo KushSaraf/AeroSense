@@ -1,0 +1,164 @@
+<?xml version="1.0" ?>
+<!--
+  Aero Sense disaster zone: one world, five sectors (~400 x 300 m). Gazebo ENU: x = east,
+  y = north; the world origin is the map origin. Drones spawn on the command-base pad.
+
+              N                     (no double hyphens: they end an XML comment)
+   +==============================+   y +200
+   | S4 LANDSLIDE        (ph. 15) |
+   +===============+==============+   y +100
+   | S1 EARTHQUAKE | S2 FLOOD     |
+   |               |      (ph. 13)|
+   +===============+==============+   y 0
+   | S3 FIRE       | S5 CHEMICAL  |
+   |      (ph. 14) |      (ph. 16)|
+   +===============+==============+   y -100
+     x -200          0          x +200        command base (0, -110)
+
+  S1 earthquake (x -200..0, y 0..100), four blocks split by streets x = -100 and y = 50:
+    collapsed houses, industrial (24 m), fire and police stations, rubble, broken walls,
+    crashed vehicles, a 44 m radio mast at (-40, 60) and a 10 m water tower: tall obstacles
+    above the 15-20 m search altitude. Victims are placed in Phase 5.
+    No trees: the tdf oak/pine alpha-cutout leaves render as black blobs in Harmonic.
+  Assets come from reference/ (gitignored): tdf_gazebo and gazebo_models_worlds_collection.
+-->
+<sdf version="1.9">
+  <world name="aero_sense_disaster">
+    <physics name="1ms" type="ignore">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
+    <plugin filename="gz-sim-air-pressure-system" name="gz::sim::systems::AirPressure"/>
+
+    <scene>
+      <ambient>0.7 0.7 0.7</ambient>
+      <background>0.7 0.75 0.8</background>
+      <sky></sky>
+    </scene>
+
+    <!-- Everything without its own Thermal plugin reads at ambient temperature. -->
+    <atmosphere type="adiabatic">
+      <temperature>293</temperature>
+    </atmosphere>
+
+    <spherical_coordinates>
+      <latitude_deg>-35.363262</latitude_deg>
+      <longitude_deg>149.165237</longitude_deg>
+      <elevation>584</elevation>
+      <heading_deg>0</heading_deg>
+      <surface_model>EARTH_WGS84</surface_model>
+    </spherical_coordinates>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 100 0 0 0</pose>
+      <diffuse>0.9 0.9 0.85 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <!-- Drones spawn here (read by aero_sense_bringup/worlds.py): pad surface, nose north. -->
+    <frame name="drone_spawn">
+      <pose>0 -110 0.1 0 0 1.5708</pose>
+    </frame>
+
+    <!-- Tiled dirt ground and the asphalt road network (spine x = 0, avenues y = 0 and 100,
+         S1 streets x = -100 and y = 50); see aero_sense_gazebo/models. -->
+    <include><name>ground</name><pose>0 45 0 0 0 0</pose><uri>model://aero_sense_ground</uri></include>
+    <include><name>roads</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_roads</uri></include>
+
+    <!-- Command base: landing pad with an H marking, and the operations tent. -->
+    <model name="command_base">
+      <static>true</static>
+      <pose>0 -110 0 0 0 0</pose>
+      <link name="link">
+        <collision name="pad_collision">
+          <pose>0 0 0.05 0 0 0</pose>
+          <geometry><box><size>12 12 0.1</size></box></geometry>
+        </collision>
+        <visual name="pad">
+          <pose>0 0 0.05 0 0 0</pose>
+          <geometry><box><size>12 12 0.1</size></box></geometry>
+          <material><ambient>0.55 0.55 0.52 1</ambient><diffuse>0.55 0.55 0.52 1</diffuse></material>
+          <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+            <temperature>303</temperature>
+          </plugin>
+        </visual>
+        <visual name="h_left">
+          <pose>-2 0 0.101 0 0 0</pose>
+          <geometry><box><size>0.6 5 0.002</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+        <visual name="h_right">
+          <pose>2 0 0.101 0 0 0</pose>
+          <geometry><box><size>0.6 5 0.002</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+        <visual name="h_bar">
+          <pose>0 0 0.101 0 0 0</pose>
+          <geometry><box><size>4 0.6 0.002</size></box></geometry>
+          <material><ambient>1 1 1 1</ambient><diffuse>1 1 1 1</diffuse></material>
+        </visual>
+        <collision name="tent_collision">
+          <pose>14 -4 1.5 0 0 0</pose>
+          <geometry><box><size>6 4 3</size></box></geometry>
+        </collision>
+        <visual name="tent">
+          <pose>14 -4 1.5 0 0 0</pose>
+          <geometry><box><size>6 4 3</size></box></geometry>
+          <material><ambient>0.2 0.35 0.2 1</ambient><diffuse>0.2 0.35 0.2 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ============ S1 EARTHQUAKE ============ -->
+    <!-- Block A: x -196..-103, y 4..47 -->
+    <include><name>s1_house_1</name><pose degrees="true">-175 25 0 0 0 15</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s1_house_2</name><pose degrees="true">-135 22 0 0 0 -20</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s1_rubble_1</name><pose degrees="true">-155 12 0 0 0 0</pose><uri>model://aero_sense_rubble_a</uri></include>
+    <include><name>s1_rubble_2</name><pose degrees="true">-118 38 0 0 0 40</pose><uri>model://aero_sense_rubble_b</uri></include>
+    <include><name>s1_wall_1</name><pose degrees="true">-152 40 0 0 0 90</pose><uri>model://aero_sense_broken_wall</uri></include>
+
+    <!-- Block B: x -97..-4, y 4..47 -->
+    <include><name>s1_industrial</name><pose>-60 25 0 0 0 0</pose><uri>model://collapsed_industrial</uri></include>
+    <include><name>s1_water_tower</name><pose>-20 38 0 0 0 0</pose><uri>model://water_tower</uri></include>
+    <include><name>s1_pickup_1</name><pose degrees="true">-30 10 0 0 0 80</pose><uri>model://pickup</uri></include>
+    <include><name>s1_rubble_3</name><pose degrees="true">-85 12 0 0 0 30</pose><uri>model://aero_sense_rubble_slab</uri></include>
+    <include><name>s1_rubble_4</name><pose degrees="true">-40 42 0 0 0 120</pose><uri>model://aero_sense_rubble_a</uri></include>
+
+    <!-- Block C: x -196..-103, y 53..96 -->
+    <include><name>s1_fire_station</name><pose degrees="true">-160 75 0 0 0 90</pose><uri>model://collapsed_fire_station</uri></include>
+    <include><name>s1_house_3</name><pose degrees="true">-122 82 0 0 0 45</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s1_rubble_5</name><pose>-135 62 0 0 0 0</pose><uri>model://aero_sense_rubble_b</uri></include>
+    <include><name>s1_wall_2</name><pose>-185 60 0 0 0 0</pose><uri>model://aero_sense_broken_wall</uri></include>
+    <include><name>s1_bus</name><pose degrees="true">-150 50 0 0 0 97</pose><uri>model://bus</uri></include>
+
+    <!-- Block D: x -97..-4, y 53..96 -->
+    <include><name>s1_police_station</name><pose>-70 78 0 0 0 0</pose><uri>model://collapsed_police_station</uri></include>
+    <include><name>s1_house_4</name><pose degrees="true">-28 80 0 0 0 -35</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s1_radio_mast</name><pose>-40 60 0 0 0 0</pose><uri>model://radio_tower</uri></include>
+    <include><name>s1_rubble_6</name><pose degrees="true">-50 92 0 0 0 70</pose><uri>model://aero_sense_rubble_slab</uri></include>
+
+    <!-- Police cordon at the S1 street entrances (DARPA SubT jersey barriers, 4 m each) and one
+         barrier shoved across the street by the quake. -->
+    <include><name>s1_cordon_1</name><pose degrees="true">-8 48 0 0 0 90</pose><uri>model://jersey_barrier</uri></include>
+    <include><name>s1_cordon_2</name><pose degrees="true">-8 52 0 0 0 90</pose><uri>model://jersey_barrier</uri></include>
+    <include><name>s1_cordon_3</name><pose>-102 6 0 0 0 0</pose><uri>model://jersey_barrier</uri></include>
+    <include><name>s1_cordon_4</name><pose>-98 6 0 0 0 0</pose><uri>model://jersey_barrier</uri></include>
+    <include><name>s1_barrier_shoved</name><pose degrees="true">-130 50.5 0 0 0 20</pose><uri>model://jersey_barrier</uri></include>
+
+    <!-- Vehicles abandoned on the streets -->
+    <include><name>s1_hatchback_1</name><pose>-100 70 0 0 0 0</pose><uri>model://hatchback</uri></include>
+    <include><name>s1_hatchback_2</name><pose degrees="true">-98 30 0 0 0 10</pose><uri>model://hatchback</uri></include>
+    <include><name>s1_pickup_2</name><pose degrees="true">-120 1 0 0 0 95</pose><uri>model://pickup</uri></include>
+  </world>
+</sdf>

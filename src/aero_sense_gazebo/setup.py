@@ -18,7 +18,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
         (f"share/{PACKAGE}", ["package.xml"]),
-    ] + tree("worlds") + tree("config"),
+    ] + tree("worlds") + tree("config") + tree("models"),
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="kushsaraf",

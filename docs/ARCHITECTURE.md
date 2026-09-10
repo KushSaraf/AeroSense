@@ -152,12 +152,28 @@ replay.launch.py              rosbag2 play + RViz
    x -200          0            x +200
 ```
 
-Roads connect every sector through the central intersection. Assets come from
-`reference/` (gitignored, used in place through `GZ_SIM_RESOURCE_PATH`): tdf_gazebo
-(collapsed houses/industrial, vehicles, trees, towers, heightmap), the Gazebo model
-collection (debris, broken walls, people), the fire-detection repo (fire, warehouse), DARPA
-SubT (tunnel sections for the GPS-denied zone). Classic OGRE-script materials don't render
-in Harmonic; affected models are given PBR materials in `aero_sense_gazebo`.
+World file: `aero_sense_gazebo/worlds/aero_sense_disaster.sdf`. Roads connect every sector
+through the central intersection. Ground and roads are tiled-UV OBJ quads
+(`aero_sense_ground`, `aero_sense_roads`) with reference textures (tdf dirt; DARPA SubT
+Asphalt01 albedo/normal/roughness) and LWIR temperatures for daytime contrast: asphalt 305 K,
+pad 303 K, soil 298 K, everything else ambient 293 K. Drones spawn on the command-base pad (`<frame
+name="drone_spawn">`, read by `aero_sense_bringup/worlds.py`). SITL's home is the world's
+`spherical_coordinates`, so ArduPilot's local NED origin is the world origin and `map` =
+Gazebo world frame (verified: ROS pose (0.00, −109.99) vs Gazebo (0.00, −110.00) at the pad).
+
+**S1 earthquake (Phase 4):** four blocks around streets x = −100 and y = 50 — collapsed
+houses ×4, collapsed industrial (24 m), fire and police stations, rubble spreads, broken brick
+walls, crashed bus/pickups/hatchbacks, trees, a police cordon of jersey barriers, and two tall
+obstacles above the search altitude: a 44 m radio mast at (−40, 60) and a 10 m water tower.
+
+Assets come from `reference/` (gitignored, used in place; see README "Reference assets"):
+tdf_gazebo, the Gazebo model collection, the fire-detection repo and DARPA SubT. Their meshes
+name textures by bare filename, so each model's `materials/textures` is on
+`GZ_SIM_RESOURCE_PATH`. Harmonic ignores Classic OGRE-script materials; the collection's
+debris meshes are wrapped in `aero_sense_gazebo/models` with plain colours, because an SDF
+albedo map on those meshes aborts the gz 8 thermal camera (see the regression test in
+`aero_sense_description/test/test_render.py`) and their malformed submeshes crash DART's mesh
+collider (so the wrappers are visual-only, all under 0.4 m).
 
 ## Dependencies
 

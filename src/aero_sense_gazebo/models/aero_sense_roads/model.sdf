@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<!-- Road network (meshes/roads.obj, world coordinates) with the DARPA SubT Asphalt01 PBR set
+     (albedo, normal, roughness; model://<repo>/... resolves because reference/ is on the
+     resource path). Sun-heated asphalt reads 305 K in
+     LWIR, warmer than the 298 K soil. Flat and 2 cm up: no collision, the ground plane carries. -->
+<sdf version="1.9">
+  <model name="aero_sense_roads">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_roads/meshes/roads.obj</uri></mesh></geometry>
+        <material>
+          <diffuse>1 1 1 1</diffuse>
+          <pbr><metal>
+            <albedo_map>model://darpa_subt_worlds-main/materials/textures/Asphalt01_Albedo.jpg</albedo_map>
+            <normal_map>model://darpa_subt_worlds-main/materials/textures/Asphalt01_Normal.jpg</normal_map>
+            <roughness_map>model://darpa_subt_worlds-main/materials/textures/Asphalt01_Roughness.jpg</roughness_map>
+            <metalness>0</metalness>
+          </metal></pbr>
+        </material>
+        <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+          <temperature>305</temperature>
+        </plugin>
+      </visual>
+    </link>
+  </model>
+</sdf>

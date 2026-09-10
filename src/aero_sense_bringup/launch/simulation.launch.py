@@ -1,7 +1,7 @@
 """Aero Sense simulation: Gazebo world + drone + ArduPilot SITL + MAVProxy + ros_gz_bridge +
 drone_interface + sensor TFs.
 
-    ros2 launch aero_sense_bringup simulation.launch.py [world:=prototype_disaster] [gui:=true]
+    ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
         [namespace:=] [quality:=medium]
 
 The drone model and bridge config are rendered from aero_sense_description/config/sensors.yaml
@@ -12,9 +12,9 @@ workspace's install/setup.bash. ros2 launch escalates SIGINT -> SIGTERM -> SIGKI
 shutdown, which SITL needs (it ignores SIGTERM).
 """
 import os
-import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from aero_sense_bringup import worlds
 from aero_sense_description import render
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
@@ -35,8 +35,6 @@ MAVPROXY_DELAY_S = 3.0
 SITL_DIR = Path.home() / ".ros" / "aero_sense" / "sitl"
 GENERATED_DIR = Path.home() / ".ros" / "aero_sense" / "generated"
 DEFAULT_DRONE = "aero_sense_drone"
-#: Landing gear on the ground, nose north (ENU yaw 90 deg). Phase 4 moves this to the world's base.
-SPAWN_XYZ_YAW = ("0", "0", "0.195", "1.5708")
 
 
 def _join_env(name: str, paths) -> str:
@@ -45,17 +43,10 @@ def _join_env(name: str, paths) -> str:
 
 
 def _gazebo_env() -> dict:
-    """Model/mesh/plugin search paths: our models, the ArduPilot iris + plugin."""
-    ap_gazebo_share = Path(get_package_share_directory("ardupilot_gazebo"))
-    resources = [
-        Path(get_package_share_directory("aero_sense_description")) / "models",
-        Path(get_package_share_directory("aero_sense_gazebo")) / "models",
-        ap_gazebo_share / "models",
-        ap_gazebo_share.parent,            # resolves package://ardupilot_gazebo/... meshes
-    ]
+    """Model/mesh/plugin search paths: our models, the ArduPilot iris + plugin, reference assets."""
     plugins = [Path(get_package_prefix("ardupilot_gazebo")) / "lib" / "ardupilot_gazebo"]
     return {
-        "GZ_SIM_RESOURCE_PATH": _join_env("GZ_SIM_RESOURCE_PATH", resources),
+        "GZ_SIM_RESOURCE_PATH": _join_env("GZ_SIM_RESOURCE_PATH", worlds.resource_paths()),
         "GZ_SIM_SYSTEM_PLUGIN_PATH": _join_env("GZ_SIM_SYSTEM_PLUGIN_PATH", plugins),
     }
 
@@ -95,7 +86,9 @@ def _launch(context, *args, **kwargs):
     sitl = ExecuteProcess(
         cmd=[str(Path(get_package_prefix("ardupilot_sitl")) / "bin" / "arducopter"),
              "--model", "JSON", "--speedup", "1", "--slave", "0", "-w",
-             "--defaults", defaults, "--sim-address", "127.0.0.1", "-I0"],
+             "--defaults", defaults, "--sim-address", "127.0.0.1", "-I0",
+             # home = world origin: local NED origin == map origin (see worlds.origin)
+             "--home", ",".join(str(v) for v in (*worlds.origin(world), 0))],
         cwd=str(SITL_DIR), output="log", sigterm_timeout="2", sigkill_timeout="2")
     mavproxy_cmd = ["mavproxy.py", "--master", f"tcp:127.0.0.1:{SITL_TCP_PORT}", "--non-interactive",
                     "--streamrate=-1", "--state-basedir", str(SITL_DIR)]
@@ -103,11 +96,10 @@ def _launch(context, *args, **kwargs):
         mavproxy_cmd += ["--out", out]
     mavproxy = TimerAction(period=MAVPROXY_DELAY_S, actions=[
         ExecuteProcess(cmd=mavproxy_cmd, cwd=str(SITL_DIR), output="log")])
-    x, y, z, yaw = SPAWN_XYZ_YAW
+    x, y, z, yaw = worlds.spawn_pose(world)
     spawn = Node(package="ros_gz_sim", executable="create", output="screen",
-                 arguments=["-world", ET.parse(world).getroot().find("world").get("name"),
-                            "-file", str(model), "-name", drone_name,
-                            "-x", x, "-y", y, "-z", z, "-Y", yaw])
+                 arguments=["-world", worlds.world_name(world), "-file", str(model), "-name", drone_name,
+                            "-x", str(x), "-y", str(y), "-z", str(z), "-Y", str(yaw)])
     bridge = Node(package="ros_gz_bridge", executable="parameter_bridge", namespace=namespace,
                   parameters=[{"config_file": str(bridge_config)}], output="screen")
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
@@ -119,7 +111,7 @@ def _launch(context, *args, **kwargs):
 
 def generate_launch_description() -> LaunchDescription:
     return LaunchDescription([
-        DeclareLaunchArgument("world", default_value="prototype_disaster",
+        DeclareLaunchArgument("world", default_value="aero_sense_disaster",
                               description="world file name in aero_sense_gazebo/worlds (no .sdf)"),
         DeclareLaunchArgument("gui", default_value="true", description="open the Gazebo GUI"),
         DeclareLaunchArgument("namespace", default_value="",

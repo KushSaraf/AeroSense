@@ -17,7 +17,6 @@ CAMERAS = ("rgb", "depth", "thermal")
 OPTICAL_RPY = (-math.pi / 2, 0.0, -math.pi / 2)
 FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "lidar_link", "imu_link", "baro_link")
 
-
 def share() -> Path:
     return Path(get_package_share_directory(PACKAGE))
 

@@ -55,6 +55,11 @@
       <direction>-0.4 0.2 -0.9</direction>
     </light>
 
+    <!-- simulation.launch.py spawns its drone here (aero_sense_bringup/worlds.py). -->
+    <frame name="drone_spawn">
+      <pose>0 0 0 0 0 1.5708</pose>
+    </frame>
+
     <model name="ground">
       <static>true</static>
       <link name="link">

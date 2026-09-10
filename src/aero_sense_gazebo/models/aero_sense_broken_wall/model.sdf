@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<!-- 8 m brick wall with a collapse hole: mesh (and its embedded brick texture) from
+     gazebo_models_worlds_collection/brick_wall_hole_1, whose own SDF has duplicate sibling
+     names that sdformat 14 rejects. -->
+<sdf version="1.9">
+  <model name="aero_sense_broken_wall">
+    <static>true</static>
+    <link name="link">
+      <collision name="collision">
+        <geometry><mesh><uri>model://brick_wall_hole_1/brick_wall_hole_1.dae</uri></mesh></geometry>
+      </collision>
+      <visual name="visual">
+        <geometry><mesh><uri>model://brick_wall_hole_1/brick_wall_hole_1.dae</uri></mesh></geometry>
+      </visual>
+    </link>
+  </model>
+</sdf>
