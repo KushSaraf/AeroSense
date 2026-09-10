@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from aerosense import geo, planner, risk  # noqa: E402
+from aerosense import geo, planner, risk, world_model  # noqa: E402
 from aerosense.comms import StoreAndForwardLink  # noqa: E402
 
 INTRINSICS = (500.0, 500.0, 320.0, 240.0)
@@ -119,6 +119,43 @@ def test_forced_link_loss():
     assert not link.send({"type": "hazard"}, 0) and got == []
     link.set_forced_down(False)
     assert link.send({"type": "hazard"}, 1) and len(got) == 2
+
+
+# -- world model --------------------------------------------------------------
+
+def test_depth_points_build_height_map_and_obstacles():
+    wm = world_model.add_depth_points(world_model.empty_map(), [[10.2, 0.3, -6.0], [10.4, 0.1, 0.0]])
+    i, j = world_model.to_cell(10.2, 0.3)
+    assert wm.height[i, j] == 6.0 and world_model.obstacle_mask(wm)[i, j]
+    assert np.isnan(world_model.empty_map().height).all()
+
+
+def test_survivor_detections_merge_nearby_and_split_far():
+    wm = world_model.empty_map()
+    for t, (n, e) in enumerate([(20, 5), (21, 5), (20.5, 6), (40, -10)]):
+        wm = world_model.add_survivor(wm, n, e, 0.6, t == 1, float(t))
+    first, second = wm.survivors
+    assert first.hits == 3 and first.confirmed and first.thermal
+    assert second.hits == 1 and not second.confirmed
+
+
+def test_fire_needs_repeated_evidence():
+    pts = [[30.5, 0.5, 0.0]]
+    once = world_model.add_hazard_points(world_model.empty_map(), "fire", pts)
+    twice = world_model.add_hazard_points(once, "fire", pts)
+    assert not world_model.hazard_masks(once)["fire"].any()
+    assert world_model.hazard_masks(twice)["fire"].any()
+    assert world_model.hazard_distances(twice, 30.5, 4.5)["fire"] == 4.0
+
+
+def test_survivor_is_not_its_own_collapse_hazard():
+    wm = world_model.add_depth_points(world_model.empty_map(), [[20.5, 5.5, -1.8]])
+    assert "collapse" not in world_model.hazard_distances(wm, 20.5, 5.5)
+
+
+def test_encoded_map_covers_whole_grid():
+    code = world_model.encode_map(world_model.empty_map())
+    assert len(code) == world_model.SHAPE[0] * world_model.SHAPE[1] and set(code) == {"0"}
 
 
 if __name__ == "__main__":
