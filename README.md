@@ -108,7 +108,7 @@ Logs go to `logs/`. Ctrl-C stops everything.
 | `aerosense/sensors.py` | ROS 2 camera subscriber (no cv_bridge — NumPy 2) |
 | `aerosense/geo.py` | pixel + depth → NED |
 | `aerosense/dashboard.py`, `static/index.html` | command centre |
-| `sim/worlds/disaster.sdf`, `sim/models/aerosense_drone` | Gazebo world + drone |
+| `src/aero_sense_gazebo/worlds/prototype_disaster.sdf`, `src/aero_sense_description/models/aerosense_drone_prototype` | Gazebo world + drone (run_sim.sh spawns it) |
 
 ## Tests
 

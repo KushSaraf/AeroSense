@@ -13,6 +13,8 @@
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>aero_sense_description</exec_depend>
   <exec_depend>aero_sense_gazebo</exec_depend>
   <exec_depend>aero_sense_mission</exec_depend>

@@ -26,6 +26,7 @@
     <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
     <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
     <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
+    <plugin filename="gz-sim-air-pressure-system" name="gz::sim::systems::AirPressure"/>
 
     <scene>
       <ambient>0.8 0.8 0.8</ambient>
@@ -196,9 +197,6 @@
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue Randy Sitting</uri>
     </include>
 
-    <include>
-      <uri>model://aerosense_drone</uri>
-      <pose degrees="true">0 0 0.195 0 0 90</pose>
-    </include>
+    <!-- No drone here: run_sim.sh spawns the prototype's, simulation.launch.py its rendered one. -->
   </world>
 </sdf>

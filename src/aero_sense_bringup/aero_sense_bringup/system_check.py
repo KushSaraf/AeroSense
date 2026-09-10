@@ -26,7 +26,8 @@ LIVE_TOPICS = (
     "/aero_sense/drone/pose", "/aero_sense/drone/status", "/aero_sense/drone/battery",
     "/aero_sense/gps/fix",
     "/aero_sense/camera/rgb/image_raw", "/aero_sense/camera/depth/image_raw",
-    "/aero_sense/camera/thermal/image_raw",
+    "/aero_sense/camera/thermal/image_raw", "/aero_sense/camera/rgb/camera_info",
+    "/aero_sense/lidar/points", "/aero_sense/imu", "/aero_sense/baro",
 )
 
 

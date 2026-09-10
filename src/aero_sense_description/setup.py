@@ -14,12 +14,12 @@ def tree(src):
 setup(
     name=PACKAGE,
     version="0.1.0",
-    packages=[],
+    packages=[PACKAGE],
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
         (f"share/{PACKAGE}", ["package.xml"]),
-    ] + tree("models"),
-    install_requires=["setuptools"],
+    ] + tree("models") + tree("config") + tree("templates"),
+    install_requires=["setuptools", "jinja2", "pyyaml"],
     zip_safe=True,
     maintainer="kushsaraf",
     maintainer_email="codenexusky@gmail.com",

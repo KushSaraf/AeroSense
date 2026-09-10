@@ -52,7 +52,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 |---|---|---|---|
 | `aero_sense_interfaces` | ament_cmake | 1 | all msgs/srvs |
 | `aero_sense_bringup` | ament_python | 1 → | launch files, `config/*.yaml`, `system_check` |
-| `aero_sense_description` | ament_python | 2 | drone model (airframe + payload), URDF for RViz |
+| `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → drone SDF, bridge config, sensor TFs; prototype drone |
 | `aero_sense_gazebo` | ament_python | 2, 4, 13–16 | world, sector models, bridge config |
 | `aero_sense_perception` | ament_python | 6 | detectors, tracker, fusion, geolocation, polygons |
 | `aero_sense_localization` | ament_python | 7, 17 | GPS monitor, VIO, source arbitration |
@@ -75,7 +75,9 @@ once superseded.
 ## Frames
 
 `map` (ENU, origin = command base, the world origin) → `odom` → `base_link` →
-`camera_link` → `rgb_optical`, `depth_optical`, `thermal_optical`; `lidar_link`.
+`camera_link` → `camera_optical` (RGB, depth and thermal share one mount, tilt and HFOV);
+`base_link` → `lidar_link`, `imu_link`, `baro_link`. Sensor frames are static TFs rendered from
+the same table as the model (below); a namespaced drone prefixes them (`drone_01/base_link`).
 Lat/lon come from the world's `spherical_coordinates` (WGS84) through one conversion module.
 
 ## Topic architecture
@@ -85,11 +87,10 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 
 | Topic | Type | Producer |
 |---|---|---|
-| `aero_sense/camera/rgb/image_raw`, `…/camera_info` | sensor_msgs/Image, CameraInfo | Gazebo |
-| `aero_sense/camera/thermal/image_raw` | sensor_msgs/Image (mono16, 0.01 K) | Gazebo |
-| `aero_sense/camera/depth/image_raw` | sensor_msgs/Image (32FC1) | Gazebo |
+| `aero_sense/camera/{rgb,depth,thermal}/image_raw`, `…/camera_info` | Image (rgb8 / 32FC1 / mono16 0.01 K), CameraInfo | Gazebo |
 | `aero_sense/lidar/points` | sensor_msgs/PointCloud2 | Gazebo |
-| `aero_sense/imu`, `aero_sense/gps/fix` | Imu, NavSatFix | Gazebo / autopilot |
+| `aero_sense/imu`, `aero_sense/baro` | Imu, FluidPressure | Gazebo (companion IMU, barometer) |
+| `aero_sense/gps/fix` | NavSatFix | autopilot GPS (degradable, Phase 17) |
 | `aero_sense/drone/pose`, `/velocity`, `/battery`, `/status` | PoseStamped, TwistStamped, BatteryState, DroneStatus | mission (from MAVLink) |
 | `aero_sense/localization/pose`, `/status` | PoseStamped, LocalizationStatus | localization |
 | `aero_sense/perception/detections` | vision_msgs-style raw detections | perception |
@@ -101,6 +102,26 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 | `aero_sense/alerts` | Alert | alerts |
 | `aero_sense/mission/state`, `/events` | MissionStatus, String | mission |
 | `aero_sense/communication/status` | CommunicationStatus | comms |
+
+### Sensor payload (Phase 3)
+
+`aero_sense_description/config/sensors.yaml` is the single source for the payload:
+`render.py` turns it into the drone SDF, the ros_gz_bridge config and the static TFs, and
+`simulation.launch.py quality:=low|medium|high` picks the resolution/rate profile. Measured
+on the medium profile (RTF 1.0, headless, RTX 2050):
+
+| Sensor | Medium profile | Measured rate | Noise (configured → measured) |
+|---|---|---|---|
+| RGB | 960×540 | 9.1 Hz / 10 | σ 0.007 of full scale |
+| Depth | 640×480 | 4.8 Hz / 5 | σ 0.02 m → 0.018 m (18.50 m vs 18.52 m geometric at 15 m AGL) |
+| Thermal (LWIR) | 320×256 mono16 | 8.7 Hz / 9 | none — gz-sensors 8 segfaults on thermal `<noise>`; 0.01 K quantisation only |
+| LiDAR | 16 × 900, ±15°, 0.5–100 m | 9.7 Hz / 10 | σ 0.01 m; no self-hits in flight |
+| IMU (companion) | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
+| Barometer | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
+
+The flight IMU inside the iris model stays noise-free: ArduPilot SITL consumes it and adds
+its own sensor model. GPS is the autopilot's (`SIM_GPS1_*`), so GPS denial acts on what the
+EKF actually uses.
 
 Services: `aero_sense/mission/start` (StartMission), `…/pause`, `…/resume`, `…/abort`,
 `…/return_to_base` (std_srvs/Trigger), `…/set_search_area` (SetSearchArea),

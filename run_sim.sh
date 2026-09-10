@@ -83,6 +83,17 @@ trap cleanup EXIT INT TERM
 GZ_ARGS=(-r -v2 "$ROOT/src/aero_sense_gazebo/worlds/prototype_disaster.sdf")
 [[ $HEADLESS == 1 ]] && GZ_ARGS=(-s --headless-rendering "${GZ_ARGS[@]}")
 start gazebo gz sim "${GZ_ARGS[@]}"
+echo -n "Waiting for Gazebo"
+for ((i = 0; i < GZ_BOOT_TIMEOUT_S; i++)); do
+  gz service -l 2>/dev/null | grep -qx /world/disaster/create && break
+  echo -n "."; sleep 1
+done
+echo
+# The world carries no drone (simulation.launch.py spawns its own); spawn the prototype's.
+gz service -s /world/disaster/create --reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean \
+  --timeout 10000 --req 'sdf_filename: "model://aerosense_drone_prototype" name: "aerosense_drone"
+  pose: {position: {z: 0.195} orientation: {z: 0.7071068 w: 0.7071068}}' | grep -q "data: true" \
+  || { echo "Could not spawn the drone; see $LOG_DIR/gazebo.log" >&2; exit 1; }
 echo -n "Waiting for Gazebo sensors"
 for ((i = 0; i < GZ_BOOT_TIMEOUT_S; i++)); do
   gz topic -l 2>/dev/null | grep -q /thermal/image && break

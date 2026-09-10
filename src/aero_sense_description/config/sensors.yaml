@@ -1,0 +1,53 @@
+# Aero Sense sensor payload. This one table drives the Gazebo model (templates/drone.sdf.jinja),
+# the ros_gz_bridge config and the sensor TF frames (aero_sense_description/render.py), so a
+# sensor's Gazebo topic, ROS topic and frame cannot drift apart.
+#
+# Quality profiles trade resolution and rate for simulation speed; noise is a property of the
+# sensor, so it is the same in every profile. Select with `quality:=low|medium|high`.
+
+mount:                        # payload_link in the airframe (FLU, metres)
+  xyz: [0.12, 0.0, -0.03]
+  camera_pitch_rad: 0.9599    # 55 deg down; RGB, depth and thermal share tilt and HFOV
+camera_hfov_rad: 1.2
+
+rgb:
+  clip_m: [0.3, 300.0]
+  noise_stddev: 0.007         # fraction of full scale per channel
+depth:
+  clip_m: [0.3, 100.0]
+  noise_stddev: 0.02          # metres
+thermal:
+  clip_m: [0.3, 150.0]
+  temp_range_k: [253.15, 600.0]
+  resolution_k: 0.01          # L16 count = 0.01 K
+  # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera. Its output is
+  # quantised to resolution_k only; perception must not assume more than that.
+lidar:
+  offset_xyz: [0.0, 0.0, -0.05]   # below the payload, clear of the rotors
+  vertical_fov_rad: [-0.2618, 0.2618]   # +-15 deg, VLP-16 style
+  range_m: [0.5, 100.0]       # min clears the airframe's own legs
+  noise_stddev: 0.01          # metres
+imu:                          # companion-computer IMU; the flight IMU stays noise-free for SITL
+  rate_hz: 100
+  gyro_stddev: 0.0009         # rad/s
+  accel_stddev: 0.017         # m/s^2
+baro:
+  rate_hz: 10
+  noise_stddev: 5.0           # Pa (~0.4 m)
+
+profiles:
+  low:
+    rgb:     {width: 640,  height: 360, rate_hz: 5}
+    depth:   {width: 320,  height: 240, rate_hz: 5}
+    thermal: {width: 160,  height: 128, rate_hz: 5}
+    lidar:   {channels: 16, samples: 450, rate_hz: 5}
+  medium:
+    rgb:     {width: 960,  height: 540, rate_hz: 10}
+    depth:   {width: 640,  height: 480, rate_hz: 5}
+    thermal: {width: 320,  height: 256, rate_hz: 9}
+    lidar:   {channels: 16, samples: 900, rate_hz: 10}
+  high:
+    rgb:     {width: 1280, height: 720, rate_hz: 15}
+    depth:   {width: 848,  height: 480, rate_hz: 10}
+    thermal: {width: 640,  height: 512, rate_hz: 9}
+    lidar:   {channels: 32, samples: 1800, rate_hz: 10}
