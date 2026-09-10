@@ -119,6 +119,7 @@ function renderHeader(s) {
                 ["GPS", `${t.lat.toFixed(6)}, ${t.lon.toFixed(6)}`],
                 ["Heading", `${((t.yaw * 180 / Math.PI + 360) % 360).toFixed(0)}°`],
                 ["Commanded alt", `${t.alt_cmd.toFixed(0)} m`],
+                ["Frames mapped (pose-synced)", `${t.frames_mapped} / ${t.frames_seen}`],
                 ["Reports received", s.rx_count]];
   $("telemetry").replaceChildren(...rows.map(([k, v]) => {
     const tr = el("tr"); tr.append(el("td", null, k), el("td", null, String(v))); return tr;

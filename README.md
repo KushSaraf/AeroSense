@@ -100,6 +100,8 @@ avoidance) and the dashboard API. The perception/flight path is verified against
 
 - **GPS-denied flight** is not simulated yet. Path: ArduPilot optical-flow/visual-odometry
   sources (`EK3_SRC*`) or ORB-SLAM3 feeding `VISION_POSITION_ESTIMATE`, switched on GPS loss.
-- Map uses the latest MAVLink attitude, not a pose interpolated to the frame timestamp, so
-  frames are only mapped while the airframe is near level.
+- Frames are projected with the pose interpolated at their capture time: frame stamps are
+  Gazebo sim time, MAVLink stamps are SITL boot time, and the (constant, lockstep) offset
+  is estimated online from `/clock`. On real hardware this is camera–IMU hardware sync.
+  Hovering level, mapped ground heights are within ±0.2 m out to the 30 m map range.
 - SegFormer needs realistic textures (or a flood-trained checkpoint) to contribute in sim.

@@ -17,6 +17,7 @@ CELL_M = 1.0
 ORIGIN_NE = (-5.0, -35.0)
 SHAPE = (80, 70)
 OBSTACLE_HEIGHT_M = 1.0
+RANGE_TIE_M = 3.0
 #: Obstacles lower than this read as rubble/debris (collapse hazard); taller = intact building.
 DEBRIS_MAX_HEIGHT_M = 4.0
 FIRE_MIN_HITS = 2
@@ -46,7 +47,8 @@ class Survivor:
 
 @dataclass(frozen=True)
 class WorldMap:
-    height: np.ndarray       # max height above ground seen per cell, NaN = never seen
+    height: np.ndarray       # height above ground per cell from its closest looks, NaN = unseen
+    best_range: np.ndarray   # horizontal range of the closest look at each cell (inf = unseen)
     fire_hits: np.ndarray
     water_hits: np.ndarray
     survivors: tuple = ()
@@ -54,7 +56,8 @@ class WorldMap:
 
 
 def empty_map() -> WorldMap:
-    return WorldMap(np.full(SHAPE, np.nan), np.zeros(SHAPE, np.int32), np.zeros(SHAPE, np.int32))
+    return WorldMap(np.full(SHAPE, np.nan), np.full(SHAPE, np.inf),
+                    np.zeros(SHAPE, np.int32), np.zeros(SHAPE, np.int32))
 
 
 def to_cell(n: float, e: float) -> tuple:
@@ -85,13 +88,28 @@ def _cells(points_ned: np.ndarray):
     return i[inside], j[inside], inside
 
 
-def add_depth_points(wm: WorldMap, points_ned: np.ndarray) -> WorldMap:
-    """Fold depth-camera points into the height map (ground is flat at NED down = 0)."""
-    i, j, inside = _cells(points_ned)
-    heights = -np.asarray(points_ned, dtype=float).reshape(-1, 3)[inside, 2]
-    height = np.where(np.isnan(wm.height), -np.inf, wm.height)
-    np.maximum.at(height, (i, j), heights)
-    return replace(wm, height=np.where(np.isinf(height), np.nan, height))
+def add_depth_points(wm: WorldMap, points_ned: np.ndarray, ranges=None) -> WorldMap:
+    """Fold one frame's depth points (ground is flat at NED down = 0) into the height map.
+
+    A cell's height comes from its closest looks: attitude error scales with range, so a
+    look more than RANGE_TIE_M closer replaces the height, a comparable one raises it to
+    the max, and a farther one is ignored. (Far glances had lifted flat ground to "debris".)
+    `ranges` are horizontal distances from the drone; omitted = 0 (always closest).
+    """
+    pts = np.asarray(points_ned, dtype=float).reshape(-1, 3)
+    i, j, inside = _cells(pts)
+    rng = np.zeros(len(pts)) if ranges is None else np.asarray(ranges, dtype=float)
+    frame_h = np.full(SHAPE, -np.inf)
+    np.maximum.at(frame_h, (i, j), -pts[inside, 2])
+    frame_r = np.full(SHAPE, np.inf)
+    np.minimum.at(frame_r, (i, j), rng[inside])
+    seen = np.isfinite(frame_r)
+    closer = seen & (frame_r < wm.best_range - RANGE_TIE_M)
+    tie = seen & ~closer & (frame_r <= wm.best_range + RANGE_TIE_M)
+    old = np.where(np.isnan(wm.height), -np.inf, wm.height)
+    height = np.where(closer, frame_h, np.where(tie, np.maximum(old, frame_h), old))
+    best = np.where(closer | tie, np.minimum(wm.best_range, frame_r), wm.best_range)
+    return replace(wm, height=np.where(np.isinf(height), np.nan, height), best_range=best)
 
 
 def add_hazard_points(wm: WorldMap, kind: str, points_ned: np.ndarray) -> WorldMap:

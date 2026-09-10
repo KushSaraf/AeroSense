@@ -12,6 +12,7 @@ LOG_DIR="$ROOT/logs"
 MAV_PORT=14551
 SITL_TCP_PORT=5760
 GZ_BOOT_TIMEOUT_S=90
+KILL_GRACE_TICKS=15          # x 0.2 s before SIGKILL on shutdown
 
 HEADLESS=0
 RUN_MISSION=1
@@ -34,6 +35,23 @@ export GZ_SIM_SYSTEM_PLUGIN_PATH="$UAV_WS/install/ardupilot_gazebo/lib:$UAV_WS/b
 export PATH="$PATH:$UAV_WS/src/ardupilot/Tools/autotest"
 
 command -v sim_vehicle.py >/dev/null || { echo "sim_vehicle.py not found under $UAV_WS/src/ardupilot" >&2; exit 1; }
+
+# A previous run that died without its trap (kill -9, closed terminal) leaves SITL behind,
+# and SITL ignores SIGTERM. Reap only this project's leftovers: SITL whose cwd is our
+# logs/sitl, and Gazebo / bridge processes started with our world or bridge file.
+reap_stale() {
+  local p
+  for p in $(pgrep -f "build/sitl/bin/arducopter" || true); do
+    if [[ "$(readlink "/proc/$p/cwd" 2>/dev/null)" == "$LOG_DIR/sitl" ]]; then
+      echo "Reaping stale SITL (pid $p) from a previous run"
+      kill -KILL "$p" 2>/dev/null || true
+    fi
+  done
+  pkill -KILL -f "$ROOT/sim/(worlds/disaster\.sdf|bridge\.yaml)" 2>/dev/null || true
+  sleep 1
+}
+reap_stale
+
 if ss -ltn | grep -q ":$SITL_TCP_PORT "; then
   echo "Port $SITL_TCP_PORT is busy: another SITL is running. Stop it first." >&2
   exit 1
@@ -51,6 +69,14 @@ cleanup() {
   trap - EXIT INT TERM
   echo "Stopping simulation..."
   for pg in "${PGIDS[@]}"; do kill -TERM -- "-$pg" 2>/dev/null || true; done
+  # ArduPilot SITL ignores SIGTERM; give everything a moment, then force the stragglers.
+  for ((i = 0; i < KILL_GRACE_TICKS; i++)); do
+    local alive=0
+    for pg in "${PGIDS[@]}"; do kill -0 -- "-$pg" 2>/dev/null && alive=1; done
+    [[ $alive == 0 ]] && return
+    sleep 0.2
+  done
+  for pg in "${PGIDS[@]}"; do kill -KILL -- "-$pg" 2>/dev/null || true; done
 }
 trap cleanup EXIT INT TERM
 
@@ -65,8 +91,10 @@ done
 echo
 gz topic -l | grep -q /thermal/image || { echo "Gazebo did not start; see $LOG_DIR/gazebo.log" >&2; exit 1; }
 
+# --streamrate=-1: MAVProxy otherwise re-requests 4 Hz streams and overrides the mission's
+# 50 Hz ATTITUDE / 20 Hz position, which the frame-to-pose interpolation depends on.
 start sitl env DISPLAY= sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -N -w \
-  --use-dir="$LOG_DIR/sitl" --out "127.0.0.1:$MAV_PORT" --mavproxy-args="--daemon"
+  --use-dir="$LOG_DIR/sitl" --out "127.0.0.1:$MAV_PORT" --mavproxy-args="--daemon --streamrate=-1"
 start bridge ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$ROOT/sim/bridge.yaml"
 echo "SITL + bridge started (logs in $LOG_DIR). MAVLink for the mission: udp:$MAV_PORT"
 

@@ -7,7 +7,7 @@ import numpy as np
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
-from aerosense import dashboard, geo, mission, planner, risk, world_model  # noqa: E402
+from aerosense import dashboard, flight, geo, mission, planner, risk, world_model  # noqa: E402
 from aerosense.comms import StoreAndForwardLink  # noqa: E402
 
 INTRINSICS = (500.0, 500.0, 320.0, 240.0)
@@ -132,6 +132,18 @@ def test_depth_points_build_height_map_and_obstacles():
     assert looked_up[0] == 6.0 and np.isnan(looked_up[1]) and len(looked_up) == 2
 
 
+def test_closer_look_overrides_far_height_and_far_look_is_ignored():
+    cell_point = lambda h: [[20.5, 5.5, -h]]
+    far = world_model.add_depth_points(world_model.empty_map(), cell_point(3.0), [25.0])
+    near = world_model.add_depth_points(far, cell_point(0.1), [8.0])
+    i, j = world_model.to_cell(20.5, 5.5)
+    assert far.height[i, j] == 3.0 and near.height[i, j] == 0.1
+    again_far = world_model.add_depth_points(near, cell_point(3.0), [25.0])
+    assert again_far.height[i, j] == 0.1
+    similar = world_model.add_depth_points(near, cell_point(1.5), [9.0])     # within tie: max
+    assert similar.height[i, j] == 1.5
+
+
 def test_survivor_detections_merge_nearby_and_split_far():
     wm = world_model.empty_map()
     for t, (n, e) in enumerate([(20, 5), (21, 5), (20.5, 6), (40, -10)]):
@@ -185,6 +197,12 @@ def test_low_obstacle_does_not_trigger_climb():
     assert mission.avoid_altitude(3.0, mission.SEARCH_ALT_M) == mission.SEARCH_ALT_M
 
 
+def test_climb_target_is_stepped_so_creeping_height_does_not_retrigger():
+    first = mission.avoid_altitude(9.2, mission.SEARCH_ALT_M)
+    assert first == 20.0
+    assert mission.avoid_altitude(9.6, first) == first          # same step: no new climb
+
+
 def test_outage_argument_validation():
     assert mission.parse_outage("45:85") == (45.0, 85.0)
     for bad in ("85:45", "abc", "1:2:3", "-5:10"):
@@ -193,6 +211,31 @@ def test_outage_argument_validation():
         except Exception:
             continue
         raise AssertionError(f"accepted bad outage {bad!r}")
+
+
+def test_pose_is_interpolated_at_capture_time_with_yaw_wrap():
+    attitudes = ((0.0, 0.0, 0.0, 3.1), (1.0, 0.2, 0.0, -3.1))        # yaw crosses +-pi
+    positions = ((0.0, 0.0, 0.0, -15.0), (1.0, 4.0, 0.0, -15.0))
+    ned, (roll, _, yaw) = flight.interpolate_pose(attitudes, positions, 0.5)
+    assert ned == (2.0, 0.0, -15.0) and abs(roll - 0.1) < 1e-9 and abs(abs(yaw) - math.pi) < 0.01
+    assert flight.interpolate_pose(attitudes, positions, 1.5) is None
+    assert flight.interpolate_pose(attitudes[:1], positions, 0.5) is None
+    held, _ = flight.interpolate_pose(attitudes, positions, 1.05)     # just past newest sample
+    assert held == (4.0, 0.0, -15.0)
+
+
+def test_near_field_keeps_only_close_tall_points():
+    points = [[40.0, 0.0, -12.0],     # tall, 10 m away: keep
+              [40.0, 0.0, -2.0],      # close but low: ground/debris, not trusted
+              [70.0, 0.0, -12.0]]     # tall but 40 m away: pose error too large
+    kept = mission.near_field_obstacles(points, (30.0, 0.0))
+    assert kept.tolist() == [[40.0, 0.0, -12.0]]
+
+
+def test_hard_bank_or_missing_pose_is_not_mapped():
+    assert mission.is_mappable(((0, 0, -15), (0.05, -0.05, 1.0)))
+    assert not mission.is_mappable(((0, 0, -15), (0.0, math.radians(20), 1.0)))
+    assert not mission.is_mappable(None)
 
 
 # -- dashboard ----------------------------------------------------------------

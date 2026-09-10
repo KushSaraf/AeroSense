@@ -7,10 +7,12 @@ sleeping, and send no position setpoints until the takeoff climb has finished
 One reader thread drains the socket and publishes an immutable state snapshot;
 every wait below polls that snapshot, so no message is ever consumed twice.
 """
+import math
 import threading
 import time
 from dataclasses import dataclass, replace
 
+import numpy as np
 from pymavlink import mavutil
 
 HEARTBEAT_TIMEOUT_S = 30
@@ -20,6 +22,37 @@ TAKEOFF_TIMEOUT_S = 40
 CLIMB_COMPLETE_FRACTION = 0.95
 PREARM_CHECK_BIT = 0x10000000
 STREAM_RATE_HZ = 10
+#: Pose history kept for matching camera frames (which lag by ~0.1-0.3 s) to the pose at capture.
+POSE_HISTORY_S = 3.0
+#: Faster streams for the two messages the pose history is built from (msg id -> Hz).
+POSE_STREAM_HZ = {30: 50, 32: 20}          # ATTITUDE, LOCAL_POSITION_NED
+#: Frames can be a few ms newer than the newest pose sample (the sim-to-SITL clock offset is
+#: ~20 ms); hold the last pose for up to this long rather than dropping the frame.
+POSE_HOLD_S = 0.1
+#: SET_POSITION_TARGET_LOCAL_NED type masks: position only / position + absolute yaw.
+POSITION_ONLY_MASK = 0b0000111111111000
+POSITION_YAW_MASK = 0b0000101111111000
+
+
+def _append(history: tuple, sample: tuple) -> tuple:
+    cutoff = sample[0] - POSE_HISTORY_S
+    return tuple(h for h in history if h[0] > cutoff) + (sample,)
+
+
+def interpolate_pose(attitudes: tuple, positions: tuple, t: float):
+    """Pose at SITL time t from (t, roll, pitch, yaw) and (t, n, e, d) histories, by linear
+    interpolation (yaw unwrapped); up to POSE_HOLD_S past the newest sample it holds that
+    sample (np.interp clamps). None if t is outside that range."""
+    if len(attitudes) < 2 or len(positions) < 2:
+        return None
+    att, pos = np.array(attitudes), np.array(positions)
+    if not (att[0, 0] <= t <= att[-1, 0] + POSE_HOLD_S and pos[0, 0] <= t <= pos[-1, 0] + POSE_HOLD_S):
+        return None
+    ned = tuple(float(np.interp(t, pos[:, 0], pos[:, k])) for k in (1, 2, 3))
+    roll = float(np.interp(t, att[:, 0], att[:, 1]))
+    pitch = float(np.interp(t, att[:, 0], att[:, 2]))
+    yaw = float(np.interp(t, att[:, 0], np.unwrap(att[:, 3])))
+    return ned, (roll, pitch, (yaw + math.pi) % (2 * math.pi) - math.pi)
 
 
 @dataclass(frozen=True)
@@ -52,6 +85,8 @@ class Flight:
         self._url = url
         self._conn = None
         self._state = VehicleState()
+        self._attitudes = ()          # (SITL time s, roll, pitch, yaw), last POSE_HISTORY_S
+        self._positions = ()          # (SITL time s, n, e, d)
         self._lock = threading.Lock()
         self._running = False
 
@@ -64,6 +99,8 @@ class Flight:
         self._conn.mav.request_data_stream_send(
             self._conn.target_system, self._conn.target_component,
             mavutil.mavlink.MAV_DATA_STREAM_ALL, STREAM_RATE_HZ, 1)
+        for msg_id, hz in POSE_STREAM_HZ.items():
+            self._command(mavutil.mavlink.MAV_CMD_SET_MESSAGE_INTERVAL, msg_id, 1e6 / hz)
         self._running = True
         threading.Thread(target=self._reader, daemon=True).start()
 
@@ -81,6 +118,17 @@ class Flight:
         with self._lock:
             self._state = replace(self._state, **fields)
 
+    def latest_boot_s(self):
+        """SITL time (s) of the newest ATTITUDE, or None."""
+        with self._lock:
+            return self._attitudes[-1][0] if self._attitudes else None
+
+    def pose_at(self, boot_s: float):
+        """((n, e, d), (roll, pitch, yaw)) at SITL time boot_s, or None if outside the history."""
+        with self._lock:
+            attitudes, positions = self._attitudes, self._positions
+        return interpolate_pose(attitudes, positions, boot_s)
+
     def _reader(self) -> None:
         while self._running:
             try:
@@ -92,9 +140,14 @@ class Flight:
             kind = msg.get_type()
             if kind == "LOCAL_POSITION_NED":
                 self._update(n=msg.x, e=msg.y, d=msg.z)
+                with self._lock:
+                    self._positions = _append(self._positions, (msg.time_boot_ms / 1000.0, msg.x, msg.y, msg.z))
             elif kind == "ATTITUDE":
                 self._update(roll=msg.roll, pitch=msg.pitch, yaw=msg.yaw, rollspeed=msg.rollspeed,
                              pitchspeed=msg.pitchspeed, yawspeed=msg.yawspeed)
+                with self._lock:
+                    self._attitudes = _append(self._attitudes,
+                                              (msg.time_boot_ms / 1000.0, msg.roll, msg.pitch, msg.yaw))
             elif kind == "GLOBAL_POSITION_INT":
                 self._update(lat=msg.lat / 1e7, lon=msg.lon / 1e7)
             elif kind == "HEARTBEAT" and msg.get_srcComponent() == 1:
@@ -146,12 +199,14 @@ class Flight:
         self._wait(lambda s: s.altitude >= altitude * CLIMB_COMPLETE_FRACTION,
                    TAKEOFF_TIMEOUT_S, "takeoff climb")
 
-    def goto(self, n: float, e: float, altitude: float) -> None:
-        """Position setpoint in local NED; GUIDED flies there at WPNAV_SPEED."""
+    def goto(self, n: float, e: float, altitude: float, yaw=None) -> None:
+        """Position setpoint in local NED; GUIDED flies there at WPNAV_SPEED. With `yaw`
+        (rad, 0 = north) the heading is commanded too, otherwise ArduPilot picks it."""
+        mask = POSITION_ONLY_MASK if yaw is None else POSITION_YAW_MASK
         self._conn.mav.set_position_target_local_ned_send(
             0, self._conn.target_system, self._conn.target_component,
-            mavutil.mavlink.MAV_FRAME_LOCAL_NED, 0b0000111111111000,
-            n, e, -altitude, 0, 0, 0, 0, 0, 0, 0, 0)
+            mavutil.mavlink.MAV_FRAME_LOCAL_NED, mask,
+            n, e, -altitude, 0, 0, 0, 0, 0, 0, 0.0 if yaw is None else yaw, 0)
 
     def return_to_launch(self) -> None:
         self.set_mode("RTL")

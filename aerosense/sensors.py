@@ -11,6 +11,7 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
+from rosgraph_msgs.msg import Clock
 from sensor_msgs.msg import CameraInfo, Image
 
 _ENCODINGS = {
@@ -50,6 +51,19 @@ class CameraNode(Node):
                                      qos_profile_sensor_data)
         self.create_subscription(CameraInfo, "/rgbd/camera_info",
                                  lambda m: self._store("info", m), qos_profile_sensor_data)
+        self._sim_time = None
+        self._clock_sub = self.create_subscription(Clock, "/clock", self._on_clock, qos_profile_sensor_data)
+
+    def stop_clock(self) -> None:
+        """Drop the 1 kHz /clock subscription once the clock offset is calibrated."""
+        self.destroy_subscription(self._clock_sub)
+
+    def _on_clock(self, msg: Clock) -> None:
+        self._sim_time = msg.clock.sec + msg.clock.nanosec * 1e-9
+
+    def sim_time(self):
+        """Latest Gazebo sim time (s), the clock the frame stamps are in; None until seen."""
+        return self._sim_time
 
     def _store(self, key: str, msg) -> None:
         with self._lock:
@@ -75,14 +89,20 @@ def _spin(node: CameraNode) -> None:
         pass
 
 
+SPIN_JOIN_TIMEOUT_S = 2.0
+
+
 def start_camera_node() -> CameraNode:
     rclpy.init()
     node = CameraNode()
-    threading.Thread(target=_spin, args=(node,), daemon=True).start()
+    node.spin_thread = threading.Thread(target=_spin, args=(node,), daemon=True)
+    node.spin_thread.start()
     return node
 
 
 def stop_camera_node(node: CameraNode) -> None:
-    """Without this the spin thread is still alive at exit and rclpy aborts the process."""
-    node.destroy_node()
+    """Shut down, let spin return, then destroy. Destroying a node that is still spinning
+    (or exiting with the spin thread alive) makes rclpy abort the process."""
     rclpy.try_shutdown()
+    node.spin_thread.join(timeout=SPIN_JOIN_TIMEOUT_S)
+    node.destroy_node()

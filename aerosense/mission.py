@@ -40,10 +40,16 @@ TRACK_EVERY_S = 1.0
 MAP_REPORT_EVERY_S = 2.0
 ASSESS_EVERY_S = 3.0
 DEPTH_STRIDE_PX = 8
-MIN_DEPTH_M, MAX_DEPTH_M = 0.5, 40.0
-#: Frames only update the map while the airframe is near level: camera frames lag the MAVLink
-#: attitude by up to ~0.2 s, and a 10 deg attitude error at 40 m range is a 7 m map error.
-#: Body rates are not gated: SITL gyro jitter reads 25 deg/s median even in steady cruise.
+MIN_DEPTH_M, MAX_DEPTH_M = 0.5, 30.0
+#: Frames arrive ~0.1-0.3 s after capture; pairing them with the *latest* attitude put 5 deg
+#: errors into the map (flat ground at 30 m lifted 2.6 m). Each frame is instead projected
+#: with the pose interpolated at its capture time. Frames stamp Gazebo sim time, MAVLink
+#: stamps SITL boot time; their offset is constant in a lockstep session, so it is calibrated
+#: once pre-flight. (Sampled under perception load, the rclpy thread lags, a stale /clock
+#: reads as a smaller offset, and frames get the wrong pose or none.)
+CLOCK_CALIBRATION_S = 2.0
+WAYPOINT_TIMEOUT_S = 90.0
+#: Hard banks still skip mapping: they smear depth across cells even with a perfect pose.
 STEADY_TILT_RAD = math.radians(12.0)
 DETECTION_DEPTH_WINDOW_PX = 2
 JPEG_QUALITY = 70
@@ -51,12 +57,30 @@ JPEG_QUALITY = 70
 STAGING_NE = (0.0, 0.0)
 #: Depth-based avoidance: anything on the next stretch of track reaching within
 #: AVOID_TRIGGER_MARGIN_M of search altitude makes the drone stop and climb over it.
-AVOID_LOOKAHEAD_M = 15.0
+#: Long enough that a drone retreated AVOID_RETREAT_M still sees the obstacle it backed off from.
+AVOID_LOOKAHEAD_M = 25.0
+#: On a trigger, hold this far back along the leg: braking carries the drone several metres
+#: forward, and climbing right beside a 0.8 m mast is how the drone hit it.
+AVOID_RETREAT_M = 8.0
+#: Turn to face each leg before flying it, so the forward camera sees the track. Yawing while
+#: translating hid the mast until the drone was 8 m from it.
+FACE_TOLERANCE_RAD = math.radians(10.0)
+FACE_TIMEOUT_S = 8.0
+WPNAV_ACCEL_CMSS = 300
 AVOID_HALF_WIDTH_M = 3.0
 AVOID_TRIGGER_MARGIN_M = 8.0
 AVOID_CLEARANCE_M = 8.0
 CLIMB_DONE_MARGIN_M = 1.0
 AVOID_CLEAR_HOLD_S = 3.0
+AVOID_ALT_STEP_M = 5.0
+#: Frames without a capture-time pose still feed avoidance: points within NEAR_FIELD_M,
+#: projected with the latest pose, are kept if tall. At that range 5 deg of attitude error
+#: moves a point < 1.3 m, so it cannot fake a 5 m obstacle. (A starved map once let the drone
+#: find the mast 1 m away.)
+NEAR_FIELD_M = 15.0
+NEAR_FIELD_MIN_HEIGHT_M = SEARCH_ALT_M - AVOID_TRIGGER_MARGIN_M - 2.0
+#: Below this during search the vehicle has crashed or been forced down.
+VEHICLE_DOWN_ALT_M = 3.0
 MAX_ALT_M = 45.0
 DEFAULT_OUTAGE = (45.0, 85.0)
 
@@ -71,11 +95,7 @@ def lawnmower(north: tuple, east: tuple, spacing: float) -> tuple:
     return tuple(waypoints)
 
 
-def _pose(state) -> tuple:
-    return (state.n, state.e, state.d), (state.roll, state.pitch, state.yaw)
-
-
-def project_pixels(uv, frames, state) -> np.ndarray:
+def project_pixels(uv, frames, pose) -> np.ndarray:
     """RGB pixel coords -> NED points, using the depth image; invalid depth is dropped."""
     uv = np.asarray(uv, dtype=float).reshape(-1, 2)
     h, w = frames.depth.shape
@@ -83,10 +103,10 @@ def project_pixels(uv, frames, state) -> np.ndarray:
     v = np.clip(uv[:, 1].astype(int), 0, h - 1)
     d = frames.depth[v, u]
     ok = np.isfinite(d) & (d > MIN_DEPTH_M) & (d < MAX_DEPTH_M)
-    return pixels_to_ned(u[ok], v[ok], d[ok], frames.intrinsics, *_pose(state))
+    return pixels_to_ned(u[ok], v[ok], d[ok], frames.intrinsics, *pose)
 
 
-def locate(det, frames, state):
+def locate(det, frames, pose):
     """Geo-locate one detection from the median depth around its centre, or None."""
     r = DETECTION_DEPTH_WINDOW_PX
     u, v = int(det.u), int(det.v)
@@ -94,26 +114,54 @@ def locate(det, frames, state):
     window = window[np.isfinite(window) & (window > MIN_DEPTH_M) & (window < MAX_DEPTH_M)]
     if window.size == 0:
         return None
-    return pixels_to_ned([det.u], [det.v], [float(np.median(window))], frames.intrinsics, *_pose(state))[0]
+    return pixels_to_ned([det.u], [det.v], [float(np.median(window))], frames.intrinsics, *pose)[0]
 
 
-def is_steady(state) -> bool:
-    return max(abs(state.roll), abs(state.pitch)) < STEADY_TILT_RAD
+def is_mappable(pose) -> bool:
+    return pose is not None and max(abs(pose[1][0]), abs(pose[1][1])) < STEADY_TILT_RAD
 
 
-def sense(wm, perception, frames, state, t: float):
-    """Run perception on one frame; fold what it saw into the world model if the pose is trustworthy."""
-    result = perception.process(frames.rgb, frames.thermal)
-    if not is_steady(state):
-        return wm, result
+def near_field_obstacles(points_ned, drone_ne) -> np.ndarray:
+    """Points close enough and tall enough to trust with an approximate pose."""
+    pts = np.asarray(points_ned, dtype=float).reshape(-1, 3)
+    horizontal = np.hypot(pts[:, 0] - drone_ne[0], pts[:, 1] - drone_ne[1])
+    return pts[(horizontal <= NEAR_FIELD_M) & (-pts[:, 2] >= NEAR_FIELD_MIN_HEIGHT_M)]
+
+
+def _ranges(points_ned: np.ndarray, pose) -> np.ndarray:
+    """Horizontal distance of each point from the drone."""
+    (n, e, _), _ = pose
+    return np.hypot(points_ned[:, 0] - n, points_ned[:, 1] - e)
+
+
+def yaw_error(a: float, b: float) -> float:
+    return abs((a - b + math.pi) % (2 * math.pi) - math.pi)
+
+
+def _depth_grid_uv(frames) -> np.ndarray:
     h, w = frames.depth.shape
     v, u = np.mgrid[0:h:DEPTH_STRIDE_PX, 0:w:DEPTH_STRIDE_PX]
-    wm = wmod.add_depth_points(wm, project_pixels(np.column_stack([u.ravel(), v.ravel()]), frames, state))
+    return np.column_stack([u.ravel(), v.ravel()])
+
+
+def sense(wm, perception, frames, pose, latest_pose, t: float):
+    """Run perception on one frame and fold it into the world model. Everything is mapped with
+    the capture-time `pose` ((n, e, d), (roll, pitch, yaw)) when the airframe was not banking
+    hard; otherwise only near-field tall obstacles are mapped, with `latest_pose`."""
+    result = perception.process(frames.rgb, frames.thermal)
+    if not is_mappable(pose):
+        if latest_pose is not None:
+            points = near_field_obstacles(project_pixels(_depth_grid_uv(frames), frames, latest_pose),
+                                          latest_pose[0][:2])
+            wm = wmod.add_depth_points(wm, points, _ranges(points, latest_pose))
+        return wm, result
+    points = project_pixels(_depth_grid_uv(frames), frames, pose)
+    wm = wmod.add_depth_points(wm, points, _ranges(points, pose))
     for kind, uv in (("fire", result.fire_uv), ("flood", result.water_uv)):
         if len(uv):
-            wm = wmod.add_hazard_points(wm, kind, project_pixels(uv, frames, state))
+            wm = wmod.add_hazard_points(wm, kind, project_pixels(uv, frames, pose))
     for det in result.detections:
-        point = locate(det, frames, state)
+        point = locate(det, frames, pose)
         if point is not None:
             wm = wmod.add_survivor(wm, point[0], point[1], det.p, det.thermal, t)
     return wm, result
@@ -135,8 +183,12 @@ def tallest_ahead(wm, state, target) -> float:
 
 
 def avoid_altitude(tallest: float, alt_cmd: float) -> float:
+    """Climb target for the tallest obstacle ahead, in AVOID_ALT_STEP_M steps: an obstacle's
+    mapped height creeps up as more of it comes into view, and an unstepped target would
+    re-trigger hold-and-climb for every few centimetres."""
     if tallest > SEARCH_ALT_M - AVOID_TRIGGER_MARGIN_M:
-        return min(max(alt_cmd, tallest + AVOID_CLEARANCE_M), MAX_ALT_M)
+        needed = math.ceil((tallest + AVOID_CLEARANCE_M) / AVOID_ALT_STEP_M) * AVOID_ALT_STEP_M
+        return min(max(alt_cmd, needed), MAX_ALT_M)
     return SEARCH_ALT_M
 
 
@@ -178,9 +230,14 @@ class Mission:
         self.t0 = None
         self.alt_cmd = SEARCH_ALT_M
         self.hold = None
+        self.facing = False
+        self.leg_heading = 0.0
         self.clear_since = None
         self.track = ()
         self.last_stamp = None
+        self.frames_seen = 0
+        self.frames_mapped = 0
+        self.clock_offset = None
         self.announced = {}
         self.link_was_up = True
         self.timers = {"track": -math.inf, "map": -math.inf, "assess": -math.inf}
@@ -213,9 +270,12 @@ class Mission:
             time.sleep(0.5)
         self.event("Sensors online: RGB-D + LWIR thermal")
         self.flight.connect()
-        self.event("MAVLink link to autopilot up; waiting for EKF / pre-arm checks")
+        self.clock_offset = self._calibrate_clock()
+        self.event(f"MAVLink link to autopilot up (camera/autopilot clock offset "
+                   f"{self.clock_offset * 1000:.0f} ms); waiting for EKF / pre-arm checks")
         self.flight.wait_armable(PREARM_TIMEOUT_S)
         self.flight.set_param("WPNAV_SPEED", SEARCH_SPEED_MS * 100)
+        self.flight.set_param("WPNAV_ACCEL", WPNAV_ACCEL_CMSS)
         self.flight.set_param("RTL_ALT", RTL_ALT_M * 100)
         self.flight.set_mode("GUIDED")
         self.flight.arm()
@@ -228,8 +288,20 @@ class Mission:
         lanes = len(self.waypoints) // 2
         for idx, target in enumerate(self.waypoints):
             self.phase = f"SEARCH lane {idx // 2 + 1}/{lanes}"
+            s = self.flight.state
+            self.leg_heading = math.atan2(target[1] - s.e, target[0] - s.n)
+            self._face(target)
+            leg_started = time.time()
             while True:
+                if time.time() - leg_started > WAYPOINT_TIMEOUT_S:
+                    self.event(f"Waypoint {idx + 1} not reached in {WAYPOINT_TIMEOUT_S:.0f} s: skipping")
+                    self.hold = None
+                    break
                 s = self._tick(target)
+                if s.altitude < VEHICLE_DOWN_ALT_M:
+                    self.phase = "VEHICLE DOWN"
+                    self.event(f"Vehicle down at N{s.n:.0f} E{s.e:.0f} (alt {s.altitude:.1f} m): search aborted")
+                    return
                 if s.mode != "GUIDED":
                     self.event(f"Autopilot left GUIDED ({s.mode}): search aborted")
                     return
@@ -271,7 +343,11 @@ class Mission:
         result = None
         if frames is not None and frames.stamp != self.last_stamp:
             self.last_stamp = frames.stamp
-            self.wm, result = sense(self.wm, self.perception, frames, s, self.clock())
+            pose = None if self.clock_offset is None else self.flight.pose_at(frames.stamp - self.clock_offset)
+            self.frames_seen += 1
+            self.frames_mapped += is_mappable(pose)
+            latest_pose = ((s.n, s.e, s.d), (s.roll, s.pitch, s.yaw))
+            self.wm, result = sense(self.wm, self.perception, frames, pose, latest_pose, self.clock())
         if target is not None:
             self._control(s, target)
         self._report(s, result)
@@ -288,20 +364,48 @@ class Mission:
             self.clear_since = self.clock()
         return new_alt if self.clock() - self.clear_since >= AVOID_CLEAR_HOLD_S else self.alt_cmd
 
+    def _calibrate_clock(self) -> float:
+        """Median of (Gazebo sim time - SITL boot time) sampled while the process is idle."""
+        samples = ()
+        deadline = time.time() + CLOCK_CALIBRATION_S
+        while time.time() < deadline:
+            sim, boot = self.cams.sim_time(), self.flight.latest_boot_s()
+            if sim is not None and boot is not None:
+                samples = samples + (sim - boot,)
+            time.sleep(0.02)
+        self.cams.stop_clock()
+        if not samples:
+            raise TimeoutError("no /clock or ATTITUDE samples for clock sync: is /clock bridged?")
+        return float(np.median(samples))
+
+    def _face(self, target) -> None:
+        """Hover and turn to the leg heading before flying the leg."""
+        s = self.flight.state
+        self.facing, self.hold = True, (s.n, s.e)
+        deadline = time.time() + FACE_TIMEOUT_S
+        while time.time() < deadline and yaw_error(s.yaw, self.leg_heading) > FACE_TOLERANCE_RAD:
+            s = self._tick(target)
+        self.facing, self.hold = False, None
+
+    def _retreat_point(self, s) -> tuple:
+        return (s.n - math.cos(self.leg_heading) * AVOID_RETREAT_M,
+                s.e - math.sin(self.leg_heading) * AVOID_RETREAT_M)
+
     def _control(self, s, target) -> None:
         tallest = tallest_ahead(self.wm, s, target)
         new_alt = self._hysteresis(avoid_altitude(tallest, self.alt_cmd))
         if new_alt > self.alt_cmd:
-            self.hold = (s.n, s.e)
-            self.event(f"Obstacle on track ({tallest:.0f} m tall): holding, climbing to {new_alt:.0f} m")
+            self.hold = self._retreat_point(s)
+            self.event(f"Obstacle on track ({tallest:.0f} m tall) at N{s.n:.0f} E{s.e:.0f}: "
+                       f"backing off {AVOID_RETREAT_M:.0f} m, climbing to {new_alt:.0f} m")
         elif new_alt < self.alt_cmd:
             self.clear_since = None
-            self.event(f"Track clear: descending to {new_alt:.0f} m")
+            self.event(f"Track clear at N{s.n:.0f} E{s.e:.0f}: descending to {new_alt:.0f} m")
         self.alt_cmd = new_alt
-        if self.hold is not None and s.altitude >= self.alt_cmd - CLIMB_DONE_MARGIN_M:
+        if self.hold is not None and not self.facing and s.altitude >= self.alt_cmd - CLIMB_DONE_MARGIN_M:
             self.hold = None
         n, e = self.hold or target
-        self.flight.goto(n, e, self.alt_cmd)
+        self.flight.goto(n, e, self.alt_cmd, yaw=self.leg_heading)
 
     def _report(self, s, result) -> None:
         self._check_link()
@@ -310,7 +414,8 @@ class Mission:
         self.send({"type": "telemetry", "phase": self.phase, "n": round(s.n, 1), "e": round(s.e, 1),
                    "alt": round(s.altitude, 1), "alt_cmd": self.alt_cmd, "yaw": round(s.yaw, 2),
                    "mode": s.mode, "armed": s.armed, "battery": s.battery_pct,
-                   "lat": s.lat, "lon": s.lon})
+                   "lat": s.lat, "lon": s.lon, "frames_seen": self.frames_seen,
+                   "frames_mapped": self.frames_mapped})
         if result is not None:
             ok, jpg = cv2.imencode(".jpg", result.annotated, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
             if ok:
@@ -383,7 +488,7 @@ def main() -> None:
     try:
         mission.prepare()
         mission.run()
-        log.info("Mission complete. Dashboard stays up; Ctrl-C to exit.")
+        log.info("Mission ended (%s). Dashboard stays up; Ctrl-C to exit.", mission.phase)
         mission.idle()
     except KeyboardInterrupt:
         log.warning("Interrupted: commanding RTL")
