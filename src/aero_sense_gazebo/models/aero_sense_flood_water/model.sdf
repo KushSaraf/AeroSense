@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<!-- Standing floodwater over S2. Include it at the water level: the ground and everything on it
+     stays where it is, so buildings and vehicles are partly submerged by construction.
+     Semi-transparent, so wreckage below shows through, and cool in LWIR (291 K, below the 298 K
+     ground) which is what makes a body in the water stand out instead of blending in.
+     No collision: the drone flies over it, and nothing floats yet. -->
+<sdf version="1.9">
+  <model name="aero_sense_flood_water">
+    <static>true</static>
+    <link name="link">
+      <visual name="visual">
+        <cast_shadows>false</cast_shadows>
+        <transparency>0.25</transparency>
+        <geometry><mesh><uri>model://aero_sense_flood_water/meshes/water.obj</uri></mesh></geometry>
+        <material>
+          <ambient>0.10 0.20 0.26 1</ambient>
+          <diffuse>0.13 0.27 0.34 1</diffuse>
+          <specular>0.5 0.55 0.6 1</specular>
+          <pbr><metal><roughness>0.15</roughness><metalness>0</metalness></metal></pbr>
+        </material>
+        <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+          <temperature>291</temperature>
+        </plugin>
+      </visual>
+    </link>
+  </model>
+</sdf>

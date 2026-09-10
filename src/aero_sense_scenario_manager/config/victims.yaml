@@ -108,3 +108,38 @@ victims:
     occlusion: none
     expected_priority: P3
     note: no useful thermal contrast; only RGB shape betrays this one
+
+  # --- S2 flood. z sits them at the water surface; perception projects onto the ground plane,
+  # so expect a few tens of centimetres of extra error until depth is used for range.
+  - id: V10
+    state: trapped
+    x: 55.0
+    y: 32.0
+    z: 0.6
+    yaw_deg: 40
+    temperature_k: 306.0
+    occlusion: none
+    expected_priority: P1
+    note: in the water between the flooded houses, cooling fast
+
+  - id: V11
+    state: seated
+    x: 100.0
+    y: 60.0
+    z: 0.6
+    yaw_deg: 150
+    temperature_k: 305.0
+    occlusion: partial
+    expected_priority: P1
+    note: hypothermic on debris, barely above the water
+
+  - id: V12
+    state: lying
+    x: 150.0
+    y: 45.0
+    z: 0.6
+    yaw_deg: 250
+    temperature_k: 308.0
+    occlusion: none
+    expected_priority: P2
+    note: clinging to wreckage in open water

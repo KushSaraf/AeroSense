@@ -1,0 +1,13 @@
+# Flood surface: one 180 x 90 m quad covering S2 (x 10..190, y 5..95), UVs tiled every 8 m so a
+# surface texture would repeat rather than stretch.
+v 10 5 0
+v 190 5 0
+v 190 95 0
+v 10 95 0
+vt 0 0
+vt 22.5 0
+vt 22.5 11.25
+vt 0 11.25
+vn 0 0 1
+f 1/1/1 2/2/1 3/3/1
+f 1/1/1 3/3/1 4/4/1

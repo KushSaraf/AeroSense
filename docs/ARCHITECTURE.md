@@ -200,6 +200,14 @@ name="drone_spawn">`, read by `aero_sense_bringup/worlds.py`). SITL's home is th
 `spherical_coordinates`, so ArduPilot's local NED origin is the world origin and `map` =
 Gazebo world frame (verified: ROS pose (0.00, −109.99) vs Gazebo (0.00, −110.00) at the pad).
 
+**S2 flood:** a village standing in 0.6 m of water. The flood surface is a transparent quad
+laid over the sector, so the buildings and vehicles beneath it are submerged by construction
+rather than by separate "flooded" models. It reads 291 K in LWIR — *colder* than the 298 K
+ground — so a casualty in the water stands out by contrast the opposite way round from one on
+dry land, and the same detector finds them without a special case. Verified: all three flood
+casualties found, 0.5-1.1 m error. That error is larger than S1's 0.2 m because they float
+0.6 m above the ground plane the projection assumes, which is the cue to use depth for range.
+
 **S1 earthquake (Phase 4):** four blocks around streets x = −100 and y = 50 — collapsed
 houses ×4, collapsed industrial (24 m), fire and police stations, rubble spreads, broken brick
 walls, crashed bus/pickups/hatchbacks, trees, a police cordon of jersey barriers, and two tall

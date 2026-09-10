@@ -8,7 +8,6 @@
    | S4 LANDSLIDE        (ph. 15) |
    +===============+==============+   y +100
    | S1 EARTHQUAKE | S2 FLOOD     |
-   |               |      (ph. 13)|
    +===============+==============+   y 0
    | S3 FIRE       | S5 CHEMICAL  |
    |      (ph. 14) |      (ph. 16)|
@@ -21,6 +20,9 @@
     10 m water tower. The masts and the hall stand above the 15-20 m search altitude, and the
     lanes are narrow enough that casualties in them are only visible from steep angles.
     No trees: the tdf oak/pine alpha-cutout leaves render as black blobs in Harmonic.
+  S2 flood (x 0..200, y 0..100): a village under 0.6 m of standing water, laid over the ground
+    so buildings and vehicles are submerged to that depth. Casualties are in the water, which is
+    colder than the ground in LWIR, not warmer.
   Assets come from reference/ (gitignored): tdf_gazebo and gazebo_models_worlds_collection.
 -->
 <sdf version="1.9">
@@ -177,5 +179,29 @@
     <include><name>s1_pickup_2</name><pose degrees="true">-120 1 0 0 0 95</pose><uri>model://pickup</uri></include>
     <include><name>s1_hatchback_1</name><pose>-100 70 0 0 0 0</pose><uri>model://hatchback</uri></include>
     <include><name>s1_hatchback_2</name><pose degrees="true">-98 30 0 0 0 10</pose><uri>model://hatchback</uri></include>
+
+    <!-- ============ S2 FLOOD ============ -->
+    <!-- A village standing in 0.6 m of water: the buildings and vehicles sit on the ground as
+         usual and the flood surface is laid over them, so everything low is submerged. The water
+         reads 291 K in LWIR, colder than the 298 K ground, so a body in it stands out the other
+         way round from a body on dry land. -->
+    <include><name>s2_house_1</name><pose degrees="true">40 20 0 0 0 10</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_2</name><pose degrees="true">70 20 0 0 0 -5</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_3</name><pose degrees="true">40 45 0 0 0 0</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_4</name><pose degrees="true">70 45 0 0 0 12</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_5</name><pose degrees="true">130 25 0 0 0 0</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_6</name><pose degrees="true">160 25 0 0 0 8</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_7</name><pose degrees="true">130 55 0 0 0 -6</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_house_8</name><pose degrees="true">160 55 0 0 0 3</pose><uri>model://collapsed_house</uri></include>
+    <include><name>s2_water_tower</name><pose>100 78 0 0 0 0</pose><uri>model://water_tower</uri></include>
+    <include><name>s2_pickup_1</name><pose degrees="true">55 12 0 0 0 90</pose><uri>model://pickup</uri></include>
+    <include><name>s2_hatchback_1</name><pose degrees="true">145 40 0 0 0 15</pose><uri>model://hatchback</uri></include>
+    <include><name>s2_bus</name><pose degrees="true">100 8 0 0 0 5</pose><uri>model://bus</uri></include>
+    <include><name>s2_debris_1</name><pose degrees="true">60 33 0.4 0 0 25</pose><uri>model://aero_sense_rubble_a</uri></include>
+    <include><name>s2_debris_2</name><pose degrees="true">120 66 0.4 0 0 110</pose><uri>model://aero_sense_rubble_slab</uri></include>
+    <include><name>s2_cordon_1</name><pose degrees="true">8 30 0 0 0 90</pose><uri>model://jersey_barrier</uri></include>
+    <include><name>s2_cordon_2</name><pose degrees="true">8 34 0 0 0 90</pose><uri>model://jersey_barrier</uri></include>
+    <!-- laid over the sector last: everything above is already in place beneath it -->
+    <include><name>flood_water</name><pose>0 0 0.6 0 0 0</pose><uri>model://aero_sense_flood_water</uri></include>
   </world>
 </sdf>
