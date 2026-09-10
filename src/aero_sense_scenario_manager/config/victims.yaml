@@ -1,0 +1,111 @@
+# Ground truth for the Aero Sense scenarios: where the victims are, how warm they are, and how
+# hard they are to see. The launch spawns one Gazebo model per entry; victim_ground_truth
+# republishes the same table on /aero_sense/ground_truth/victims.
+#
+# Ground truth is a simulation aid only (evaluation and sensor realism). Perception must find
+# these by looking, and the dashboard must never read this file.
+#
+# state:        lying | seated | prone | trapped | deceased  (drives pose and the evidence a
+#               searcher can expect, not the detection itself)
+# temperature_k LWIR skin temperature. Ambient is 293 K, so a live casualty stands out by 12-17 K;
+#               a deceased one barely at all.
+# occlusion:    none | partial | heavy - how much rubble/structure hides the body from above.
+# expected_priority: what a correct triage engine should conclude (Phase 10 scores itself on this).
+#
+# Positions sit beside structures, never inside their meshes: a victim placed under a collapsed
+# building is invisible to every sensor, which silently makes a scenario unsolvable.
+
+victims:
+  - id: V01
+    state: lying
+    x: -168.0
+    y: 36.0
+    yaw_deg: 20
+    temperature_k: 309.0
+    occlusion: none
+    expected_priority: P2
+    note: in the open just north of the first collapsed house, clear line of sight from above
+
+  - id: V02
+    state: trapped
+    x: -137.0
+    y: 13.5
+    yaw_deg: -60
+    roll_deg: 90
+    temperature_k: 308.0
+    occlusion: partial
+    expected_priority: P1
+    note: pinned at the southern rubble edge of the second house
+
+  - id: V03
+    state: seated
+    x: -150.0
+    y: 14.0
+    yaw_deg: 0
+    temperature_k: 307.5
+    occlusion: partial
+    expected_priority: P2
+    note: sitting against the rubble spread, upper body exposed
+
+  - id: V04
+    state: prone
+    x: -74.0
+    y: 27.0
+    yaw_deg: 100
+    roll_deg: 90
+    temperature_k: 308.0
+    occlusion: partial
+    expected_priority: P1
+    note: against the west wall of the collapsed industrial hall, in its shadow
+
+  - id: V05
+    state: lying
+    x: -22.0
+    y: 44.0
+    yaw_deg: 200
+    temperature_k: 306.0
+    occlusion: none
+    expected_priority: P2
+    note: open ground by the water tower, cooling (unconscious)
+
+  - id: V06
+    state: seated
+    x: -148.0
+    y: 70.0
+    yaw_deg: 45
+    temperature_k: 309.5
+    occlusion: partial
+    expected_priority: P2
+    note: against the east wall of the fire station, conscious
+
+  - id: V07
+    state: trapped
+    x: -57.0
+    y: 88.0
+    yaw_deg: 170
+    roll_deg: 90
+    temperature_k: 307.0
+    occlusion: heavy
+    expected_priority: P1
+    note: at the north-east corner of the police station, visible only from a steep angle
+
+  - id: V08
+    state: lying
+    x: -30.0
+    y: 66.0
+    yaw_deg: 300
+    temperature_k: 310.0
+    occlusion: none
+    expected_priority: P1
+    note: open ground near the radio mast, moving (waving)
+
+  - id: V09
+    state: deceased
+    x: -108.0
+    y: 40.0
+    yaw_deg: 90
+    roll_deg: 90
+    temperature_k: 295.0
+    occlusion: none
+    expected_priority: P3
+    note: no useful thermal contrast; only RGB shape betrays this one

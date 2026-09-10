@@ -18,6 +18,7 @@
   <exec_depend>aero_sense_description</exec_depend>
   <exec_depend>aero_sense_gazebo</exec_depend>
   <exec_depend>aero_sense_mission</exec_depend>
+  <exec_depend>aero_sense_scenario_manager</exec_depend>
 
   <test_depend>python3-pytest</test_depend>
   <test_depend>python3-pil</test_depend>

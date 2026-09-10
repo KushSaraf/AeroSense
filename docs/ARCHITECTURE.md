@@ -63,7 +63,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 | `aero_sense_alerts` | ament_python | 19 | alert engine |
 | `aero_sense_comms` | ament_python | 18 | link states, store-and-forward |
 | `aero_sense_reports` | ament_python | 20 | logger, reports, replay |
-| `aero_sense_scenario_manager` | ament_python | 13–16, 40, 41 | scenarios, failure injection, dynamic hazards |
+| `aero_sense_scenario_manager` | ament_python | 5, 13–16, 40, 41 | `config/victims.yaml` + victim spawning and ground truth; scenarios, failure injection, dynamic hazards |
 | `aero_sense_visualization` | ament_python | 21 | RViz config, markers, status overlay |
 | `aero_sense_bridge` | ament_python | 22 | FastAPI/WebSocket, JSON contracts |
 
@@ -102,6 +102,7 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 | `aero_sense/alerts` | Alert | alerts |
 | `aero_sense/mission/state`, `/events` | MissionStatus, String | mission |
 | `aero_sense/communication/status` | CommunicationStatus | comms |
+| `aero_sense/ground_truth/victims` | VictimArray (latched) | scenario manager — **evaluation only**, never an input to perception or the dashboard |
 
 ### Sensor payload (Phase 3)
 
@@ -114,7 +115,7 @@ on the medium profile (RTF 1.0, headless, RTX 2050):
 |---|---|---|---|
 | RGB | 960×540 | 9.1 Hz / 10 | σ 0.007 of full scale |
 | Depth | 640×480 | 4.8 Hz / 5 | σ 0.02 m → 0.018 m (18.50 m vs 18.52 m geometric at 15 m AGL) |
-| Thermal (LWIR) | 320×256 mono16 | 8.7 Hz / 9 | none — gz-sensors 8 segfaults on thermal `<noise>`; 0.01 K quantisation only |
+| Thermal (LWIR) | 320×256 mono16 | 8.7 Hz / 9 | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
 | LiDAR | 16 × 900, ±15°, 0.5–100 m | 9.7 Hz / 10 | σ 0.01 m; no self-hits in flight |
 | IMU (companion) | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
 | Barometer | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
@@ -122,6 +123,24 @@ on the medium profile (RTF 1.0, headless, RTX 2050):
 The flight IMU inside the iris model stays noise-free: ArduPilot SITL consumes it and adds
 its own sensor model. GPS is the autopilot's (`SIM_GPS1_*`), so GPS denial acts on what the
 EKF actually uses.
+
+### Victims (Phase 5)
+
+`aero_sense_scenario_manager/config/victims.yaml` is the scenario's casualty list: position,
+pose, LWIR skin temperature, occlusion and the priority a correct triage engine should reach.
+The launch spawns one static manikin per entry (DARPA SubT `survivor` mesh) carrying a Thermal
+plugin at that temperature — body heat is what makes LWIR search meaningful — and
+`victim_ground_truth` republishes the table on its own latched topic for evaluation.
+`victims:=false` runs the world empty.
+
+Nine victims sit in S1: lying, seated, prone and trapped, from clear ground to heavy occlusion,
+plus one deceased at 295 K that thermal *cannot* find (RGB shape only) so triage has a P3 case.
+Verified from the air at 25 m: every live casualty shows 306-311 K against 298 K ground
+(11-47 pixels at the medium thermal profile), and the deceased shows none.
+
+Two placement rules the first pass got wrong, both silent: a victim inside a building's mesh is
+invisible to every sensor, and a surface within one thermal quantisation step (~2.6 K) of body
+heat hides casualties in the same grey level.
 
 Services: `aero_sense/mission/start` (StartMission), `…/pause`, `…/resume`, `…/abort`,
 `…/return_to_base` (std_srvs/Trigger), `…/set_search_area` (SetSearchArea),
@@ -155,8 +174,10 @@ replay.launch.py              rosbag2 play + RViz
 World file: `aero_sense_gazebo/worlds/aero_sense_disaster.sdf`. Roads connect every sector
 through the central intersection. Ground and roads are tiled-UV OBJ quads
 (`aero_sense_ground`, `aero_sense_roads`) with reference textures (tdf dirt; DARPA SubT
-Asphalt01 albedo/normal/roughness) and LWIR temperatures for daytime contrast: asphalt 305 K,
-pad 303 K, soil 298 K, everything else ambient 293 K. Drones spawn on the command-base pad (`<frame
+Asphalt01 albedo/normal/roughness) and LWIR temperatures: asphalt 301 K, pad 300 K,
+soil 298 K, everything else ambient 293 K. gz quantises heat sources to ~2.6 K steps
+(256 x the thermal `resolution`, and the range must still cover 550 K fire), so surfaces are
+kept more than one step below the 306-310 K of a body. Drones spawn on the command-base pad (`<frame
 name="drone_spawn">`, read by `aero_sense_bringup/worlds.py`). SITL's home is the world's
 `spherical_coordinates`, so ArduPilot's local NED origin is the world origin and `map` =
 Gazebo world frame (verified: ROS pose (0.00, −109.99) vs Gazebo (0.00, −110.00) at the pad).

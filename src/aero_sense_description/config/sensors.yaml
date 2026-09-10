@@ -18,10 +18,14 @@ depth:
   noise_stddev: 0.02          # metres
 thermal:
   clip_m: [0.3, 150.0]
-  temp_range_k: [253.15, 600.0]
-  resolution_k: 0.01          # L16 count = 0.01 K
-  # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera. Its output is
-  # quantised to resolution_k only; perception must not assume more than that.
+  temp_range_k: [253.15, 600.0]   # must still cover fire (550 K, Phase 14)
+  # Measured: gz renders heat sources through an 8-bit path, so the real step is 256 *
+  # resolution_k (2.6 K here), whatever min/max say - narrowing the range changed nothing.
+  # Covering 600 K forces resolution_k >= 0.01, so ~2.6 K is the floor: scene surfaces must
+  # therefore differ from body heat by more than one step (see the world's LWIR temperatures),
+  # and perception must not assume finer than 2.6 K.
+  resolution_k: 0.01          # scale of the L16 counts (1 count = 0.01 K), not the precision
+  # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera.
 lidar:
   offset_xyz: [0.0, 0.0, -0.05]   # below the payload, clear of the rotors
   vertical_fov_rad: [-0.2618, 0.2618]   # +-15 deg, VLP-16 style

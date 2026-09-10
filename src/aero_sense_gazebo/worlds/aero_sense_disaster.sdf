@@ -90,7 +90,7 @@
           <geometry><box><size>12 12 0.1</size></box></geometry>
           <material><ambient>0.55 0.55 0.52 1</ambient><diffuse>0.55 0.55 0.52 1</diffuse></material>
           <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
-            <temperature>303</temperature>
+            <temperature>300</temperature>
           </plugin>
         </visual>
         <visual name="h_left">

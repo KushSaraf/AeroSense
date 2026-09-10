@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium]
+        [namespace:=] [quality:=medium] [victims:=true]
 
 The drone model and bridge config are rendered from aero_sense_description/config/sensors.yaml
 at the chosen quality into ~/.ros/aero_sense/generated/<drone>/, then the drone is spawned.
@@ -16,6 +16,7 @@ from pathlib import Path
 
 from aero_sense_bringup import worlds
 from aero_sense_description import render
+from aero_sense_scenario_manager import victims as victim_table
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, OpaqueFunction, TimerAction
@@ -63,6 +64,25 @@ def _static_tf_nodes(cfg: dict, frame_prefix: str, namespace: str) -> list:
     return nodes
 
 
+def _victim_actions(world, gz_world: str) -> list:
+    """One warm manikin per entry in victims.yaml, plus the ground-truth publisher that mirrors
+    the same table for evaluation (its own topic; perception must not read it)."""
+    origin_lat, origin_lon, _ = worlds.origin(world)
+    actions = []
+    for victim in victim_table.load():
+        x, y, z, roll, pitch, yaw = victim_table.spawn_pose(victim)
+        actions.append(Node(
+            package="ros_gz_sim", executable="create", output="log",
+            name=f"spawn_{victim_table.model_name(victim)}",
+            arguments=["-world", gz_world, "-string", victim_table.victim_sdf(victim),
+                       "-name", victim_table.model_name(victim), "-x", str(x), "-y", str(y),
+                       "-z", str(z), "-R", str(roll), "-P", str(pitch), "-Y", str(yaw)]))
+    actions.append(Node(
+        package="aero_sense_scenario_manager", executable="victim_ground_truth", output="screen",
+        parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon}]))
+    return actions
+
+
 def _launch(context, *args, **kwargs):
     world_name = LaunchConfiguration("world").perform(context)
     namespace = LaunchConfiguration("namespace").perform(context)
@@ -105,8 +125,11 @@ def _launch(context, *args, **kwargs):
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
                  parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}",
                               "base_frame": f"{frame_prefix}base_link"}], output="screen")
-    return [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone,
-            *_static_tf_nodes(cfg, frame_prefix, namespace)]
+    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone,
+               *_static_tf_nodes(cfg, frame_prefix, namespace)]
+    if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
+        actions += _victim_actions(world, worlds.world_name(world))
+    return actions
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -118,5 +141,7 @@ def generate_launch_description() -> LaunchDescription:
                               description="drone namespace, e.g. drone_01 (empty = single drone)"),
         DeclareLaunchArgument("quality", default_value="medium", choices=list(render.QUALITIES),
                               description="sensor quality profile (resolution / rate)"),
+        DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
+                              description="spawn the scenario's victims and publish their ground truth"),
         OpaqueFunction(function=_launch),
     ])

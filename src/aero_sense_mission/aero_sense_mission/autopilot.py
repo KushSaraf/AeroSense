@@ -18,7 +18,8 @@ import numpy as np
 from pymavlink import mavutil
 
 HEARTBEAT_TIMEOUT_S = 30
-MODE_TIMEOUT_S = 10
+MODE_TIMEOUT_S = 20
+MODE_RESEND_S = 0.5
 ARM_TIMEOUT_S = 60
 TAKEOFF_TIMEOUT_S = 40
 CLIMB_COMPLETE_FRACTION = 0.95
@@ -226,9 +227,17 @@ class Autopilot:
                          f"(parameter name unknown to this firmware?)")
 
     def set_mode(self, mode: str) -> None:
+        """Resend until the autopilot reports the mode. A single set_mode goes unanswered when the
+        link is busy: spawning a scenario's victims was enough to make takeoff fail this way."""
         mode_id = self._conn.mode_mapping()[mode]
-        self._conn.set_mode(mode_id)
-        self._wait(lambda s: s.mode == mode, MODE_TIMEOUT_S, f"mode {mode}")
+        deadline = time.time() + MODE_TIMEOUT_S
+        while time.time() < deadline:
+            self._conn.set_mode(mode_id)
+            time.sleep(MODE_RESEND_S)
+            if self.state.mode == mode:
+                return
+        raise TimeoutError(f"mode {mode} timed out after {MODE_TIMEOUT_S:.0f}s (last autopilot "
+                           f"text: {self.state.last_text or 'none'})")
 
     def wait_armable(self, timeout: float = ARM_TIMEOUT_S) -> None:
         self._wait(lambda s: s.prearm_ok, timeout, "pre-arm checks")

@@ -19,7 +19,7 @@ HEARTBEAT_TIMEOUT_S = 3.0
 MAVLINK_DIAGNOSTICS_URL = "udpin:127.0.0.1:14552"
 UAV_WS = Path(os.environ.get("UAV_WS", Path.home() / "uav_ws"))
 WORKSPACE_PACKAGES = ("aero_sense_interfaces", "aero_sense_bringup", "aero_sense_description",
-                      "aero_sense_gazebo", "aero_sense_mission")
+                      "aero_sense_gazebo", "aero_sense_mission", "aero_sense_scenario_manager")
 #: Topics that must exist while the simulation runs (grows as phases land).
 LIVE_TOPICS = (
     "/clock",
@@ -28,6 +28,7 @@ LIVE_TOPICS = (
     "/aero_sense/camera/rgb/image_raw", "/aero_sense/camera/depth/image_raw",
     "/aero_sense/camera/thermal/image_raw", "/aero_sense/camera/rgb/camera_info",
     "/aero_sense/lidar/points", "/aero_sense/imu", "/aero_sense/baro",
+    "/aero_sense/ground_truth/victims",
 )
 
 
