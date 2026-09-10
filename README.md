@@ -96,6 +96,13 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests -q
 Covers projection, risk, A*, store-and-forward, world model, mission logic (lawnmower,
 avoidance) and the dashboard API. The perception/flight path is verified against the live sim.
 
+## Firmware notes
+
+`~/uav_ws` builds **ArduCopter 4.8.0-dev**, which renamed the waypoint parameters to SI
+units: `WP_SPD` (m/s), `WP_ACC` (m/s²), `RTL_ALT_M` (m) — the old `WPNAV_SPEED`,
+`WPNAV_ACCEL`, `RTL_ALT` no longer exist. `Flight.set_param` waits for the autopilot's
+echo and raises if a name is unknown, because ArduPilot otherwise drops it silently.
+
 ## Known gaps
 
 - **GPS-denied flight** is not simulated yet. Path: ArduPilot optical-flow/visual-odometry

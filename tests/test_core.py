@@ -232,6 +232,12 @@ def test_near_field_keeps_only_close_tall_points():
     assert kept.tolist() == [[40.0, 0.0, -12.0]]
 
 
+def test_param_echo_comparison_tolerates_float32():
+    assert flight.param_matches(4.0, float(np.float32(4.0)))
+    assert flight.param_matches(0.3, float(np.float32(0.3)))
+    assert not flight.param_matches(4.0, 10.0)
+
+
 def test_hard_bank_or_missing_pose_is_not_mapped():
     assert mission.is_mappable(((0, 0, -15), (0.05, -0.05, 1.0)))
     assert not mission.is_mappable(((0, 0, -15), (0.0, math.radians(20), 1.0)))

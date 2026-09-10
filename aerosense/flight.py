@@ -32,6 +32,13 @@ POSE_HOLD_S = 0.1
 #: SET_POSITION_TARGET_LOCAL_NED type masks: position only / position + absolute yaw.
 POSITION_ONLY_MASK = 0b0000111111111000
 POSITION_YAW_MASK = 0b0000101111111000
+PARAM_TIMEOUT_S = 3.0
+PARAM_RESEND_S = 0.3
+
+
+def param_matches(expected: float, echoed: float) -> bool:
+    """Parameters travel as float32, so compare with a tolerance."""
+    return math.isclose(expected, echoed, rel_tol=1e-4, abs_tol=1e-4)
 
 
 def _append(history: tuple, sample: tuple) -> tuple:
@@ -87,6 +94,7 @@ class Flight:
         self._state = VehicleState()
         self._attitudes = ()          # (SITL time s, roll, pitch, yaw), last POSE_HISTORY_S
         self._positions = ()          # (SITL time s, n, e, d)
+        self._params = {}             # latest PARAM_VALUE per name
         self._lock = threading.Lock()
         self._running = False
 
@@ -158,6 +166,9 @@ class Flight:
                              prearm_ok=bool(msg.onboard_control_sensors_health & PREARM_CHECK_BIT))
             elif kind == "STATUSTEXT":
                 self._update(last_text=msg.text)
+            elif kind == "PARAM_VALUE":
+                with self._lock:
+                    self._params = {**self._params, msg.param_id: msg.param_value}
 
     def _wait(self, predicate, timeout: float, what: str) -> None:
         deadline = time.time() + timeout
@@ -176,8 +187,20 @@ class Flight:
                                          cmd, 0, *p)
 
     def set_param(self, name: str, value: float) -> None:
-        self._conn.mav.param_set_send(self._conn.target_system, self._conn.target_component,
-                                      name.encode(), value, mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
+        """Set a parameter and wait for the autopilot to echo it back. ArduPilot silently drops
+        unknown names: when 4.8 renamed WPNAV_SPEED to WP_SPD the drone flew at the 10 m/s
+        default and nothing noticed, so a missing echo is an error here."""
+        deadline = time.time() + PARAM_TIMEOUT_S
+        while time.time() < deadline:
+            self._conn.mav.param_set_send(self._conn.target_system, self._conn.target_component,
+                                          name.encode(), value, mavutil.mavlink.MAV_PARAM_TYPE_REAL32)
+            time.sleep(PARAM_RESEND_S)
+            with self._lock:
+                echoed = self._params.get(name)
+            if echoed is not None and param_matches(value, echoed):
+                return
+        raise ValueError(f"autopilot did not confirm {name}={value} within {PARAM_TIMEOUT_S:.0f}s "
+                         f"(parameter name unknown to this firmware?)")
 
     def set_mode(self, mode: str) -> None:
         mode_id = self._conn.mode_mapping()[mode]

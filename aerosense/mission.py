@@ -66,7 +66,7 @@ AVOID_RETREAT_M = 8.0
 #: translating hid the mast until the drone was 8 m from it.
 FACE_TOLERANCE_RAD = math.radians(10.0)
 FACE_TIMEOUT_S = 8.0
-WPNAV_ACCEL_CMSS = 300
+WP_ACC_MSS = 3.0
 AVOID_HALF_WIDTH_M = 3.0
 AVOID_TRIGGER_MARGIN_M = 8.0
 AVOID_CLEARANCE_M = 8.0
@@ -274,9 +274,10 @@ class Mission:
         self.event(f"MAVLink link to autopilot up (camera/autopilot clock offset "
                    f"{self.clock_offset * 1000:.0f} ms); waiting for EKF / pre-arm checks")
         self.flight.wait_armable(PREARM_TIMEOUT_S)
-        self.flight.set_param("WPNAV_SPEED", SEARCH_SPEED_MS * 100)
-        self.flight.set_param("WPNAV_ACCEL", WPNAV_ACCEL_CMSS)
-        self.flight.set_param("RTL_ALT", RTL_ALT_M * 100)
+        # ArduCopter 4.8 names, SI units (was WPNAV_SPEED / WPNAV_ACCEL / RTL_ALT in cm).
+        self.flight.set_param("WP_SPD", SEARCH_SPEED_MS)
+        self.flight.set_param("WP_ACC", WP_ACC_MSS)
+        self.flight.set_param("RTL_ALT_M", RTL_ALT_M)
         self.flight.set_mode("GUIDED")
         self.flight.arm()
         self.t0 = time.time()
