@@ -16,9 +16,16 @@ MIN_FREE_DISK_GB = 2.0
 TOPIC_DISCOVERY_S = 2.0
 HEARTBEAT_TIMEOUT_S = 3.0
 UAV_WS = Path(os.environ.get("UAV_WS", Path.home() / "uav_ws"))
-WORKSPACE_PACKAGES = ("aero_sense_interfaces", "aero_sense_bringup")
+WORKSPACE_PACKAGES = ("aero_sense_interfaces", "aero_sense_bringup", "aero_sense_description",
+                      "aero_sense_gazebo", "aero_sense_mission")
 #: Topics that must exist while the simulation runs (grows as phases land).
-LIVE_TOPICS = ()
+LIVE_TOPICS = (
+    "/clock",
+    "/aero_sense/drone/pose", "/aero_sense/drone/status", "/aero_sense/drone/battery",
+    "/aero_sense/gps/fix",
+    "/aero_sense/camera/rgb/image_raw", "/aero_sense/camera/depth/image_raw",
+    "/aero_sense/camera/thermal/image_raw",
+)
 
 
 def check_ros() -> tuple:

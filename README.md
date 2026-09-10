@@ -13,7 +13,30 @@ ArduPilot SITL (EKF3) <──────────── MAVLink (GUIDED) ─
                                            store-and-forward downlink ──> dashboard :8080
 ```
 
-## Quick start
+## ROS 2 workspace (in progress — see docs/ARCHITECTURE.md)
+
+The system is being rebuilt as ROS 2 packages under `src/` in 23 phases. Done so far:
+Phase 1 (interfaces, `system_check`) and Phase 2 (Gazebo + ArduPilot SITL + MAVLink/ROS
+`drone_interface`).
+
+```bash
+source /opt/ros/humble/setup.bash
+source ~/uav_ws/install/setup.bash          # ros_gz, ardupilot_gazebo, ardupilot_sitl
+colcon build --base-paths src               # src only: reference/ holds ROS 1 packages
+source install/setup.bash
+
+ros2 launch aero_sense_bringup simulation.launch.py [gui:=false] [namespace:=drone_01]
+ros2 service call /aero_sense/drone/takeoff std_srvs/srv/Trigger
+ros2 topic pub --once /aero_sense/drone/setpoint geometry_msgs/msg/PoseStamped \
+  "{header: {frame_id: map}, pose: {position: {x: 10.0, y: 5.0, z: 15.0}, orientation: {w: 1.0}}}"
+ros2 service call /aero_sense/drone/land std_srvs/srv/Trigger
+ros2 run aero_sense_bringup system_check
+```
+
+The single-process prototype below still works (`./run_sim.sh`) until its pieces are
+migrated into the packages.
+
+## Quick start (prototype)
 
 Needs the existing `~/uav_ws` (ArduPilot SITL, `ardupilot_gazebo`, `ros_gz`) and ROS 2 Humble.
 

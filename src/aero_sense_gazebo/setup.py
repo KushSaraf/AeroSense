@@ -1,0 +1,28 @@
+import os
+
+from setuptools import setup
+
+PACKAGE = "aero_sense_gazebo"
+
+
+def tree(src):
+    """data_files entries installing every file under `src`, keeping the directory layout."""
+    return [(os.path.join("share", PACKAGE, root), [os.path.join(root, f) for f in files])
+            for root, _, files in os.walk(src) if files]
+
+
+setup(
+    name=PACKAGE,
+    version="0.1.0",
+    packages=[],
+    data_files=[
+        ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
+        (f"share/{PACKAGE}", ["package.xml"]),
+    ] + tree("worlds") + tree("config"),
+    install_requires=["setuptools"],
+    zip_safe=True,
+    maintainer="kushsaraf",
+    maintainer_email="codenexusky@gmail.com",
+    description="Aero Sense Gazebo worlds and bridge configuration.",
+    license="TODO",
+)

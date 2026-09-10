@@ -1,8 +1,6 @@
-from glob import glob
-
 from setuptools import setup
 
-PACKAGE = "aero_sense_bringup"
+PACKAGE = "aero_sense_mission"
 
 setup(
     name=PACKAGE,
@@ -11,13 +9,14 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
         (f"share/{PACKAGE}", ["package.xml"]),
-        (f"share/{PACKAGE}/launch", glob("launch/*.launch.py")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="kushsaraf",
     maintainer_email="codenexusky@gmail.com",
-    description="Launch files, configuration and diagnostics for the Aero Sense SAR simulation.",
+    description="Aero Sense autopilot adapter, drone interface and mission state machine.",
     license="TODO",
-    entry_points={"console_scripts": [f"system_check = {PACKAGE}.system_check:main"]},
+    entry_points={"console_scripts": [
+        f"drone_interface = {PACKAGE}.drone_interface:main",
+    ]},
 )

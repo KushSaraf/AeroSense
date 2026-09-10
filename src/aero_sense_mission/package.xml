@@ -1,21 +1,20 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>aero_sense_bringup</name>
+  <name>aero_sense_mission</name>
   <version>0.1.0</version>
-  <description>Launch files, configuration and diagnostics for the Aero Sense SAR simulation.</description>
+  <description>Aero Sense autopilot adapter (MAVLink), drone interface node and mission state machine.</description>
   <maintainer email="codenexusky@gmail.com">kushsaraf</maintainer>
   <license>TODO</license>
 
   <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
   <exec_depend>aero_sense_interfaces</exec_depend>
-  <exec_depend>ament_index_python</exec_depend>
-  <exec_depend>launch</exec_depend>
-  <exec_depend>launch_ros</exec_depend>
-  <exec_depend>ros_gz_bridge</exec_depend>
-  <exec_depend>aero_sense_description</exec_depend>
-  <exec_depend>aero_sense_gazebo</exec_depend>
-  <exec_depend>aero_sense_mission</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
 
   <test_depend>python3-pytest</test_depend>
 
