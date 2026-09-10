@@ -14,6 +14,9 @@
 #
 # Positions sit beside structures, never inside their meshes: a victim placed under a collapsed
 # building is invisible to every sensor, which silently makes a scenario unsolvable.
+#
+# No roll/pitch: the manikin's model origin sits below the body, so rolling it sinks half the
+# casualty underground and thermal loses them. State is carried by placement and context.
 
 victims:
   - id: V01
@@ -31,7 +34,6 @@ victims:
     x: -137.0
     y: 13.5
     yaw_deg: -60
-    roll_deg: 90
     temperature_k: 308.0
     occlusion: partial
     expected_priority: P1
@@ -52,7 +54,6 @@ victims:
     x: -74.0
     y: 27.0
     yaw_deg: 100
-    roll_deg: 90
     temperature_k: 308.0
     occlusion: partial
     expected_priority: P1
@@ -83,7 +84,6 @@ victims:
     x: -57.0
     y: 88.0
     yaw_deg: 170
-    roll_deg: 90
     temperature_k: 307.0
     occlusion: heavy
     expected_priority: P1
@@ -104,7 +104,6 @@ victims:
     x: -108.0
     y: 40.0
     yaw_deg: 90
-    roll_deg: 90
     temperature_k: 295.0
     occlusion: none
     expected_priority: P3

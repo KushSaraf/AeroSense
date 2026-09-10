@@ -54,7 +54,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 | `aero_sense_bringup` | ament_python | 1 → | launch files, `config/*.yaml`, `system_check` |
 | `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → drone SDF, bridge config, sensor TFs; prototype drone |
 | `aero_sense_gazebo` | ament_python | 2, 4, 13–16 | world, sector models, bridge config |
-| `aero_sense_perception` | ament_python | 6 | detectors, tracker, fusion, geolocation, polygons |
+| `aero_sense_perception` | ament_python | 6 | thermal detector, geolocation, tracker; RGB/YOLO and hazard polygons later |
 | `aero_sense_localization` | ament_python | 7, 17 | GPS monitor, VIO, source arbitration |
 | `aero_sense_mapping` | ament_python | 8 | occupancy, point cloud, semantic, coverage |
 | `aero_sense_navigation` | ament_python | 9, 12, 26 | local planner, search planner, A*/D* Lite routes |
@@ -141,6 +141,24 @@ Verified from the air at 25 m: every live casualty shows 306-311 K against 298 K
 Two placement rules the first pass got wrong, both silent: a victim inside a building's mesh is
 invisible to every sensor, and a surface within one thermal quantisation step (~2.6 K) of body
 heat hides casualties in the same grey level.
+
+### Perception (Phase 6)
+
+`victim_detector` reads the LWIR frame and nothing else: warm connected regions of a plausible
+size (`config/perception.yaml`), each pixel turned into a map position by intersecting its
+camera ray with the ground, then associated across frames into tracks with stable ids. A track
+is published only after several looks agree, and confidence compounds as
+`1 - (1 - strength) * 0.6^(looks - 1)`: corroboration raises it, nothing makes it certain.
+
+Ground truth is never an input here. Scoring a lawnmower search of S1 at 30 m against it:
+**8 of 8 live casualties found, mean position error 0.3 m, no false positives.** The deceased
+casualty (295 K) is invisible to thermal by construction — finding it needs the RGB shape cue,
+which is the honest reason to add a second detector rather than a reason to lower the threshold.
+
+Two defects the first flight exposed: tracks were being forgotten while the search continued
+(a found casualty must stay found — `confirmed()` keeps them, `current()` is for what is in
+view), and a camera that looks 21 m ahead leaves gaps beside the flight line, which is a
+search-pattern problem for Phase 12, not a detector one.
 
 Services: `aero_sense/mission/start` (StartMission), `…/pause`, `…/resume`, `…/abort`,
 `…/return_to_base` (std_srvs/Trigger), `…/set_search_area` (SetSearchArea),

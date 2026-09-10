@@ -4,6 +4,9 @@ drone_interface + sensor TFs.
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
         [namespace:=] [quality:=medium] [victims:=true]
 
+Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
+for evaluation.
+
 The drone model and bridge config are rendered from aero_sense_description/config/sensors.yaml
 at the chosen quality into ~/.ros/aero_sense/generated/<drone>/, then the drone is spawned.
 
@@ -125,7 +128,13 @@ def _launch(context, *args, **kwargs):
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
                  parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}",
                               "base_frame": f"{frame_prefix}base_link"}], output="screen")
-    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone,
+    origin_lat, origin_lon, _ = worlds.origin(world)
+    perception = Node(package="aero_sense_perception", executable="victim_detector",
+                      namespace=namespace, output="screen",
+                      parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon,
+                                   "thermal_resolution_k": cfg["thermal"]["resolution_k"],
+                                   "camera_frame": f"{frame_prefix}camera_optical"}])
+    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception,
                *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))

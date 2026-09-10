@@ -1,0 +1,25 @@
+# How the drone decides something warm is a person.
+#
+# Thermal only, for now: the LWIR image is the one cue that separates a body from rubble in a
+# scene where everything else sits at ambient. RGB shape (YOLO) joins later as a second cue,
+# which is what will let the deceased casualty (no thermal contrast) be found at all.
+
+detector:
+  # Ground is 298 K and asphalt 301 K; a live body is 306-311 K. gz quantises heat to ~2.6 K,
+  # so the threshold sits a full step above the warmest surface.
+  min_temperature_k: 304.0
+  # A person at 25 m covers roughly 20-60 px in the 320x256 thermal image; below that it is
+  # noise, far above it is a heat source the size of a building.
+  min_blob_px: 4
+  max_blob_px: 4000
+  # Confidence reaches 1.0 this far above the threshold (a 310 K body against 304 K).
+  confidence_span_k: 6.0
+
+tracker:
+  # Two detections within this distance in the map frame are the same casualty. Wide enough to
+  # absorb projection error at altitude, tight enough to keep neighbours apart.
+  associate_radius_m: 6.0
+  # A track is only published once seen this many times: one hot frame is not a casualty.
+  confirm_hits: 3
+  # Tracks not seen again for this long stop being republished as current.
+  forget_after_s: 60.0
