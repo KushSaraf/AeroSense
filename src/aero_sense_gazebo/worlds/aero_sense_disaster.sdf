@@ -5,7 +5,7 @@
 
               N                     (no double hyphens: they end an XML comment)
    +==============================+   y +200
-   | S4 LANDSLIDE        (ph. 15) |
+   | S4 LANDSLIDE  (ridge + scar) |
    +===============+==============+   y +100
    | S1 EARTHQUAKE | S2 FLOOD     |
    +===============+==============+   y 0
@@ -20,6 +20,8 @@
     10 m water tower. The masts and the hall stand above the 15-20 m search altitude, and the
     lanes are narrow enough that casualties in them are only visible from steep angles.
     No trees: the tdf oak/pine alpha-cutout leaves render as black blobs in Harmonic.
+  S4 landslide (x -100..100, y 100..300): a heightmap ridge rising 25 m with the slide scar cut
+    into it; the plain the city stands on stays flat.
   S2 flood (x 0..200, y 0..100): a village under 0.6 m of standing water, laid over the ground
     so buildings and vehicles are submerged to that depth. Casualties are in the water, which is
     colder than the ground in LWIR, not warmer.
@@ -76,7 +78,7 @@
 
     <!-- Tiled dirt ground and the asphalt road network (spine x = 0, avenues y = 0 and 100,
          S1 streets x = -100 and y = 50); see aero_sense_gazebo/models. -->
-    <include><name>ground</name><pose>0 45 0 0 0 0</pose><uri>model://aero_sense_ground</uri></include>
+    <include><name>ground</name><pose>0 -20 0 0 0 0</pose><uri>model://aero_sense_ground</uri></include>
     <include><name>roads</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_roads</uri></include>
 
     <!-- Command base: landing pad with an H marking, and the operations tent. -->
@@ -203,5 +205,11 @@
     <include><name>s2_cordon_2</name><pose degrees="true">8 34 0 0 0 90</pose><uri>model://jersey_barrier</uri></include>
     <!-- laid over the sector last: everything above is already in place beneath it -->
     <include><name>flood_water</name><pose>0 0 0.6 0 0 0</pose><uri>model://aero_sense_flood_water</uri></include>
+
+    <!-- ============ S4 LANDSLIDE ============ -->
+    <!-- Real relief: a 200 x 200 m ridge rising 25 m north of the city, its failure scar gouged
+         down the face. Its south edge is at zero height, so it meets the flat ground the rest of
+         the world stands on and nothing in S1/S2 has to move. -->
+    <include><name>landslide_ridge</name><pose>0 200 0 0 0 0</pose><uri>model://aero_sense_terrain</uri></include>
   </world>
 </sdf>

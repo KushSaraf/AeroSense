@@ -1,13 +1,15 @@
-# Aero Sense ground: one 440 x 360 m quad (model origin at its centre). UVs run past 1 so the
-# texture repeats every 8 m instead of stretching once over the whole world.
-v -220 -180 0
-v 220 -180 0
-v 220 180 0
-v -220 180 0
+# Aero Sense ground: one 440 x 250 m quad (model origin at its centre), covering the command
+# base and the four city sectors. It stops just past y = 100 in the world, where the landslide
+# ridge takes over: overlapping the terrain there would z-fight along the seam.
+# UVs run past 1 so the texture repeats every 8 m instead of stretching once over the world.
+v -220 -125 0
+v 220 -125 0
+v 220 125 0
+v -220 125 0
 vt 0 0
 vt 55 0
-vt 55 45
-vt 0 45
+vt 55 31.25
+vt 0 31.25
 vn 0 0 1
 f 1/1/1 2/2/1 3/3/1
 f 1/1/1 3/3/1 4/4/1

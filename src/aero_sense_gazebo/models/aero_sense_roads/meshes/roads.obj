@@ -1,15 +1,15 @@
 # Aero Sense road network in world coordinates (include at the world origin). One quad per
 # road; UVs repeat the asphalt texture every 8 m. Crossing roads sit a few mm apart in z so
 # their overlap never z-fights.
-#   spine x = 0         8 x 350 m, y -130..220   z 0.020
+#   spine x = 0         8 x 230 m, y -130..100   z 0.020
 #   avenue y = 0      400 x 8 m                  z 0.024
 #   avenue y = 100    400 x 8 m                  z 0.024
 #   S1 street x = -100  6 x 92 m, y 4..96        z 0.016
 #   S1 street y = 50  192 x 6 m, x -196..-4      z 0.018
 v -4 -130 0.020
 v 4 -130 0.020
-v 4 220 0.020
-v -4 220 0.020
+v 4 100 0.020
+v -4 100 0.020
 v -200 -4 0.024
 v 200 -4 0.024
 v 200 4 0.024
@@ -28,8 +28,8 @@ v -4 53 0.018
 v -196 53 0.018
 vt 0 0
 vt 1 0
-vt 1 43.75
-vt 0 43.75
+vt 1 28.75
+vt 0 28.75
 vt 0 0
 vt 50 0
 vt 50 1
