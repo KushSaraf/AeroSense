@@ -1,0 +1,7 @@
+geometry_msgs/Polygon area       # map frame (ENU, metres)
+string pattern                   # GRID | LAWNMOWER | ADAPTIVE | POINT_TO_POINT
+float32 altitude_m
+float32 spacing_m
+---
+bool success
+string message

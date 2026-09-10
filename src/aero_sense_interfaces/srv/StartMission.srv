@@ -1,0 +1,5 @@
+string scenario                  # full | earthquake | flood | fire | landslide | chemical
+---
+bool success
+string message
+string mission_id

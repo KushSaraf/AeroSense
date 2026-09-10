@@ -1,0 +1,8 @@
+# failure is one of:
+#   GPS_LOSS GPS_RESTORE COMMS_LOSS COMMS_RESTORE LOW_BATTERY CAMERA_FAILURE THERMAL_FAILURE
+#   DEPTH_FAILURE IMU_DEGRADED HIGH_WIND NEW_HAZARD NEW_VICTIM
+string failure
+string params_yaml               # optional parameters, e.g. "{speed_mps: 12}"
+---
+bool success
+string message

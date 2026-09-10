@@ -1,0 +1,7 @@
+# Operator override of a victim's triage priority.
+string victim_id
+string priority                  # P1 | P2 | P3
+string reason
+---
+bool success
+string message

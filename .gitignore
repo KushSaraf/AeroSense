@@ -4,3 +4,9 @@ __pycache__/
 .pytest_cache/
 logs/
 *.log
+# colcon
+build/
+install/
+log/
+# Third-party reference repos (downloaded zips); assets are used from here, not vendored.
+reference/
