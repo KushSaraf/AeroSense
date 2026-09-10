@@ -21,38 +21,38 @@
 victims:
   - id: V01
     state: lying
-    x: -168.0
-    y: 36.0
+    x: -176.0
+    y: 21.5
     yaw_deg: 20
     temperature_k: 309.0
-    occlusion: none
+    occlusion: partial
     expected_priority: P2
-    note: in the open just north of the first collapsed house, clear line of sight from above
+    note: in a 4 m lane between terraces, visible only from near-vertical
 
   - id: V02
     state: trapped
-    x: -137.0
-    y: 13.5
+    x: -136.0
+    y: 21.5
     yaw_deg: -60
     temperature_k: 308.0
     occlusion: partial
     expected_priority: P1
-    note: pinned at the southern rubble edge of the second house
+    note: pinned in the lane where the terrace came down
 
   - id: V03
     state: seated
-    x: -150.0
-    y: 14.0
+    x: -156.0
+    y: 31.0
     yaw_deg: 0
     temperature_k: 307.5
     occlusion: partial
     expected_priority: P2
-    note: sitting against the rubble spread, upper body exposed
+    note: sitting in the cross-lane, upper body exposed
 
   - id: V04
     state: prone
-    x: -74.0
-    y: 27.0
+    x: -78.0
+    y: 25.0
     yaw_deg: 100
     temperature_k: 308.0
     occlusion: partial
@@ -61,8 +61,8 @@ victims:
 
   - id: V05
     state: lying
-    x: -22.0
-    y: 44.0
+    x: -12.0
+    y: 40.0
     yaw_deg: 200
     temperature_k: 306.0
     occlusion: none
@@ -72,7 +72,7 @@ victims:
   - id: V06
     state: seated
     x: -148.0
-    y: 70.0
+    y: 75.0
     yaw_deg: 45
     temperature_k: 309.5
     occlusion: partial
@@ -91,7 +91,7 @@ victims:
 
   - id: V08
     state: lying
-    x: -30.0
+    x: -33.0
     y: 66.0
     yaw_deg: 300
     temperature_k: 310.0
