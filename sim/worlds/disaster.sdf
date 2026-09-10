@@ -1,0 +1,204 @@
+<?xml version="1.0" ?>
+<!--
+  Aero Sense disaster zone. Gazebo ENU: x = east, y = north. The drone spawns at the
+  origin facing north; the search box is x in [-25, 25], y in [10, 60].
+
+  Ground truth (gz x, y)            hazard context
+    S1  Rescue Randy         -10 47   standing in flood water
+    S2  Rescue Randy Sitting   8 33   3.5 m from a fire
+    S3  Standing person      -18 15   open ground (no thermal signature model)
+    S4  Walking person        14 42   beside the collapsed building
+    S5  Rescue Randy Sitting  20 24   open ground, next to building C
+  Obstacle: 25 m comms mast at (-3, 36), above the 15 m search altitude.
+-->
+<sdf version="1.9">
+  <world name="disaster">
+    <physics name="1ms" type="ignore">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+    </physics>
+
+    <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system" name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+    </plugin>
+    <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-scene-broadcaster-system" name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-imu-system" name="gz::sim::systems::Imu"/>
+    <plugin filename="gz-sim-navsat-system" name="gz::sim::systems::NavSat"/>
+
+    <scene>
+      <ambient>0.8 0.8 0.8</ambient>
+      <background>0.7 0.75 0.8</background>
+      <sky></sky>
+    </scene>
+
+    <!-- Everything without its own Thermal plugin reads at ambient temperature. -->
+    <atmosphere type="adiabatic">
+      <temperature>293</temperature>
+    </atmosphere>
+
+    <spherical_coordinates>
+      <latitude_deg>-35.363262</latitude_deg>
+      <longitude_deg>149.165237</longitude_deg>
+      <elevation>584</elevation>
+      <heading_deg>0</heading_deg>
+      <surface_model>EARTH_WGS84</surface_model>
+    </spherical_coordinates>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 50 0 0 0</pose>
+      <diffuse>0.9 0.9 0.85 1</diffuse>
+      <specular>0.3 0.3 0.3 1</specular>
+      <direction>-0.4 0.2 -0.9</direction>
+    </light>
+
+    <model name="ground">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry><plane><normal>0 0 1</normal><size>400 400</size></plane></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><plane><normal>0 0 1</normal><size>400 400</size></plane></geometry>
+          <material><ambient>0.42 0.36 0.27 1</ambient><diffuse>0.42 0.36 0.27 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Building A: intact -->
+    <model name="building_a">
+      <static>true</static>
+      <pose>-15 26 3 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>8 10 6</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>8 10 6</size></box></geometry>
+          <material><diffuse>0.6 0.6 0.58 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Building B: collapsed slab + rubble -->
+    <model name="collapsed_b">
+      <static>true</static>
+      <pose>10 46 1.5 0.35 0.1 0.3</pose>
+      <link name="slab">
+        <collision name="c"><geometry><box><size>10 8 0.6</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>10 8 0.6</size></box></geometry>
+          <material><diffuse>0.5 0.48 0.45 1</diffuse></material></visual>
+      </link>
+    </model>
+    <model name="rubble_b">
+      <static>true</static>
+      <pose>10 46 0 0 0 0</pose>
+      <link name="link">
+        <collision name="r1"><pose>-3 -3 0.5 0.3 0 0.4</pose><geometry><box><size>2 1.5 1</size></box></geometry></collision>
+        <visual name="r1"><pose>-3 -3 0.5 0.3 0 0.4</pose><geometry><box><size>2 1.5 1</size></box></geometry>
+          <material><diffuse>0.35 0.33 0.3 1</diffuse></material></visual>
+        <collision name="r2"><pose>2 -4 0.4 0 0.4 1.1</pose><geometry><box><size>1.5 1.5 0.8</size></box></geometry></collision>
+        <visual name="r2"><pose>2 -4 0.4 0 0.4 1.1</pose><geometry><box><size>1.5 1.5 0.8</size></box></geometry>
+          <material><diffuse>0.4 0.36 0.32 1</diffuse></material></visual>
+        <collision name="r3"><pose>-5 1 0.6 0.5 0.2 0</pose><geometry><box><size>1.2 3 1.2</size></box></geometry></collision>
+        <visual name="r3"><pose>-5 1 0.6 0.5 0.2 0</pose><geometry><box><size>1.2 3 1.2</size></box></geometry>
+          <material><diffuse>0.33 0.3 0.28 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Building C: intact, tall -->
+    <model name="building_c">
+      <static>true</static>
+      <pose>15 18 4.5 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>6 6 9</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>6 6 9</size></box></geometry>
+          <material><diffuse>0.55 0.5 0.45 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Comms mast: taller than the search altitude -->
+    <model name="mast">
+      <static>true</static>
+      <pose>-3 36 12.5 0 0 0</pose>
+      <link name="link">
+        <collision name="c"><geometry><box><size>0.8 0.8 25</size></box></geometry></collision>
+        <visual name="v"><geometry><box><size>0.8 0.8 25</size></box></geometry>
+          <material><diffuse>0.7 0.2 0.2 1</diffuse></material></visual>
+      </link>
+    </model>
+
+    <!-- Flood water -->
+    <model name="flood">
+      <static>true</static>
+      <pose>-12 48 0.1 0 0 0</pose>
+      <link name="link">
+        <visual name="v"><geometry><box><size>18 14 0.2</size></box></geometry>
+          <material>
+            <ambient>0.18 0.3 0.4 1</ambient><diffuse>0.18 0.3 0.4 0.9</diffuse>
+            <specular>0.6 0.6 0.6 1</specular>
+          </material>
+          <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+            <temperature>285</temperature>
+          </plugin>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Fires: emissive + hot in LWIR -->
+    <model name="fire_1">
+      <static>true</static>
+      <pose>5 30 0.75 0 0 0</pose>
+      <link name="link">
+        <visual name="v"><geometry><cylinder><radius>1.2</radius><length>1.5</length></cylinder></geometry>
+          <material><ambient>1 0.35 0 1</ambient><diffuse>1 0.35 0 1</diffuse><emissive>1 0.3 0 1</emissive></material>
+          <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+            <temperature>550</temperature>
+          </plugin>
+        </visual>
+      </link>
+    </model>
+    <model name="fire_2">
+      <static>true</static>
+      <pose>16 51 0.6 0 0 0</pose>
+      <link name="link">
+        <visual name="v"><geometry><cylinder><radius>1.0</radius><length>1.2</length></cylinder></geometry>
+          <material><ambient>1 0.25 0 1</ambient><diffuse>1 0.25 0 1</diffuse><emissive>1 0.2 0 1</emissive></material>
+          <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
+            <temperature>520</temperature>
+          </plugin>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Survivors -->
+    <include>
+      <name>S1</name>
+      <pose degrees="true">-10 47 0 0 0 30</pose>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue Randy</uri>
+    </include>
+    <include>
+      <name>S2</name>
+      <pose degrees="true">8 33 0 0 0 200</pose>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue Randy Sitting</uri>
+    </include>
+    <include>
+      <name>S3</name>
+      <pose degrees="true">-18 15 0 0 0 90</pose>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Standing person</uri>
+    </include>
+    <include>
+      <name>S4</name>
+      <pose degrees="true">14 42 0 0 0 -60</pose>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Walking person</uri>
+    </include>
+    <include>
+      <name>S5</name>
+      <pose degrees="true">20 24 0 0 0 120</pose>
+      <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue Randy Sitting</uri>
+    </include>
+
+    <include>
+      <uri>model://aerosense_drone</uri>
+      <pose degrees="true">0 0 0.195 0 0 90</pose>
+    </include>
+  </world>
+</sdf>
