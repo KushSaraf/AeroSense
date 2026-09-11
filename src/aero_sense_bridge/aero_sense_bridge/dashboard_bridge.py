@@ -6,6 +6,7 @@
   GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts
   WS   /ws             the same state pushed as it changes
   GET  /api/simulation           whether a simulation is running
+  POST /api/simulation/view/gazebo | rviz   open a window onto the running simulation
   POST /api/simulation/start     start one (Gazebo, drone, autopilot, perception)
   POST /api/simulation/stop      stop everything
 
@@ -67,6 +68,9 @@ class DashboardBridge(Node):
         self._events = deque(maxlen=200)
         self._telemetry = deque(maxlen=TELEMETRY_SAMPLES)
         self._frames = {}
+        self._raw_detections = deque(maxlen=60)
+        self._frame_counts = {"rgb": 0, "thermal": 0}
+        self._history = {}
         self._armed_since = None
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
@@ -94,10 +98,16 @@ class DashboardBridge(Node):
                                   for name in ("pause", "resume", "abort", "return_to_base")}
         for name in ("rgb", "thermal"):
             self.create_subscription(Image, f"aero_sense/camera/{name}/image_raw",
-                                     lambda msg, which=name: self._frames.__setitem__(which, msg), 1)
+                                     lambda msg, which=name: self._on_frame(which, msg), 1)
+        self.create_subscription(VictimArray, "aero_sense/perception/detections",
+                                 lambda m: self._raw_detections.append((time.time(), len(m.victims))), 5)
         self.create_timer(TELEMETRY_PERIOD_S, self._sample_telemetry)
 
     # -- state ------------------------------------------------------------------
+
+    def _on_frame(self, which: str, msg: Image):
+        self._frames[which] = msg
+        self._frame_counts[which] += 1
 
     def _on_status(self, msg: DroneStatus):
         if msg.armed and self._armed_since is None:
@@ -127,7 +137,46 @@ class DashboardBridge(Node):
         return [contracts.victim_json(v, self._victims.header.stamp) for v in self._victims.victims]
 
     def mission(self):
-        return contracts.mission_json(self._mission_state, list(self._events))
+        mission = contracts.mission_json(self._mission_state, list(self._events))
+        if mission and mission["status"] == "COMPLETED":
+            # keep finished missions so their report survives the next takeoff
+            self._history[mission["id"]] = {"mission": mission, "victims": self.victims(),
+                                            "drone": self.drone(), "events": list(self._events)}
+        return mission
+
+    def alerts(self) -> list:
+        return contracts.alerts_json(self.victims(), list(self._events))
+
+    def perception(self) -> dict:
+        """What the detector is actually doing, measured rather than described."""
+        window = [count for stamp, count in self._raw_detections if time.time() - stamp < 10.0]
+        thermal = self._frames.get("thermal")
+        return {
+            "detector": "LWIR hot-blob detection",
+            "tracker": "nearest-neighbour, corroborated over repeated looks",
+            "thermalResolution": f"{thermal.width}x{thermal.height}" if thermal else None,
+            "framesProcessed": self._frame_counts["thermal"],
+            "rawDetectionsPerFrame": round(sum(window) / len(window), 2) if window else 0.0,
+            "confirmedVictims": len(self.victims()),
+            "cameras": {name: count for name, count in self._frame_counts.items()},
+        }
+
+    def reports(self) -> list:
+        return [{"id": record["mission"]["id"], "name": record["mission"]["name"],
+                 "status": record["mission"]["status"], "coverage": record["mission"]["coverage"],
+                 "victims": len(record["victims"])} for record in self._history.values()]
+
+    def report(self, mission_id: str):
+        record = self._history.get(mission_id)
+        if record is None:
+            live = self.mission()
+            if live and live["id"] == mission_id:
+                record = {"mission": live, "victims": self.victims(), "drone": self.drone(),
+                          "events": list(self._events)}
+        if record is None:
+            return None
+        return contracts.report_json(record["mission"], record["victims"], record["drone"],
+                                     record["events"])
 
     def call_mission(self, command: str, scenario: str = "earthquake") -> dict:
         """Start or steer the mission. Reports what the state machine answered, including its
@@ -226,6 +275,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
     def simulation_stop():
         return supervisor.stop()
 
+    @app.post("/api/simulation/view/{kind}")
+    def open_view(kind: str):
+        """Open Gazebo or RViz onto the simulation that is already running."""
+        return supervisor.open_viewer(kind)
+
     @app.post("/api/mission/start")
     def mission_start(options: dict | None = None):
         return bridge.call_mission("start", (options or {}).get("scenario", "earthquake"))
@@ -262,13 +316,39 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
         return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame")
 
+    @app.get("/api/world")
+    def world():
+        """Where the simulated sectors are on Earth, so a map can place them.
+
+        The origin is the world's own <spherical_coordinates>, which is also SITL's home, so a
+        position in metres and a GPS fix describe the same point."""
+        return contracts.world_json(SCENARIO_AREAS)
+
     @app.get("/api/hazards")
     def hazards():
         return []
 
     @app.get("/api/alerts")
     def alerts():
-        return []
+        return bridge.alerts()
+
+    @app.get("/api/perception")
+    def perception():
+        return bridge.perception()
+
+    @app.get("/api/reports")
+    def reports():
+        """Missions that can be reported on: the one flying, and the ones already flown."""
+        live = bridge.mission()
+        finished = bridge.reports()
+        if live and live["id"] not in {entry["id"] for entry in finished}:
+            finished.append({"id": live["id"], "name": live["name"], "status": live["status"],
+                             "coverage": live["coverage"], "victims": live["victimsFound"]})
+        return finished
+
+    @app.get("/api/reports/{mission_id}")
+    def report(mission_id: str):
+        return bridge.report(mission_id) or {"error": f"no mission {mission_id}"}
 
     @app.websocket("/ws")
     async def stream(socket: WebSocket):

@@ -1,10 +1,18 @@
 """The dashboard's JSON must carry real values, and say "unknown" where the system does not know."""
+import pytest
 from builtin_interfaces.msg import Time
 from geometry_msgs.msg import Point, PoseStamped, TwistStamped
 from sensor_msgs.msg import BatteryState
 
 from aero_sense_bridge import contracts
 from aero_sense_interfaces.msg import DroneStatus, VictimDetection
+
+
+class _Area:
+    """A sector's bounds, matching what the mission manager hands the contracts."""
+
+    def __init__(self, min_x, min_y, max_x, max_y):
+        self.min_x, self.min_y, self.max_x, self.max_y = min_x, min_y, max_x, max_y
 
 
 def victim(confidence=0.99, evidence="THERMAL 308.4 K", priority=""):
@@ -135,3 +143,84 @@ def test_a_running_scenario_shows_its_live_mission_not_ready():
     assert running["id"] == "earthquake" and running["missionId"] == live["id"]
     assert running["victimsFound"] == 6
     assert idle["status"] == "READY" and idle["coverage"] == 0.0
+
+
+def test_a_viewer_opens_only_onto_a_running_simulation(monkeypatch):
+    """Gazebo's GUI attaches to a server; opening one with nothing running just shows an empty
+    window, and starting a second server would corrupt the mission underway."""
+    from aero_sense_bridge import supervisor
+    monkeypatch.setattr(supervisor, "simulation_processes", lambda: [])
+    assert supervisor.open_viewer("gazebo") == {"opened": False, "reason": "no simulation is running"}
+    monkeypatch.setattr(supervisor, "simulation_processes", lambda: [42])
+    monkeypatch.setattr(supervisor, "viewer_running", lambda kind: True)
+    assert supervisor.open_viewer("rviz")["reason"] == "rviz is already open"
+    assert supervisor.open_viewer("hologram")["opened"] is False
+
+
+def victim_payload(**overrides):
+    base = contracts.victim_json(victim(), Time(sec=1700000000))
+    return {**base, **overrides}
+
+
+def test_alerts_come_from_real_detections_and_events():
+    """No alert engine invents these: a casualty alert exists because one was confirmed."""
+    alerts = contracts.alerts_json(
+        [victim_payload(priority="P1")],
+        [{"time": "09:20:01", "text": "RETURNING: battery 24%"}])
+    casualty, system = alerts[0], alerts[1]
+    assert casualty["type"] == "SURVIVOR" and casualty["severity"] == "CRITICAL"
+    assert casualty["rationale"] == "THERMAL 308.4 K" and casualty["id"] == "A-V-001"
+    assert system["type"] == "SYSTEM" and system["severity"] == "HIGH"
+    assert "battery" in system["rationale"]
+
+
+def test_an_idle_system_raises_no_alerts():
+    assert contracts.alerts_json([], []) == []
+
+
+def test_a_report_counts_what_it_prints():
+    mission = contracts.mission_json(mission_status("MISSION_COMPLETE"), [])
+    report = contracts.report_json(mission, [victim_payload(priority="P1"),
+                                             victim_payload(priority="P3", confidence=0.6)],
+                                   drone={}, events=[])
+    assert report["summary"]["victimsDetected"] == 2
+    assert report["summary"]["byPriority"]["P1"] == 1
+    assert report["victims"][0]["confidence"] >= report["victims"][1]["confidence"]
+    assert report["reportId"].endswith(mission["id"])
+
+
+def test_recommendations_follow_from_the_findings():
+    mission = contracts.mission_json(mission_status("MISSION_COMPLETE"), [])
+    mission["coverage"] = 61.0
+    advice = " ".join(contracts.report_json(mission, [victim_payload(priority="P1", confidence=0.6)],
+                                           {}, [])["recommendations"])
+    assert "1 critical" in advice and "uncertain" in advice and "never" in advice
+    quiet = contracts.report_json(mission, [], {}, [])["recommendations"]
+    assert any("No casualties" in line for line in quiet)
+
+
+def test_world_json_places_each_sector_on_the_earth_around_the_world_origin():
+    """The map draws sectors from these corners, so they must bracket the origin correctly."""
+    world = contracts.world_json({"earthquake": _Area(-180.0, 10.0, -20.0, 92.0)})
+
+    origin = world["origin"]
+    sector = world["sectors"][0]
+    latitudes = [corner["latitude"] for corner in sector["corners"]]
+    longitudes = [corner["longitude"] for corner in sector["corners"]]
+
+    # the sector lies north-west of the origin: all x negative, all y positive
+    assert min(longitudes) < origin["longitude"] and max(longitudes) < origin["longitude"]
+    assert min(latitudes) > origin["latitude"]
+    # 82 m of northing is 82 / 111320 degrees; the corners must span exactly that
+    assert (max(latitudes) - min(latitudes)) == pytest.approx(82.0 / 111320.0, rel=1e-9)
+    assert sector["centre"]["latitude"] == pytest.approx((max(latitudes) + min(latitudes)) / 2)
+
+
+def test_world_json_reports_the_sector_bounds_it_converted():
+    """A converted corner and the metric bound must describe the same sector, or the plan view
+    and the map disagree about where the search area is."""
+    area = _Area(20.0, 20.0, 180.0, 80.0)
+    sector = contracts.world_json({"flood": area})["sectors"][0]
+
+    assert sector["bounds"] == {"minX": 20.0, "minY": 20.0, "maxX": 180.0, "maxY": 80.0}
+    assert len(sector["corners"]) == 4

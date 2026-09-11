@@ -62,6 +62,46 @@ def start(quality: str = "low", gui: bool = True, rviz: bool = False,
     return {"started": True, "log": str(log_path), **status()}
 
 
+#: Windows an operator can open onto a running simulation, and how to tell one is already up.
+VIEWERS = {
+    "gazebo": {"command": "gz sim -g -v2", "match": "gz sim -g"},
+    "rviz": {"command": "rviz2 -d $(ros2 pkg prefix aero_sense_visualization)"
+                        "/share/aero_sense_visualization/config/aero_sense.rviz",
+             "match": "rviz2"},
+}
+
+
+def viewer_running(kind: str) -> bool:
+    match = VIEWERS[kind]["match"]
+    for _pid, argv in stop_sim.running_processes():
+        line = " ".join(argv)
+        if line.startswith(match) or f"/{match}" in line.split(" ")[0]:
+            return True
+    return False
+
+
+def open_viewer(kind: str) -> dict:
+    """Open Gazebo or RViz onto the running simulation.
+
+    Both attach to what is already running rather than starting their own: a second Gazebo
+    server would publish the same topics and corrupt the mission underway.
+    """
+    if kind not in VIEWERS:
+        return {"opened": False, "reason": f"unknown view {kind!r}"}
+    if not simulation_processes():
+        return {"opened": False, "reason": "no simulation is running"}
+    if viewer_running(kind):
+        return {"opened": False, "reason": f"{kind} is already open"}
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    log_path = LOG_DIR / f"{kind}-{time.strftime('%Y%m%d-%H%M%S')}.log"
+    command = (f"source {ROS_SETUP} && source {UAV_SETUP} && "
+               f"source {WORKSPACE}/install/setup.bash && {VIEWERS[kind]['command']}")
+    with log_path.open("w") as log:
+        subprocess.Popen(["bash", "-lc", command], stdout=log, stderr=subprocess.STDOUT,
+                         start_new_session=True, cwd=str(WORKSPACE))
+    return {"opened": True, "view": kind, "log": str(log_path)}
+
+
 def stop() -> dict:
     """Stop everything, including the parts that outlive a terminal's Ctrl-C."""
     ours = stop_sim.own_process_tree()

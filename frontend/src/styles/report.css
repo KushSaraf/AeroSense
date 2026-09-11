@@ -1,0 +1,69 @@
+/* The printed mission report: A4, black on white, readable when photocopied.
+   Screen shows the same document scaled into the dark dashboard, so what an operator previews
+   is exactly what comes out of the printer. */
+.report-page {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 16mm 15mm;
+  margin: 0 auto;
+  background: #ffffff;
+  color: #14181f;
+  font-family: "Rajdhani", system-ui, sans-serif;
+  font-size: 10pt;
+  line-height: 1.45;
+  box-sizing: border-box;
+}
+
+.report-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-bottom: 2px solid #14181f;
+  padding-bottom: 6mm;
+  margin-bottom: 6mm;
+}
+
+.report-brand { font-family: "Oxanium", system-ui, sans-serif; font-size: 20pt; font-weight: 700; letter-spacing: 0.18em; }
+.report-subtitle { font-size: 9pt; letter-spacing: 0.08em; text-transform: uppercase; color: #4a5464; }
+.report-meta { text-align: right; font-size: 9pt; color: #4a5464; }
+
+.report-section { margin-bottom: 5mm; break-inside: avoid; }
+.report-section h2 {
+  font-size: 10pt;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border-bottom: 1px solid #c3cad6;
+  padding-bottom: 1.5mm;
+  margin: 0 0 2.5mm;
+}
+.report-section p { margin: 0 0 2mm; }
+
+.report-fields { width: 100%; border-collapse: collapse; }
+.report-fields th {
+  width: 52mm; text-align: left; font-weight: 600; color: #4a5464;
+  padding: 1mm 0; vertical-align: top;
+}
+.report-fields td { padding: 1mm 0; }
+
+.report-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+.report-table th {
+  text-align: left; background: #eef1f6; border: 1px solid #c3cad6;
+  padding: 1.2mm 2mm; font-weight: 600;
+}
+.report-table td { border: 1px solid #d7dde6; padding: 1.2mm 2mm; vertical-align: top; }
+
+.report-list { margin: 0; padding-left: 5mm; }
+.report-list li { margin-bottom: 1.2mm; }
+.report-note { color: #4a5464; font-style: italic; }
+
+.report-footer {
+  margin-top: 8mm; padding-top: 3mm; border-top: 1px solid #c3cad6;
+  font-size: 8pt; color: #6b7585; text-align: center;
+}
+
+@media print {
+  @page { size: A4; margin: 0; }
+  body * { visibility: hidden; }
+  .report-page, .report-page * { visibility: visible; }
+  .report-page { position: absolute; inset: 0; margin: 0; box-shadow: none; }
+}

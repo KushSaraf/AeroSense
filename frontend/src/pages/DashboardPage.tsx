@@ -1,8 +1,8 @@
-import { AlertTriangle, MapPinned, Radio, Thermometer, Video } from 'lucide-react'
+import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, Thermometer, Video } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
 import StatusPill from '../components/StatusPill'
-import { API_URL } from '../services/apiServices'
+import { API_URL, simulationControl } from '../services/apiServices'
 import { useMission } from '../hooks/useMission'
 import type { Victim } from '../types'
 import 'leaflet/dist/leaflet.css'
@@ -21,6 +21,44 @@ const MISSION_STAGES = [
 ]
 const PRIORITY_TONE: Record<string, string> = {
   P1: '#ef5350', P2: '#ff9f43', P3: '#43d17b', UNTRIAGED: '#8ae0ff',
+}
+
+/**
+ * Opens the simulation's own windows. They belong here because an operator watching the mission
+ * is the person who wants to look at the physics or the point cloud, and both windows attach to
+ * the simulation already running rather than starting a second one.
+ */
+function ViewerButtons() {
+  const [busy, setBusy] = useState<string | null>(null)
+  const [failed, setFailed] = useState<string | null>(null)
+
+  const open = async (kind: 'gazebo' | 'rviz') => {
+    setBusy(kind)
+    setFailed(null)
+    try {
+      const result = await simulationControl.openViewer(kind)
+      if (!result.opened) setFailed(result.reason ?? `could not open ${kind}`)
+    } catch {
+      setFailed('the dashboard bridge is not reachable')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <div className="flex gap-2">
+        {([['gazebo', 'GAZEBO', Boxes], ['rviz', 'RVIZ', Layers3]] as const).map(([kind, label, Icon]) => (
+          <button key={kind} type="button" onClick={() => void open(kind)} disabled={busy !== null}
+                  title={`Open ${label} on the running simulation`}
+                  className="flex items-center gap-2 rounded border border-white/25 bg-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition hover:bg-white/20 disabled:opacity-50">
+            <Icon size={14} /> {busy === kind ? 'OPENING…' : label}
+          </button>
+        ))}
+      </div>
+      {failed && <span className="text-[9px] uppercase tracking-[0.12em] text-amber-300">{failed}</span>}
+    </div>
+  )
 }
 
 function Panel({ title, icon, children, action }: {
@@ -128,11 +166,14 @@ function DashboardPage() {
                 : 'Start a sector from Mission Command to fly one'}
             </div>
           </div>
-          <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
+          <div className="flex items-center gap-4">
+            <ViewerButtons />
+            <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
             <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
               ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
             </span><br />
             {mission?.elapsed ? `ELAPSED ${mission.elapsed}` : 'ONE DRONE | MANY LIVES'}
+            </div>
           </div>
         </header>
 

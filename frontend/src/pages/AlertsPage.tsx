@@ -1,57 +1,65 @@
-const alerts = [
-  { id: 'A-01', time: '04:12:18', type: 'P1', location: '28.6139, 77.2208', confidence: '96%', evidence: 'Thermal spike', rationale: 'Strong thermal signature near active fire. No clear egress route.', status: 'OPEN' },
-  { id: 'A-02', time: '04:11:42', type: 'P2', location: '28.6168, 77.2244', confidence: '89%', evidence: 'Movement in debris', rationale: 'Possible survivor behind collapsed wall. Route assessment in progress.', status: 'ACKNOWLEDGED' },
-  { id: 'A-03', time: '04:09:54', type: 'P3', location: '28.6105, 77.2162', confidence: '81%', evidence: 'Signal intermittently visible', rationale: 'Accessible via north corridor. Recommended for clearance.', status: 'ASSIGNED' },
-]
+import { AlertTriangle, BellRing, UserRound } from 'lucide-react'
+import { useState } from 'react'
+import { useApi } from '../hooks/useApi'
+import type { AlertItem } from '../types'
+
+const SEVERITY_TONE: Record<string, string> = {
+  CRITICAL: 'border-[#ef5350]/40 bg-[#ef5350]/10 text-[#ffb4b4]',
+  HIGH: 'border-[#ff9f43]/40 bg-[#ff9f43]/10 text-[#ffd7a8]',
+  MODERATE: 'border-[#8ae0ff]/40 bg-[#8ae0ff]/10 text-[#bfeaff]',
+}
 
 function AlertsPage() {
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-[12px] uppercase tracking-[0.28em] text-text/60">Alert center</div>
-          <h1 className="mt-2 text-[32px] uppercase tracking-[0.14em] text-text">ALERTS</h1>
-        </div>
-        <div className="flex gap-2 text-[10px] uppercase tracking-[0.18em] text-text/70">
-          <button className="rounded border border-white/10 bg-white/5 px-3 py-2">All</button>
-          <button className="rounded border border-white/10 bg-white/5 px-3 py-2">P1</button>
-          <button className="rounded border border-white/10 bg-white/5 px-3 py-2">P2</button>
-        </div>
-      </div>
+  const { data, error } = useApi<AlertItem[]>('/api/alerts', 2000)
+  const [filter, setFilter] = useState<'ALL' | 'SURVIVOR' | 'SYSTEM'>('ALL')
+  const alerts = (data ?? []).filter((alert) => filter === 'ALL' || alert.type === filter)
 
-      <div className="grid gap-4">
+  return (
+    <div className="min-h-full space-y-4 p-4 md:p-6">
+      <header className="flex items-end justify-between">
+        <div>
+          <div className="aero-micro text-[10px] tracking-[0.28em] text-white/50">Alert center</div>
+          <h1 className="aero-heading mt-1 text-[38px] uppercase leading-none text-white">ALERTS</h1>
+          <p className="mt-2 max-w-[640px] text-[10px] uppercase tracking-[0.12em] text-white/45">
+            Raised by the mission itself: a casualty alert exists because perception confirmed one.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {(['ALL', 'SURVIVOR', 'SYSTEM'] as const).map((option) => (
+            <button key={option} type="button" onClick={() => setFilter(option)}
+                    className={`rounded border px-3 py-2 text-[10px] uppercase tracking-[0.16em] transition ${
+                      filter === option ? 'border-[#8ae0ff]/50 bg-[#8ae0ff]/15 text-white' : 'border-white/15 text-white/60 hover:bg-white/10'}`}>
+              {option}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {error && <div className="rounded border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-[11px] tracking-[0.1em] text-amber-200">{error}</div>}
+
+      <div className="space-y-3">
         {alerts.map((alert) => (
-          <div key={alert.id} className="panel p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="rounded border border-white/10 bg-white/5 px-2 py-1 text-[10px] uppercase tracking-[0.18em] text-text">{alert.type}</span>
-                <span className="text-[11px] uppercase tracking-[0.18em] text-text/70">{alert.id}</span>
-              </div>
-              <div className="text-[10px] uppercase tracking-[0.18em] text-text/60">{alert.time}</div>
+          <article key={alert.id} className={`rounded-xl border p-4 ${SEVERITY_TONE[alert.severity] ?? 'border-white/15 bg-white/5 text-white/80'}`}>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="flex h-8 w-8 items-center justify-center rounded bg-black/25">
+                {alert.type === 'SURVIVOR' ? <UserRound size={17} /> : <AlertTriangle size={17} />}
+              </span>
+              <strong className="text-[13px] uppercase tracking-[0.12em] text-white">{alert.title}</strong>
+              <span className="rounded bg-black/25 px-2 py-1 text-[10px] tracking-[0.14em]">{alert.priority}</span>
+              <span className="ml-auto text-[10px] tracking-[0.14em] text-white/55">{alert.timestamp}</span>
             </div>
-            <div className="mt-3 grid gap-4 md:grid-cols-[1.4fr_1fr_1fr]">
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-text/70">Location</div>
-                <div className="mt-1 text-[13px] text-text">{alert.location}</div>
-                <div className="mt-3 text-[10px] leading-5 text-text/75">{alert.rationale}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-text/70">Confidence</div>
-                <div className="mt-1 text-[13px] text-text">{alert.confidence}</div>
-                <div className="mt-3 text-[11px] uppercase tracking-[0.16em] text-text/70">Evidence</div>
-                <div className="mt-1 text-text">{alert.evidence}</div>
-              </div>
-              <div>
-                <div className="text-[11px] uppercase tracking-[0.18em] text-text/70">Status</div>
-                <div className="mt-1 text-[12px] text-text">{alert.status}</div>
-                <div className="mt-3 flex gap-2 text-[9px] uppercase tracking-[0.14em] text-text/70">
-                  <button className="rounded border border-white/10 bg-white/5 px-2 py-1">Acknowledge</button>
-                  <button className="rounded border border-white/10 bg-white/5 px-2 py-1">View map</button>
-                </div>
-              </div>
+            <div className="mt-3 grid gap-3 text-[10px] uppercase tracking-[0.12em] text-white/60 md:grid-cols-3">
+              <div><div className="text-white/40">Location</div><div className="mt-1 text-white/85">{alert.location || '—'}</div></div>
+              <div><div className="text-white/40">Confidence</div><div className="mt-1 text-white/85">{(alert.confidence * 100).toFixed(0)}%</div></div>
+              <div><div className="text-white/40">Evidence</div><div className="mt-1 normal-case tracking-normal text-white/85">{alert.rationale}</div></div>
             </div>
-          </div>
+          </article>
         ))}
+        {alerts.length === 0 && !error && (
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-8 text-[11px] uppercase tracking-[0.14em] text-white/45">
+            <BellRing size={18} /> No alerts: nothing has been detected in this mission yet.
+          </div>
+        )}
       </div>
     </div>
   )

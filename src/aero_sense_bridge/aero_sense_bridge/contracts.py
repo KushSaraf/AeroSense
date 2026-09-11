@@ -7,6 +7,7 @@ one that admits them.
 """
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 
 #: Thermal peak above ambient that reads as a strong signature (K). Body heat is ~15 K above the
 #: 293 K background, and the detector's floor is ~11 K above it.
@@ -175,3 +176,146 @@ def scenario_catalogue(areas: dict, live_mission: dict | None) -> list:
             entry["missionId"] = live_mission["id"]
         catalogue.append(entry)
     return catalogue
+
+
+#: Mission events that matter to an operator, and how each reads as an alert.
+SYSTEM_EVENT_MARKERS = (
+    ("EMERGENCY", "CRITICAL", "Mission emergency"),
+    ("battery", "HIGH", "Battery return"),
+    ("GPS", "HIGH", "GPS degraded"),
+    ("RETURNING", "MODERATE", "Returning to base"),
+    ("MISSION_COMPLETE", "MODERATE", "Mission complete"),
+)
+
+
+#: One degree of latitude in metres, and the world file whose origin anchors the map frame.
+METRES_PER_DEGREE_LAT = 111320.0
+WORLD_FILE = "aero_sense_disaster"
+
+
+def world_json(areas: dict) -> dict:
+    """The world origin and every sector's bounds, in metres and in degrees.
+
+    The dashboard's map needs both: the simulation reasons in metres from the origin, an operator
+    reads latitude and longitude. Converting here keeps one definition of where the sector is.
+    """
+    from ament_index_python.packages import get_package_share_directory
+    from aero_sense_bringup import worlds
+
+    world = Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / f"{WORLD_FILE}.sdf"
+    latitude, longitude, elevation = worlds.origin(world)
+    metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(latitude))
+
+    def to_latlon(x: float, y: float) -> dict:
+        # the map frame is ENU on the world origin: +x east, +y north
+        return {"latitude": latitude + y / METRES_PER_DEGREE_LAT,
+                "longitude": longitude + x / metres_per_degree_lon}
+
+    return {
+        "world": WORLD_FILE,
+        "origin": {"latitude": latitude, "longitude": longitude, "elevation": elevation},
+        "metresPerDegree": {"latitude": METRES_PER_DEGREE_LAT, "longitude": metres_per_degree_lon},
+        "sectors": [{
+            "id": scenario,
+            "name": SCENARIO_NAMES.get(scenario, scenario.title()),
+            "bounds": {"minX": area.min_x, "minY": area.min_y,
+                       "maxX": area.max_x, "maxY": area.max_y},
+            "corners": [to_latlon(area.min_x, area.min_y), to_latlon(area.max_x, area.min_y),
+                        to_latlon(area.max_x, area.max_y), to_latlon(area.min_x, area.max_y)],
+            "centre": to_latlon((area.min_x + area.max_x) / 2, (area.min_y + area.max_y) / 2),
+        } for scenario, area in areas.items()],
+    }
+
+
+def alerts_json(victims: list, events: list) -> list:
+    """The alert feed, derived from what actually happened.
+
+    There is no separate alert engine inventing these: a casualty alert exists because perception
+    confirmed a casualty, and a system alert exists because the mission state machine said so.
+    """
+    alerts = []
+    for victim in victims:
+        priority = victim.get("priority", "UNTRIAGED")
+        alerts.append({
+            "id": f"A-{victim['id']}",
+            "priority": priority,
+            "severity": {"P1": "CRITICAL", "P2": "HIGH", "P3": "MODERATE"}.get(priority, "HIGH"),
+            "type": "SURVIVOR",
+            "title": f"Casualty {victim['id']} detected",
+            "location": victim.get("location", ""),
+            "latitude": victim.get("latitude"),
+            "longitude": victim.get("longitude"),
+            "timestamp": victim.get("timestamp", ""),
+            "confidence": victim.get("confidence", 0.0),
+            "rationale": victim.get("rationale", ""),
+            "status": "OPEN",
+        })
+    for index, event in enumerate(reversed(events)):
+        text = event.get("text", "")
+        for marker, severity, title in SYSTEM_EVENT_MARKERS:
+            if marker.lower() not in text.lower():
+                continue
+            alerts.append({
+                "id": f"A-SYS-{index}",
+                "priority": "SYSTEM",
+                "severity": severity,
+                "type": "SYSTEM",
+                "title": title,
+                "location": "",
+                "timestamp": event.get("time", ""),
+                "confidence": 1.0,
+                "rationale": text,
+                "status": "OPEN",
+            })
+            break
+    return alerts
+
+
+def report_json(mission: dict, victims: list, drone: dict, events: list) -> dict:
+    """Everything a mission report states, taken from the mission that was flown.
+
+    Counts are derived here rather than stored, so a report can never disagree with the casualty
+    list it prints.
+    """
+    by_priority = {"P1": 0, "P2": 0, "P3": 0, "UNTRIAGED": 0}
+    for victim in victims:
+        by_priority[victim.get("priority", "UNTRIAGED")] = \
+            by_priority.get(victim.get("priority", "UNTRIAGED"), 0) + 1
+    strongest = sorted(victims, key=lambda v: v.get("confidence", 0.0), reverse=True)
+    return {
+        "reportId": f"AS-{mission['id']}",
+        "generated": datetime.now(tz=timezone.utc).strftime("%d %b %Y, %H:%M UTC"),
+        "mission": mission,
+        "summary": {
+            "coveragePercent": mission.get("coverage", 0.0),
+            "victimsDetected": len(victims),
+            "byPriority": by_priority,
+            "durationSeconds": mission.get("elapsedSeconds", 0),
+            "duration": mission.get("elapsed", "00:00"),
+            "hazardsIdentified": 0,          # the hazard map is not built yet
+            "dronesUsed": 1,
+            "status": mission.get("status", ""),
+        },
+        "victims": strongest,
+        "events": events,
+        "drone": drone,
+        "recommendations": _recommendations(by_priority, victims, mission),
+    }
+
+
+def _recommendations(by_priority: dict, victims: list, mission: dict) -> list:
+    """Advice that follows from the findings, not a fixed list."""
+    advice = []
+    if by_priority.get("P1"):
+        advice.append(f"Prioritise rescue of {by_priority['P1']} critical (P1) casualties.")
+    if victims:
+        advice.append("Send ground teams to the confirmed coordinates listed below.")
+    unresolved = [v for v in victims if v.get("confidence", 1.0) < 0.9]
+    if unresolved:
+        advice.append(f"Re-inspect {len(unresolved)} uncertain detection(s) before standing down.")
+    if mission.get("coverage", 100.0) < 95.0:
+        advice.append(f"{100 - mission.get('coverage', 0):.0f}% of the sector was never "
+                      "photographed; fly the remaining strips before declaring it searched.")
+    if not victims:
+        advice.append("No casualties detected in the area searched.")
+    return advice

@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { isLiveAvailable } from '../services/apiServices'
-import type { DataSource } from '../services/serviceFactory'
+import type { DataSource } from './useMission'
 
-const POLL_MS = 15000
+const POLL_MS = 10000
 
 /**
  * Whether a simulation is serving data right now. Polled, so starting or stopping a simulation
@@ -10,13 +10,13 @@ const POLL_MS = 15000
  * numbers in front of them are live.
  */
 export const useDataSource = (): DataSource => {
-  const [source, setSource] = useState<DataSource>('mock')
+  const [source, setSource] = useState<DataSource>('offline')
 
   useEffect(() => {
     let cancelled = false
     const check = async () => {
       const live = await isLiveAvailable()
-      if (!cancelled) setSource(live ? 'live' : 'mock')
+      if (!cancelled) setSource(live ? 'live' : 'offline')
     }
     void check()
     const timer = setInterval(() => void check(), POLL_MS)

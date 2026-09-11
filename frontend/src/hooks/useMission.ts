@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { connectLiveState } from '../services/apiServices'
-import { mockService, resolveService } from '../services/serviceFactory'
+import { apiService, connectLiveState, isLiveAvailable } from '../services/apiServices'
 import type { AlertItem, Drone, Hazard, LiveMission, LiveState, TelemetryPoint, Victim } from '../types'
-import type { DataSource } from '../services/serviceFactory'
+
+/** Where the dashboard's numbers come from. There is no third option: it is live, or it is nothing. */
+export type DataSource = 'live' | 'offline'
 
 interface MissionData {
   mission: LiveMission | null
@@ -12,11 +13,10 @@ interface MissionData {
   telemetry: TelemetryPoint[]
   alerts: AlertItem[]
   loading: boolean
-  /** 'live' when a simulation is serving this data, 'mock' when it is the demonstration set. */
   source: DataSource
 }
 
-const empty = {
+const EMPTY = {
   mission: null as LiveMission | null,
   drone: null as Drone | null,
   victims: [] as Victim[],
@@ -24,67 +24,64 @@ const empty = {
   telemetry: [] as TelemetryPoint[],
   alerts: [] as AlertItem[],
 }
+const RETRY_MS = 5000
 
+/**
+ * One consistent frame of the running mission, pushed over the bridge's WebSocket.
+ *
+ * When no simulation is serving, this reports nothing and says so. It used to fall back to a
+ * demonstration dataset, which meant the dashboard could show casualties that were never
+ * detected — the one failure mode a search-and-rescue display must not have.
+ */
 export const useMission = (): MissionData => {
-  const [data, setData] = useState(empty)
-  const [source, setSource] = useState<DataSource>('mock')
+  const [data, setData] = useState(EMPTY)
+  const [source, setSource] = useState<DataSource>('offline')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
     let disconnect: () => void = () => undefined
+    let retry: ReturnType<typeof setTimeout> | undefined
 
-    const applyState = (state: LiveState) => {
+    const goOffline = () => {
       if (cancelled) return
-      setData({
-        mission: state.mission,
-        drone: state.drone,
-        victims: state.victims,
-        hazards: state.hazards,
-        telemetry: state.telemetry,
-        alerts: state.alerts,
-      })
+      setData(EMPTY)
+      setSource('offline')
+      setLoading(false)
+      retry = setTimeout(() => void connect(), RETRY_MS)
     }
 
-    const load = async () => {
-      const { service, source: resolved } = await resolveService()
+    const connect = async () => {
       if (cancelled) return
-      setSource(resolved)
-
-      const [mission, drone, victims, hazards, telemetry, alerts] = await Promise.all([
-        service.getMission(),
-        service.getDrone(),
-        service.getVictims(),
-        service.getHazards(),
-        service.getTelemetry(),
-        service.getAlerts(),
-      ])
-      if (cancelled) return
-      setData({ mission, drone, victims, hazards, telemetry, alerts })
-      setLoading(false)
-
-      if (resolved === 'live') {
-        // the socket keeps it current; if the simulation stops, fall back rather than freeze
-        disconnect = connectLiveState(applyState, () => {
-          if (!cancelled) setSource('mock')
-        })
+      if (!(await isLiveAvailable())) {
+        goOffline()
+        return
+      }
+      try {
+        const [mission, drone, victims, hazards, telemetry, alerts] = await Promise.all([
+          apiService.getMission(), apiService.getDrone(), apiService.getVictims(),
+          apiService.getHazards(), apiService.getTelemetry(), apiService.getAlerts(),
+        ])
+        if (cancelled) return
+        setData({ mission: mission as LiveMission, drone, victims, hazards, telemetry, alerts })
+        setSource('live')
+        setLoading(false)
+        disconnect = connectLiveState((state: LiveState) => {
+          if (cancelled) return
+          setData({
+            mission: state.mission, drone: state.drone, victims: state.victims,
+            hazards: state.hazards, telemetry: state.telemetry, alerts: state.alerts,
+          })
+        }, goOffline)
+      } catch {
+        goOffline()
       }
     }
 
-    void load().catch(async () => {
-      if (cancelled) return
-      const [mission, drone, victims, hazards, telemetry, alerts] = await Promise.all([
-        mockService.getMission(), mockService.getDrone(), mockService.getVictims(),
-        mockService.getHazards(), mockService.getTelemetry(), mockService.getAlerts(),
-      ])
-      if (cancelled) return
-      setData({ mission, drone, victims, hazards, telemetry, alerts })
-      setSource('mock')
-      setLoading(false)
-    })
-
+    void connect()
     return () => {
       cancelled = true
+      if (retry) clearTimeout(retry)
       disconnect()
     }
   }, [])

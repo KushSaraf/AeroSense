@@ -2,20 +2,17 @@ import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDataSource } from '../hooks/useDataSource'
 import {
+  Activity,
   Bell,
   Cpu,
-  Crosshair,
+  FileText,
   Gauge,
-  Grid2x2,
   Home,
   Map,
   Menu,
-  Radio,
   Radar,
   Search,
   Settings,
-  ShieldAlert,
-  Undo2,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -29,18 +26,14 @@ const commandNav = [
   { label: 'MISSION COMMAND', to: '/dashboard/missions', icon: Radar },
   { label: 'LIVE MAP', to: '/dashboard/map', icon: Map },
   { label: 'ALERT CENTER', to: '/dashboard/alerts', icon: Bell },
-  { label: 'REPORTS', to: '/dashboard/reports', icon: Grid2x2 },
+  { label: 'REPORTS', to: '/dashboard/reports', icon: FileText },
   { label: 'SYSTEM SETTINGS', to: '/dashboard/settings', icon: Settings },
 ]
 
 const missionNav = [
   { label: 'LIVE DASHBOARD', to: '/dashboard', icon: Gauge },
   { label: 'AI PERCEPTION', to: '/dashboard/ai', icon: Cpu },
-  { label: 'HAZARD INTEL', to: '/dashboard/hazards', icon: ShieldAlert },
-  { label: 'NAVIGATION', to: '/dashboard/navigation', icon: Crosshair },
-  { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Gauge },
-  { label: 'COMMS', to: '/dashboard/communication', icon: Radio },
-  { label: 'MISSION REPLAY', to: '/dashboard/replay', icon: Undo2 },
+  { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Activity },
 ]
 
 
@@ -50,18 +43,10 @@ const pageTitles: Record<string, string> = {
   '/dashboard': 'Mission Dashboard',
   '/dashboard/map': 'Live Map',
   '/dashboard/missions': 'Mission Command',
-  '/dashboard/missions/new': 'Create Mission',
-  '/dashboard/live-feed': 'Live Video',
-  '/dashboard/victims': 'Survivor Intelligence',
-  '/dashboard/hazards': 'Hazard Intelligence',
-  '/dashboard/safe-routes': 'Safe Routes',
   '/dashboard/alerts': 'Alert Center',
   '/dashboard/ai': 'AI Perception',
-  '/dashboard/navigation': 'Navigation',
-  '/dashboard/communication': 'Communications',
   '/dashboard/telemetry': 'Telemetry',
   '/dashboard/reports': 'Mission Reports',
-  '/dashboard/replay': 'Mission Replay',
   '/dashboard/settings': 'System Settings',
 }
 
@@ -173,14 +158,14 @@ function AppShell({ children }: { children: ReactNode }) {
             <span
               title={dataSource === 'live'
                 ? 'Live data from the running simulation'
-                : 'Demonstration data: no simulation is serving the dashboard bridge'}
+                : 'No simulation is serving the dashboard bridge, so nothing is shown'}
               className={`rounded px-2 py-1 text-[10px] tracking-[0.18em] ${
                 dataSource === 'live'
                   ? 'bg-emerald-500/20 text-emerald-300'
                   : 'bg-amber-500/20 text-amber-300'
               }`}
             >
-              {dataSource === 'live' ? 'LIVE' : 'DEMO DATA'}
+              {dataSource === 'live' ? 'LIVE' : 'NO SIMULATION'}
             </span>
             <time className="ml-1 border-l border-white/10 pl-4 font-mono text-[16px] tracking-[0.12em] text-text" dateTime={currentTime.toISOString()}>{formattedTime}</time>
           </div>
@@ -199,8 +184,16 @@ function AppShell({ children }: { children: ReactNode }) {
           {statusOpen && (
             <div className="absolute right-[115px] top-[66px] z-50 w-52 rounded-lg border border-white/15 bg-[#27334a] p-3 shadow-2xl">
               <div className="mb-3 text-[10px] uppercase tracking-[0.16em] text-white/50">System status</div>
-              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-white/80"><span>Mission link</span><span className="text-[#8ae0ff]">ONLINE</span></div>
-              <div className="mt-2 flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-white/80"><span>Drone AS-01</span><span className="text-[#86e2a4]">ACTIVE</span></div>
+              <div className="flex items-center justify-between text-[10px] uppercase tracking-[0.12em] text-white/80">
+                <span>Bridge</span>
+                <span className={dataSource === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
+                  {dataSource === 'live' ? 'ONLINE' : 'OFFLINE'}
+                </span>
+              </div>
+              <button type="button" onClick={() => { navigate('/dashboard/settings'); setStatusOpen(false) }}
+                      className="mt-2 w-full px-2 py-2 text-left text-[10px] uppercase tracking-[0.12em] text-white/70 transition hover:bg-white/10">
+                Open system settings
+              </button>
             </div>
           )}
         </header>
