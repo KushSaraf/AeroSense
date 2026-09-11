@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useDataSource } from '../hooks/useDataSource'
 import {
   Bell,
   Binary,
-  Compass,
   Cpu,
   Crosshair,
   Gauge,
@@ -17,28 +17,35 @@ import {
   Settings,
   ShieldAlert,
   Undo2,
-  UserRound,
-  Video,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
-const navItems = [
+/**
+ * Two levels, because they answer different questions. Command items are what an operator needs
+ * with or without a mission running; mission-session items only mean anything while one is in
+ * progress, and reading them as peers of "Reports" made the sidebar a list of thirteen equals.
+ */
+const commandNav = [
   { label: 'COMMAND HOME', to: '/', icon: Home },
-  { label: 'LIVE MAP', to: '/dashboard/map', icon: Map },
   { label: 'MISSION COMMAND', to: '/dashboard/missions', icon: Radar },
-  { label: 'DRONE FEED', to: '/dashboard/live-feed', icon: Video },
-  { label: 'SURVIVORS', to: '/dashboard/victims', icon: UserRound },
-  { label: 'HAZARD INTEL', to: '/dashboard/hazards', icon: ShieldAlert },
-  { label: 'SAFE ROUTES', to: '/dashboard/safe-routes', icon: Compass },
+  { label: 'LIVE MAP', to: '/dashboard/map', icon: Map },
   { label: 'ALERT CENTER', to: '/dashboard/alerts', icon: Bell },
-  { label: 'AI PERCEPTION', to: '/dashboard/ai', icon: Cpu },
-  { label: 'NAVIGATION', to: '/dashboard/navigation', icon: Crosshair },
-  { label: 'COMMS', to: '/dashboard/communication', icon: Radio },
-  { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Gauge },
   { label: 'REPORTS', to: '/dashboard/reports', icon: Grid2x2 },
-  { label: 'MISSION REPLAY', to: '/dashboard/replay', icon: Undo2 },
-  { label: 'SIMULATION LAB', to: '/dashboard/simulation', icon: Binary },
   { label: 'SYSTEM SETTINGS', to: '/dashboard/settings', icon: Settings },
+]
+
+const missionNav = [
+  { label: 'LIVE DASHBOARD', to: '/dashboard', icon: Gauge },
+  { label: 'AI PERCEPTION', to: '/dashboard/ai', icon: Cpu },
+  { label: 'HAZARD INTEL', to: '/dashboard/hazards', icon: ShieldAlert },
+  { label: 'NAVIGATION', to: '/dashboard/navigation', icon: Crosshair },
+  { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Gauge },
+  { label: 'COMMS', to: '/dashboard/communication', icon: Radio },
+  { label: 'MISSION REPLAY', to: '/dashboard/replay', icon: Undo2 },
+]
+
+const toolNav = [
+  { label: 'SIMULATION LAB', to: '/dashboard/simulation', icon: Binary },
 ]
 
 const pageTitles: Record<string, string> = {
@@ -68,6 +75,7 @@ function AppShell({ children }: { children: ReactNode }) {
   const [statusOpen, setStatusOpen] = useState(false)
   const [currentTime, setCurrentTime] = useState(new Date())
   const navigate = useNavigate()
+  const dataSource = useDataSource()
   const location = useLocation()
 
   useEffect(() => {
@@ -96,8 +104,8 @@ function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-2 p-2 pt-3">
-          {navItems.map(({ label, to, icon: Icon }) => (
+        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2 pt-3">
+          {commandNav.map(({ label, to, icon: Icon }) => (
             <NavLink
               key={label}
               to={to}
@@ -109,6 +117,47 @@ function AppShell({ children }: { children: ReactNode }) {
               ].join(' ')}
             >
               <Icon size={25} strokeWidth={1.8} />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
+          ))}
+
+          {!collapsed && (
+            <div className="mt-4 px-3 pb-1 text-[9px] tracking-[0.22em] text-text/45">
+              MISSION SESSION
+            </div>
+          )}
+          {missionNav.map(({ label, to, icon: Icon }) => (
+            <NavLink
+              key={label}
+              to={to}
+              title={label}
+              end={to === '/dashboard'}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 text-[11px] tracking-[0.14em] transition ${collapsed ? 'justify-center' : ''} ${
+                  isActive ? 'bg-white/15 text-white' : 'text-text/75 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Icon size={16} />
+              {!collapsed && <span>{label}</span>}
+            </NavLink>
+          ))}
+
+          {!collapsed && (
+            <div className="mt-4 px-3 pb-1 text-[9px] tracking-[0.22em] text-text/45">TOOLS</div>
+          )}
+          {toolNav.map(({ label, to, icon: Icon }) => (
+            <NavLink
+              key={label}
+              to={to}
+              title={label}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2 text-[11px] tracking-[0.14em] transition ${collapsed ? 'justify-center' : ''} ${
+                  isActive ? 'bg-white/15 text-white' : 'text-text/75 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <Icon size={16} />
               {!collapsed && <span>{label}</span>}
             </NavLink>
           ))}
@@ -143,6 +192,18 @@ function AppShell({ children }: { children: ReactNode }) {
             </button>
             <button type="button" onClick={() => setStatusOpen((value) => !value)} className="px-2 py-2 text-text/70 transition hover:text-white" aria-expanded={statusOpen}>STATUS</button>
             <button type="button" onClick={() => navigate('/dashboard/alerts')} className="px-2 py-2 text-text/70 transition hover:text-white">ALERT</button>
+            <span
+              title={dataSource === 'live'
+                ? 'Live data from the running simulation'
+                : 'Demonstration data: no simulation is serving the dashboard bridge'}
+              className={`rounded px-2 py-1 text-[10px] tracking-[0.18em] ${
+                dataSource === 'live'
+                  ? 'bg-emerald-500/20 text-emerald-300'
+                  : 'bg-amber-500/20 text-amber-300'
+              }`}
+            >
+              {dataSource === 'live' ? 'LIVE' : 'DEMO DATA'}
+            </span>
             <time className="ml-1 border-l border-white/10 pl-4 font-mono text-[16px] tracking-[0.12em] text-text" dateTime={currentTime.toISOString()}>{formattedTime}</time>
           </div>
 
@@ -166,7 +227,7 @@ function AppShell({ children }: { children: ReactNode }) {
           )}
         </header>
 
-        <main className="min-h-0 flex-1 overflow-hidden bg-[#202635]">{children}</main>
+        <main className="app-main min-h-0 flex-1 overflow-auto bg-[#202635]">{children}</main>
       </div>
     </div>
   )

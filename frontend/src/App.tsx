@@ -1,14 +1,11 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './layouts/AppShell'
 import HomePage from './pages/HomePage'
 import DashboardPage from './pages/DashboardPage'
 import MissionsPage from './pages/MissionsPage'
 import NewMissionPage from './pages/NewMissionPage'
 import MapPage from './pages/MapPage'
-import LiveFeedPage from './pages/LiveFeedPage'
-import VictimsPage from './pages/VictimsPage'
 import HazardsPage from './pages/HazardsPage'
-import SafeRoutesPage from './pages/SafeRoutesPage'
 import AlertsPage from './pages/AlertsPage'
 import AiPerceptionPage from './pages/AiPerceptionPage'
 import NavigationPage from './pages/NavigationPage'
@@ -26,13 +23,14 @@ function App() {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
+          <Route path="/dashboard/missions/:missionId" element={<DashboardPage />} />
           <Route path="/dashboard/map" element={<MapPage />} />
           <Route path="/dashboard/missions" element={<MissionsPage />} />
           <Route path="/dashboard/missions/new" element={<NewMissionPage />} />
-          <Route path="/dashboard/live-feed" element={<LiveFeedPage />} />
-          <Route path="/dashboard/victims" element={<VictimsPage />} />
+          <Route path="/dashboard/live-feed" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard/victims" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard/hazards" element={<HazardsPage />} />
-          <Route path="/dashboard/safe-routes" element={<SafeRoutesPage />} />
+          <Route path="/dashboard/safe-routes" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard/alerts" element={<AlertsPage />} />
           <Route path="/dashboard/ai" element={<AiPerceptionPage />} />
           <Route path="/dashboard/navigation" element={<NavigationPage />} />

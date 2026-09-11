@@ -205,11 +205,111 @@ p {
   background: rgba(18, 24, 35, 0.92);
 }
 
+.app-main {
+  position: relative;
+  padding: clamp(24px, 3vw, 44px);
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+    #202635;
+  background-size: 32px 32px;
+}
+
+.app-main > * {
+  width: min(100%, 1680px);
+  margin-inline: auto;
+}
+
+.app-main:has(.dashboard-page) {
+  padding: 12px;
+}
+
+.dashboard-page {
+  padding: 0;
+}
+
+.dashboard-page h1::after {
+  display: none;
+}
+
+@media (min-width: 1080px) {
+  .dashboard-page .dashboard-layout {
+    grid-template-columns: minmax(205px, 0.75fr) minmax(420px, 1.7fr) minmax(270px, 0.95fr);
+  }
+
+  .dashboard-page .dashboard-lower {
+    grid-template-columns: 1.1fr 1fr 0.9fr 1.15fr;
+  }
+}
+
+.app-main h1 {
+  position: relative;
+  width: fit-content;
+  color: #f6f3e8;
+  font-family: 'Oxanium', sans-serif;
+  font-size: clamp(28px, 3vw, 42px);
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-shadow: 0 2px 18px rgba(138, 224, 255, 0.08);
+}
+
+.app-main h1::after {
+  display: block;
+  width: 68%;
+  height: 3px;
+  margin-top: 13px;
+  content: '';
+  background: linear-gradient(90deg, #8ae0ff, rgba(138, 224, 255, 0));
+}
+
+.app-main h1 + * {
+  margin-top: 10px;
+}
+
 .panel {
-  background: rgba(85, 93, 114, 0.82);
-  border: 1px solid rgba(138, 145, 164, 0.7);
-  border-radius: 14px;
-  box-shadow: 0 0 0 1px rgba(138,145,164,0.18);
+  background: linear-gradient(145deg, rgba(74, 87, 111, 0.92), rgba(42, 53, 73, 0.94));
+  border: 1px solid rgba(177, 193, 218, 0.24);
+  border-radius: 16px;
+  box-shadow: 0 14px 34px rgba(8, 13, 24, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.app-main button:not([aria-label]),
+.app-main input,
+.app-main select,
+.app-main textarea {
+  border-color: rgba(177, 193, 218, 0.24);
+  transition: border-color 160ms ease, background-color 160ms ease, transform 160ms ease;
+}
+
+.app-main button:not([aria-label]):hover {
+  border-color: rgba(138, 224, 255, 0.55);
+  background-color: rgba(138, 224, 255, 0.12);
+}
+
+.app-main .panel > .mb-3,
+.app-main .panel > .mb-4,
+.app-main .panel > .mb-5 {
+  color: rgba(218, 228, 241, 0.62);
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.app-main .panel .bg-white\/5 {
+  background: rgba(16, 24, 39, 0.24);
+  border-color: rgba(177, 193, 218, 0.18);
+}
+
+@media (max-width: 700px) {
+  .app-main {
+    padding: 20px 16px 32px;
+  }
+
+  .app-main h1 {
+    font-size: 28px;
+  }
 }
 
 .grid-pattern {

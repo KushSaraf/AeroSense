@@ -1,6 +1,7 @@
 import { CalendarDays, Eye, Filter, Pencil, Plus, Settings2, Trash2, UserRound } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useSimulation } from '../hooks/useSimulation'
 
 const missionRows = [
   { name: 'Urban Search — Grid', status: 'ACTIVE', date: '10-09-25 , 12:40', owner: 'KU2025', type: 'Disaster Survey', tone: 'from-[#40604f] via-[#6b744b] to-[#273b38]', image: '/mission-tiles/satellite-center.jpg' },
@@ -15,6 +16,37 @@ const statusColors: Record<string, string> = {
   'ETA 12:45': 'bg-[#f2d72d] text-[#2c2910]',
   DONE: 'bg-[#b9c0c9] text-[#252d39]',
   COMPLETED: 'bg-[#b9c0c9] text-[#252d39]',
+}
+
+/**
+ * Turns a plan into a running mission: starts the simulation the dashboard then shows, and stops
+ * it again. Live data only exists while one is running.
+ */
+function SimulationControls() {
+  const { phase, status, error, start, stop } = useSimulation()
+  const busy = phase === 'starting' || phase === 'stopping'
+  const label = {
+    unknown: 'BRIDGE OFFLINE',
+    offline: 'START SIMULATION',
+    starting: 'STARTING...',
+    running: 'STOP SIMULATION',
+    stopping: 'STOPPING...',
+  }[phase]
+
+  return (
+    <div className="ml-auto flex items-center gap-3">
+      {error && <span className="max-w-[380px] truncate text-[10px] tracking-[0.1em] text-amber-300" title={error}>{error}</span>}
+      {status?.running && <span className="text-[10px] tracking-[0.14em] text-emerald-300">{status.processes} PROCESSES LIVE</span>}
+      <button
+        type="button"
+        disabled={busy || phase === 'unknown'}
+        onClick={() => (phase === 'running' ? void stop() : void start({ quality: 'low', gui: true }))}
+        className={`mission-filter ${phase === 'running' ? 'bg-[#e2707a] text-white' : 'bg-[#86e2a4] text-[#13251b]'} ${busy || phase === 'unknown' ? 'opacity-60' : ''}`}
+      >
+        {label}
+      </button>
+    </div>
+  )
 }
 
 function MissionsPage() {
@@ -62,7 +94,8 @@ function MissionsPage() {
             <button type="button" onClick={() => setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE')} className={`mission-filter ${statusFilter === 'ACTIVE' ? 'mission-filter-active' : ''}`}><Settings2 size={15} /> STATUS..</button>
             <button type="button" className="mission-filter"><UserRound size={15} /> OWNER..</button>
             <button type="button" className="mission-filter"><CalendarDays size={15} /> DATE..</button>
-            <button type="button" onClick={() => navigate('/dashboard/missions/new')} className="mission-filter ml-auto bg-[#69748c] text-white"><Plus size={16} /> NEW MISSION</button>
+            <SimulationControls />
+            <button type="button" onClick={() => navigate('/dashboard/missions/new')} className="mission-filter bg-[#69748c] text-white"><Plus size={16} /> NEW MISSION</button>
           </div>
 
           <div className="h-[calc(100%-52px)] overflow-auto rounded border border-white/20">
@@ -77,7 +110,7 @@ function MissionsPage() {
                     <td className="border-r border-t border-white/20 px-4"><span className="flex items-center gap-3 font-bold"><i className={`h-4 w-4 rounded-full ${statusColors[mission.status]}`} />{mission.status}</span></td>
                     <td className="border-r border-t border-white/20 px-4 font-bold tracking-[0.08em]">{mission.date}</td>
                     <td className="border-r border-t border-white/20 px-4"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/55 bg-white/15"><UserRound size={21} /></span><strong>{mission.owner}</strong></div></td>
-                    <td className="border-t border-white/20 px-3"><div className="flex gap-2"><button type="button" title="View mission" onClick={() => navigate('/dashboard')} className="mission-action"><Eye size={17} /></button><button type="button" title="Edit mission" onClick={() => navigate('/dashboard/missions/new')} className="mission-action"><Pencil size={17} /></button><button type="button" title="Delete mission" onClick={() => setRemovedMissions((current) => [...current, mission.name])} className="mission-action"><Trash2 size={17} /></button></div></td>
+                    <td className="border-t border-white/20 px-3"><div className="flex gap-2"><button type="button" title="View mission" onClick={() => navigate(`/dashboard/missions/${mission.name.toLowerCase().replaceAll(' ', '-')}`)} className="mission-action"><Eye size={17} /></button><button type="button" title="Edit mission" onClick={() => navigate('/dashboard/missions/new')} className="mission-action"><Pencil size={17} /></button><button type="button" title="Delete mission" onClick={() => setRemovedMissions((current) => [...current, mission.name])} className="mission-action"><Trash2 size={17} /></button></div></td>
                   </tr>
                 ))}
               </tbody>
