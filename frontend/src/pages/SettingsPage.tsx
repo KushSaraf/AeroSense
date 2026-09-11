@@ -1,4 +1,4 @@
-import { Play, RefreshCw, Square } from 'lucide-react'
+import { Play, RefreshCw, RotateCcw, Square } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { API_URL, simulationControl } from '../services/apiServices'
 import type { SimulationOptions, SimulationStatus } from '../services/apiServices'
@@ -56,10 +56,13 @@ function SettingsPage() {
     return () => clearInterval(timer)
   }, [refresh])
 
-  const act = async (what: 'start' | 'stop') => {
+  const act = async (what: 'start' | 'stop' | 'restart') => {
+    if (what === 'restart' && !window.confirm('Restart the simulation? The mission in progress will be stopped.')) return
     setBusy(true)
     try {
-      const result = what === 'start' ? await simulationControl.start(options) : await simulationControl.stop()
+      const result = what === 'start' ? await simulationControl.start(options)
+        : what === 'restart' ? await simulationControl.restart(options)
+          : await simulationControl.stop()
       if (result.reason) setMessage(result.reason)
       await refresh()
     } catch {
@@ -112,6 +115,10 @@ function SettingsPage() {
               <button type="button" disabled={busy || !status?.running} onClick={() => void act('stop')}
                       className="flex items-center gap-2 rounded border border-red-300/40 bg-red-400/15 px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-red-100 disabled:opacity-40">
                 <Square size={13} /> Stop
+              </button>
+              <button type="button" disabled={busy || !status?.running} onClick={() => void act('restart')}
+                      className="flex items-center gap-2 rounded border border-amber-300/40 bg-amber-400/15 px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-amber-100 disabled:opacity-40">
+                <RotateCcw size={13} /> Restart
               </button>
               <button type="button" onClick={() => void refresh()}
                       className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-4 py-2 text-[10px] uppercase tracking-[0.14em] text-text/75">

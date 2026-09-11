@@ -21,7 +21,7 @@ function TelemetryPage() {
   const { drone, telemetry, mission } = useMission()
 
   const readings: Array<[string, string]> = [
-    ['Battery', drone ? `${drone.battery.toFixed(0)}%` : 'unknown'],
+    ['Battery', drone?.battery != null ? `${drone.battery.toFixed(0)}%` : 'unknown'],
     ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : 'unknown'],
     ['Ground speed', drone ? `${drone.speed.toFixed(1)} m/s` : 'unknown'],
     ['Flight mode', drone?.mode ?? 'unknown'],

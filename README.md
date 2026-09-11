@@ -26,6 +26,22 @@ into the packages.
 
 ## Running the full system
 
+One command, in tmux. Each first destroys everything a previous run left behind (the tmux
+session, Gazebo, SITL, MAVProxy, the ROS nodes, RViz, the bridge on :8000, the frontend on
+:5173), so nothing stale holds a port or publishes old topics:
+
+```bash
+tools/dashboard.sh        # web dashboard: bridge + frontend + simulation, browser opens on it
+tools/demo.sh             # no dashboard: simulation + RViz, then a scored search
+tools/dashboard.sh --stop # stop everything (either script)
+tmux attach -t aerosense  # see the logs
+```
+
+From the dashboard, Mission Command starts the earthquake or flood sector, and the live
+dashboard's GAZEBO, RVIZ and RESTART SIM buttons act on the running simulation.
+
+By hand:
+
 ```bash
 source /opt/ros/humble/setup.bash && source ~/uav_ws/install/setup.bash
 cd ~/sih_2026 && colcon build --base-paths src && source install/setup.bash

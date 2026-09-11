@@ -22,6 +22,10 @@ class Track:
     peak_k: float
     first_seen_s: float
     last_seen_s: float
+    #: The clearest look at this casualty, which is the one triage should reason from: a body
+    #: glimpsed edge-on through rubble tells you less than the same body seen from overhead.
+    exposure: float = 1.0
+    surround_k: float = 0.0
 
 
 class Tracker:
@@ -50,16 +54,20 @@ class Tracker:
         return tuple(t for t in self.confirmed() if now_s - t.last_seen_s <= self._forget_after)
 
     def update(self, detections, now_s: float) -> tuple:
-        """`detections`: (position, confidence, peak_k) triples. Returns the confirmed tracks."""
-        for position, confidence, peak_k in detections:
+        """`detections`: (position, confidence, peak_k, exposure, surround_k) tuples.
+
+        Returns the confirmed tracks.
+        """
+        for position, confidence, peak_k, exposure, surround_k in detections:
             match = self._nearest(position)
             if match is None:
                 track_id = f"V-{self._next_id:03d}"
                 self._next_id += 1
                 self._tracks[track_id] = Track(track_id, tuple(position), 1, confidence, peak_k,
-                                               now_s, now_s)
+                                               now_s, now_s, exposure, surround_k)
             else:
-                self._tracks[match.track_id] = self._merge(match, position, confidence, peak_k, now_s)
+                self._tracks[match.track_id] = self._merge(match, position, confidence, peak_k,
+                                                           exposure, surround_k, now_s)
         return self.confirmed(now_s)
 
     def _nearest(self, position):
@@ -67,12 +75,16 @@ class Tracker:
         candidates = [(d, t) for d, t in candidates if d <= self._radius]
         return min(candidates, key=lambda c: c[0])[1] if candidates else None
 
-    def _merge(self, track: Track, position, confidence: float, peak_k: float, now_s: float) -> Track:
+    def _merge(self, track: Track, position, confidence: float, peak_k: float, exposure: float,
+               surround_k: float, now_s: float) -> Track:
         hits = track.hits + 1
         averaged = tuple((old * track.hits + new) / hits for old, new in zip(track.position, position))
         strongest = max(confidence, self._strength(track))
+        clearer = exposure > track.exposure
         return replace(track, position=averaged, hits=hits, peak_k=max(track.peak_k, peak_k),
-                       confidence=self._corroborated(strongest, hits), last_seen_s=now_s)
+                       confidence=self._corroborated(strongest, hits), last_seen_s=now_s,
+                       exposure=max(track.exposure, exposure),
+                       surround_k=surround_k if clearer else track.surround_k)
 
     @staticmethod
     def _corroborated(strength: float, hits: int) -> float:

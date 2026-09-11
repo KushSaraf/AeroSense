@@ -29,7 +29,8 @@ export interface MissionReport {
     name: string
     model: string
     flightTime: string
-    battery: number
+    /** Null while the autopilot had not measured it. */
+    battery: number | null
     gps: string
     link: string
   }
@@ -159,7 +160,7 @@ function MissionReportDocument({ report }: { report: MissionReport }) {
         <Fields rows={[
           ['Airframe', `${drone.name} (${drone.model})`],
           ['Flight time', drone.flightTime],
-          ['Battery at report', `${drone.battery.toFixed(0)}%`],
+          ['Battery at report', drone.battery != null ? `${drone.battery.toFixed(0)}%` : 'not measured'],
           ['GNSS', drone.gps],
           ['Downlink', drone.link],
         ]} />

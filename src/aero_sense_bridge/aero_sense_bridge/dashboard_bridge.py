@@ -9,6 +9,7 @@
   POST /api/simulation/view/gazebo | rviz   open a window onto the running simulation
   POST /api/simulation/start     start one (Gazebo, drone, autopilot, perception)
   POST /api/simulation/stop      stop everything
+  POST /api/simulation/restart   stop, then start a fresh one
 
 The bridge runs on its own rather than inside the simulation, so the dashboard can start a
 mission from a cold machine. It binds 127.0.0.1 by default: the control endpoints start
@@ -62,6 +63,7 @@ class DashboardBridge(Node):
         self.declare_parameter("host", "127.0.0.1")
         self.declare_parameter("port", DEFAULT_PORT)
         self._status = self._pose = self._velocity = self._battery = self._fix = None
+        self._status_at = None          # monotonic time of the last DroneStatus
         self._victims = self._hazards = None
         self._mission_state = None
         self._alerts = deque(maxlen=50)
@@ -115,6 +117,7 @@ class DashboardBridge(Node):
         elif not msg.armed:
             self._armed_since = None
         self._status = msg
+        self._status_at = time.monotonic()
 
     def _flight_seconds(self) -> float:
         return time.time() - self._armed_since if self._armed_since else 0.0
@@ -223,15 +226,15 @@ class DashboardBridge(Node):
 
     def state(self) -> dict:
         """Everything at once, so the dashboard can render a consistent frame."""
-        return {
-            "connected": self._status is not None,
+        return contracts.json_safe({
+            "connected": contracts.link_fresh(self._status_at, time.monotonic()),
             "drone": self.drone(),
             "mission": self.mission(),
             "victims": self.victims(),
             "hazards": [],            # the hazard map arrives with its phase
             "alerts": [],             # likewise the alert engine
             "telemetry": list(self._telemetry),
-        }
+        })
 
 
 def build_app(bridge: DashboardBridge) -> FastAPI:
@@ -253,7 +256,7 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
     @app.get("/api/telemetry")
     def telemetry():
-        return list(bridge._telemetry)
+        return contracts.json_safe(list(bridge._telemetry))
 
     @app.get("/api/mission")
     def mission():
@@ -274,6 +277,15 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
     @app.post("/api/simulation/stop")
     def simulation_stop():
         return supervisor.stop()
+
+    @app.post("/api/simulation/restart")
+    def simulation_restart(options: dict | None = None):
+        """Stop the running simulation and start a fresh one with the given options."""
+        options = options or {}
+        return supervisor.restart(quality=options.get("quality", "low"),
+                                  gui=bool(options.get("gui", True)),
+                                  rviz=bool(options.get("rviz", False)),
+                                  cruise_speed=float(options.get("cruiseSpeed", 8.0)))
 
     @app.post("/api/simulation/view/{kind}")
     def open_view(kind: str):

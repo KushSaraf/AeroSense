@@ -51,7 +51,9 @@ def victim_json(victim, stamp) -> dict:
         "hazardRisk": "unknown",                  # needs the hazard map
         "accessibility": "unknown",               # needs safe-route planning
         "status": "PENDING",
-        "rationale": victim.evidence or "thermal detection",
+        # triage's own reason when it ran; the raw evidence only for a casualty it has not scored
+        "rationale": victim.triage.rationale or victim.evidence or "thermal detection",
+        "evidence": victim.evidence,
         "location": f"{victim.latitude:.5f}, {victim.longitude:.5f}",
         "timestamp": _timestamp(stamp),
     }
@@ -63,8 +65,7 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None)
         speed = math.dist((0.0, 0.0, 0.0), (velocity.twist.linear.x, velocity.twist.linear.y,
                                             velocity.twist.linear.z))
     altitude = pose.pose.position.z if pose is not None else 0.0
-    percent = battery.percentage * 100 if battery is not None and battery.percentage <= 1.0 \
-        else (battery.percentage if battery is not None else 0.0)
+    percent = battery_percent(battery)
     flying = bool(status and status.armed)
     return {
         "id": getattr(status, "drone_id", "") or "AS-01",
@@ -73,7 +74,7 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None)
         "status": "ACTIVE" if flying else "STANDBY",
         "mode": getattr(status, "mode", "") or "UNKNOWN",
         "armed": flying,
-        "battery": round(percent, 1),
+        "battery": round(percent, 1) if percent is not None else None,
         "altitude": round(altitude, 2),
         "speed": round(speed, 2),
         "link": LINK_ONLINE,                      # the comms model lands in a later phase
@@ -84,15 +85,56 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None)
         "position": {"x": pose.pose.position.x, "y": pose.pose.position.y,
                      "z": pose.pose.position.z} if pose is not None else None,
         "flightTime": f"{int(flight_seconds // 60):02d}:{int(flight_seconds % 60):02d}",
-        "autonomy": f"{max(0.0, percent) * 0.25:.0f} min",   # ~25 min at full charge
+        "autonomy": f"{max(0.0, percent) * 0.25:.0f} min" if percent is not None else "unknown",
     }
+
+
+#: A drone whose status has not been heard for this long is not connected. DroneStatus comes
+#: several times a second, so this rides out a hiccup but not a simulation that has gone.
+STATUS_STALE_S = 3.0
+
+
+def link_fresh(last_heard_s, now_s: float, stale_s: float = STATUS_STALE_S) -> bool:
+    """Whether the drone is talking now, not whether it ever did.
+
+    "Any status ever received" stayed true after the simulation was stopped, so the dashboard's
+    restart reported the new simulation ready four seconds in, while it was still starting.
+    """
+    return last_heard_s is not None and now_s - last_heard_s <= stale_s
+
+
+def battery_percent(battery):
+    """State of charge in percent, or None while the autopilot has not measured it.
+
+    sensor_msgs/BatteryState marks an unmeasured field with NaN, and SITL publishes exactly that
+    while it boots. Passing it on put NaN into the telemetry history, which JSON cannot carry,
+    so the dashboard's state endpoint failed for two minutes after every start.
+    """
+    if battery is None or not math.isfinite(battery.percentage):
+        return None
+    return battery.percentage * 100 if battery.percentage <= 1.0 else battery.percentage
+
+
+def json_safe(value):
+    """`value` with every NaN or infinity replaced by None, recursively.
+
+    One bad float anywhere in the state fails the whole response, and the dashboard then reads a
+    running simulation as no simulation at all. Unknown is the honest rendering of NaN.
+    """
+    if isinstance(value, float):
+        return value if math.isfinite(value) else None
+    if isinstance(value, dict):
+        return {key: json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    return value
 
 
 def telemetry_point(stamp, battery_percent: float, altitude: float, speed: float,
                     satellites: int) -> dict:
     return {
         "time": _timestamp(stamp),
-        "battery": round(battery_percent, 1),
+        "battery": round(battery_percent, 1) if battery_percent is not None else None,
         "altitude": round(altitude, 2),
         "speed": round(speed, 2),
         "gps": satellites,

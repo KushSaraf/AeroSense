@@ -15,6 +15,7 @@ back to check.
 import math
 import threading
 import time
+from pathlib import Path
 
 import rclpy
 from geometry_msgs.msg import PoseStamped
@@ -26,10 +27,14 @@ from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import BatteryState
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
+from ament_index_python.packages import get_package_share_directory
 
 from aero_sense_interfaces.msg import DroneStatus, MissionStatus, VictimArray
 from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
+from aero_sense_perception import structure_map
+
+from . import airspace
 from .search_pattern import Area, CoverageGrid, footprint_centre, footprint_radius, lawnmower
 
 #: Sector bounds in the map frame, matching aero_sense_gazebo/worlds/aero_sense_disaster.sdf.
@@ -44,6 +49,12 @@ REACHED_M = 4.0
 HOME_RADIUS_M = 8.0
 RETURN_TIMEOUT_S = 300.0
 LANDED_ALTITUDE_M = 1.5
+#: States in which the drone must be armed and flying. Disarming in one of them is a crash.
+FLYING_STATES = ("SEARCHING", "VICTIM_DETECTED")
+#: How long a disarm must last before it counts: rides out one dropped status message.
+DISARM_GRACE_S = 3.0
+#: Longest a single detour leg on the way home may take before the return goes ahead anyway.
+DETOUR_LEG_TIMEOUT_S = 60.0
 
 
 class MissionManager(Node):
@@ -61,6 +72,7 @@ class MissionManager(Node):
         self.declare_parameter("reinspect_below_confidence", 0.9)
         self.declare_parameter("return_battery_percent", 25.0)
         self.declare_parameter("map_frame", "map")
+        self.declare_parameter("world_file", "")
 
         self._group = ReentrantCallbackGroup()
         self._state = "STANDBY"
@@ -76,6 +88,10 @@ class MissionManager(Node):
         self._pose = None
         self._battery_percent = 100.0
         self._armed = False
+        self._disarmed_since = None
+        self._route = ()
+        self._route_goal = None
+        self._structures = self._load_structures()
         self._base = None
         self._victims = {}
         self._inspected = {}
@@ -185,8 +201,24 @@ class MissionManager(Node):
         response.message = (f"search area {self._area.width:.0f} x {self._area.height:.0f} m")
         return response
 
+    def _load_structures(self) -> tuple:
+        """The buildings and masts the route has to respect, from the loaded world."""
+        configured = self.get_parameter("world_file").value
+        world = Path(configured) if configured else (
+            Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / "aero_sense_disaster.sdf")
+        try:
+            structures = structure_map.load(world)
+        except Exception as exc:
+            self.get_logger().warn(f"no structure map ({exc}): legs will be flown straight")
+            return ()
+        tall = airspace.blocking(structures, self.get_parameter("search_altitude_m").value)
+        self.get_logger().info(f"airspace: {len(structures)} structures, "
+                               f"{len(tall)} reach search altitude ({', '.join(o.name for o in tall)})")
+        return structures
+
     def _begin(self, mission_id: str):
         self._mission_id = mission_id
+        self._route, self._route_goal, self._disarmed_since = (), None, None
         # home is where this mission started, so a return goes to the pad it left, not a constant
         if self._pose is not None:
             self._base = (self._pose.pose.position.x, self._pose.pose.position.y)
@@ -245,7 +277,9 @@ class MissionManager(Node):
     # -- the loop ---------------------------------------------------------------
 
     def _tick(self):
-        if self._paused or self._pose is None:
+        if self._pose is None or self._crashed():
+            return
+        if self._paused:
             return
         if self._state == "SEARCHING":
             self._search_step()
@@ -265,8 +299,7 @@ class MissionManager(Node):
             return
         x, y = self._waypoints[self._waypoint_index]
         altitude = self.get_parameter("search_altitude_m").value
-        self._fly_to(x, y, altitude)
-        if self._distance_to(x, y, altitude) < REACHED_M:
+        if self._fly_safely(x, y, altitude):
             self._waypoint_index += 1
             if self._waypoint_index % 2 == 0:
                 self._event(f"leg {self._waypoint_index // 2} of {len(self._waypoints) // 2} complete, "
@@ -302,8 +335,7 @@ class MissionManager(Node):
         yaw = self._approach_yaw(victim)
         x = victim.position.x - offset * math.cos(yaw)
         y = victim.position.y - offset * math.sin(yaw)
-        self._fly_to(x, y, altitude, yaw)
-        if self._distance_to(x, y, altitude) < REACHED_M:
+        if self._fly_safely(x, y, altitude, yaw):
             if self._inspect_until == 0.0:
                 self._inspect_until = time.time() + self.get_parameter("inspect_dwell_s").value
             elif time.time() >= self._inspect_until:
@@ -334,6 +366,7 @@ class MissionManager(Node):
         happened to be — once, among the buildings it had just searched. So: command the return,
         then wait for it to actually arrive.
         """
+        self._clear_path_home()
         self._call(self._return)
         deadline = time.time() + RETURN_TIMEOUT_S
         landed_at_home = False
@@ -364,6 +397,75 @@ class MissionManager(Node):
                    f"{self._coverage.percent:.0f}% of the sector searched") if self._coverage \
             else "mission ended"
         self._transition("MISSION_COMPLETE", summary)
+
+    def _crashed(self) -> bool:
+        """A drone that disarms mid-search has hit something or lost its autopilot.
+
+        Before this the mission just kept commanding the next waypoint: a drone hung disarmed on
+        the radio mast for 74 minutes while the dashboard still read SEARCHING.
+        """
+        if self._state not in FLYING_STATES or self._armed:
+            self._disarmed_since = None
+            return False
+        now = time.time()
+        if self._disarmed_since is None:
+            self._disarmed_since = now
+            return False
+        if now - self._disarmed_since < DISARM_GRACE_S:
+            return False
+        here = self._pose.pose.position
+        self._transition("EMERGENCY", f"drone disarmed in flight at ({here.x:.0f}, {here.y:.0f}, "
+                                      f"{here.z:.0f} m): collision or autopilot failure; "
+                                      f"restart the simulation")
+        return True
+
+    def _fly_safely(self, x: float, y: float, altitude: float, yaw: float = None) -> bool:
+        """Head for (x, y) by a route that keeps clear of tall structures; True once there.
+
+        The route is planned once per goal and flown waypoint by waypoint, so a detour is a
+        committed path round the obstacle rather than something re-decided every tick.
+        """
+        goal = (round(x, 1), round(y, 1), round(altitude, 1))
+        here = self._pose.pose.position
+        if goal != self._route_goal:
+            # plan for the lower of where we are and where we are going: a descent to inspect
+            # passes through altitudes the cruise never flies
+            obstacles = airspace.blocking(self._structures, min(here.z, altitude))
+            target = airspace.safe_goal((x, y), obstacles)
+            self._route, names = airspace.route((here.x, here.y), target, obstacles)
+            self._route_goal = goal
+            if names:
+                self._event(f"obstacle avoidance: routing round {', '.join(names)} "
+                            f"on the way to ({x:.0f}, {y:.0f})")
+        wx, wy = self._route[0]
+        if len(self._route) > 1 and self._distance_to(wx, wy, altitude) < REACHED_M:
+            self._route = self._route[1:]
+            wx, wy = self._route[0]
+        final = len(self._route) == 1
+        self._fly_to(wx, wy, altitude, yaw if final else None)
+        return final and self._distance_to(wx, wy, altitude) < REACHED_M
+
+    def _clear_path_home(self):
+        """Fly round anything tall between here and the pad before handing over to RTL.
+
+        RTL flies a straight line home and knows nothing of the structure map: from just north
+        of the radio mast that line runs through it. So the planner's detour is flown first, and
+        RTL takes over only for the clear remainder.
+        """
+        if self._pose is None or self._base is None:
+            return
+        here = self._pose.pose.position
+        altitude = max(here.z, self.get_parameter("search_altitude_m").value)
+        waypoints, names = airspace.route((here.x, here.y), self._base,
+                                          airspace.blocking(self._structures, altitude))
+        if not names:
+            return
+        self._event(f"obstacle avoidance: routing round {', '.join(names)} before returning")
+        for x, y in waypoints[:-1]:
+            deadline = time.time() + DETOUR_LEG_TIMEOUT_S
+            while rclpy.ok() and time.time() < deadline and self._distance_to(x, y, altitude) >= REACHED_M:
+                self._fly_to(x, y, altitude)
+                time.sleep(0.5)
 
     # -- outputs ----------------------------------------------------------------
 

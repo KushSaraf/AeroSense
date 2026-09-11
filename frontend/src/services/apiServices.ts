@@ -126,6 +126,9 @@ export const simulationControl = {
   start: (options: SimulationOptions = {}) =>
     post<SimulationStatus>('/api/simulation/start', options, 30000),
   stop: () => post<SimulationStatus>('/api/simulation/stop', undefined, 30000),
+  /** Stop the running simulation and bring a fresh one up: the way out of a wedged mission. */
+  restart: (options: SimulationOptions = {}) =>
+    post<SimulationStatus>('/api/simulation/restart', options, 60000),
   /** Open Gazebo or RViz onto the simulation that is already running. */
   openViewer: (kind: 'gazebo' | 'rviz') =>
     post<{ opened: boolean; reason?: string }>(`/api/simulation/view/${kind}`, undefined, 15000),

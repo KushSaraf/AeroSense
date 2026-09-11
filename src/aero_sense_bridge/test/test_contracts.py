@@ -68,7 +68,9 @@ def test_drone_reports_its_real_state():
 
 def test_a_disconnected_drone_is_standby_not_invented():
     data = contracts.drone_json(None, None, None, None, flight_seconds=0.0)
-    assert data["status"] == "STANDBY" and data["battery"] == 0.0 and data["gps"] == "UNKNOWN"
+    # no battery message yet: unknown, not an empty battery the drone never reported
+    assert data["status"] == "STANDBY" and data["battery"] is None and data["gps"] == "UNKNOWN"
+    assert data["autonomy"] == "unknown"
 
 
 def mission_status(state="SEARCHING", mission_id="M-20260911-090000"):
@@ -224,3 +226,31 @@ def test_world_json_reports_the_sector_bounds_it_converted():
 
     assert sector["bounds"] == {"minX": 20.0, "minY": 20.0, "maxX": 180.0, "maxY": 80.0}
     assert len(sector["corners"]) == 4
+
+
+def test_an_unmeasured_battery_is_unknown_not_nan():
+    """SITL publishes NaN percentage while it boots; that NaN once broke /api/state."""
+    booting = BatteryState(percentage=float("nan"))
+
+    assert contracts.battery_percent(booting) is None
+    assert contracts.battery_percent(BatteryState(percentage=0.82)) == pytest.approx(82.0)
+    assert contracts.battery_percent(None) is None
+
+
+def test_json_safe_replaces_every_non_finite_float_with_none():
+    state = {"drone": {"battery": float("nan"), "speed": 3.5},
+             "telemetry": [{"altitude": float("inf")}, {"altitude": 12.0}], "id": "AS-01"}
+
+    safe = contracts.json_safe(state)
+
+    assert safe == {"drone": {"battery": None, "speed": 3.5},
+                    "telemetry": [{"altitude": None}, {"altitude": 12.0}], "id": "AS-01"}
+    import json
+    json.dumps(safe, allow_nan=False)             # the exact check starlette makes
+
+
+def test_connected_means_heard_recently_not_ever():
+    """After a restart the old drone's last status must not count as the new one being up."""
+    assert contracts.link_fresh(None, 100.0) is False              # never heard
+    assert contracts.link_fresh(99.0, 100.0) is True               # heard a second ago
+    assert contracts.link_fresh(90.0, 100.0) is False              # the simulation has gone

@@ -19,9 +19,9 @@ from sensor_msgs.msg import CameraInfo, Image
 from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 
-from aero_sense_interfaces.msg import VictimArray, VictimDetection
+from aero_sense_interfaces.msg import TriageScore, VictimArray, VictimDetection
 
-from . import detector, geolocate
+from . import detector, geolocate, structure_map, triage
 from .tracker import Tracker
 
 DETECTIONS_TOPIC = "aero_sense/perception/detections"
@@ -44,6 +44,8 @@ class VictimDetector(Node):
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("camera_frame", "camera_optical")
         self.declare_parameter("ground_z", 0.0)
+        self.declare_parameter("ambient_k", 293.0)
+        self.declare_parameter("world_file", "")
         config = load_config(self.get_parameter("config_file").value)
         self._detector_cfg = config["detector"]
         self._tracker = Tracker(**config["tracker"])
@@ -53,6 +55,8 @@ class VictimDetector(Node):
         self._map_frame = self.get_parameter("map_frame").value
         self._camera_frame = self.get_parameter("camera_frame").value
         self._ground_z = self.get_parameter("ground_z").value
+        self._ambient_k = self.get_parameter("ambient_k").value
+        self._structures = self._load_structures()
         self._info = None
         self._tf = Buffer()
         TransformListener(self._tf, self)
@@ -64,6 +68,24 @@ class VictimDetector(Node):
         self._victims_pub = self.create_publisher(VictimArray, VICTIMS_TOPIC, 10)
         self.get_logger().info(
             f"thermal search above {self._detector_cfg['min_temperature_k']} K -> {VICTIMS_TOPIC}")
+
+    def _load_structures(self) -> tuple:
+        """The built environment around the search, for triage only.
+
+        A responder has building footprints before the drone launches; without them the engine
+        cannot tell a casualty pinned against a collapsed terrace from one lying in a field. It
+        says nothing about who is inside: every casualty here was still found by looking.
+        """
+        configured = self.get_parameter("world_file").value
+        world = Path(configured) if configured else (
+            Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / "aero_sense_disaster.sdf")
+        try:
+            structures = structure_map.load(world)
+        except Exception as exc:
+            self.get_logger().warn(f"no structure map ({exc}); triage will not weigh buildings")
+            return ()
+        self.get_logger().info(f"structure map: {len(structures)} buildings from {world.name}")
+        return structures
 
     def _reset(self, _request, response):
         """Forget every track. A new mission must search for itself: without this the tracker
@@ -111,6 +133,7 @@ class VictimDetector(Node):
         kelvin = np.frombuffer(msg.data, np.uint16).reshape(msg.height, msg.width) * self._scale
         blobs = detector.detect(kelvin, **self._detector_cfg)
         scale = msg.width / self._info.width if self._info.width else 1.0
+        height_m = float(position[2] - self._ground_z)
         detections = []
         for blob in blobs:
             # camera_info may describe a different resolution than the image (profiles differ)
@@ -118,7 +141,10 @@ class VictimDetector(Node):
                                       rotation, self._ground_z)
             if point is None:
                 continue
-            detections.append((tuple(point), blob.confidence, blob.peak_k))
+            # area is measured in image pixels, so the focal length must be too
+            exposure = triage.exposure_of(blob.area_px, self._info.k[0] * scale, height_m,
+                                          triage.cos_incidence(position, point))
+            detections.append((tuple(point), blob.confidence, blob.peak_k, exposure, blob.surround_k))
         self._publish_raw(msg.header.stamp, detections)
         self._publish_victims(msg.header.stamp, detections)
 
@@ -127,18 +153,38 @@ class VictimDetector(Node):
         lon = self._origin[1] + math.degrees(x / (EARTH_RADIUS_M * math.cos(math.radians(self._origin[0]))))
         return lat, lon
 
-    def _victim(self, victim_id: str, position, confidence: float, peak_k: float) -> VictimDetection:
+    def _victim(self, victim_id: str, position, confidence: float, peak_k: float,
+                exposure: float = 1.0, surround_k: float = 0.0) -> VictimDetection:
         lat, lon = self._geodetic(position[0], position[1])
+        assessment = self._triage(position, peak_k, exposure, surround_k)
         return VictimDetection(
             victim_id=victim_id,
             position=Point(x=float(position[0]), y=float(position[1]), z=float(position[2])),
             latitude=lat, longitude=lon, confidence=float(confidence),
-            evidence=f"THERMAL {peak_k:.1f} K")
+            evidence=f"THERMAL {peak_k:.1f} K",
+            thermal_strength=float(min(1.0, max(0.0, (peak_k - self._ambient_k) / 17.0))),
+            priority=assessment.priority,
+            triage=TriageScore(
+                score=float(assessment.score), priority=assessment.priority,
+                survivor_probability=float(confidence), detection_confidence=float(confidence),
+                hazard_severity=float(assessment.immersion + assessment.structure),
+                accessibility=float(max(0.0, 1.0 - assessment.structure - assessment.immersion)),
+                rationale=assessment.rationale))
+
+    def _triage(self, position, peak_k: float, exposure: float, surround_k: float):
+        """Rank one casualty from the look the drone got at them."""
+        return triage.assess(triage.Observation(
+            peak_k=float(peak_k),
+            surround_k=float(surround_k) if surround_k else float(self._ambient_k),
+            ambient_k=float(self._ambient_k),
+            exposure=float(exposure),
+            structure_distance_m=structure_map.distance_to_nearest(
+                self._structures, float(position[0]), float(position[1]))))
 
     def _publish_raw(self, stamp, detections):
         msg = VictimArray()
         msg.header.stamp, msg.header.frame_id = stamp, self._map_frame
-        msg.victims = [self._victim("", p, c, k) for p, c, k in detections]
+        msg.victims = [self._victim("", p, c, k, e, s) for p, c, k, e, s in detections]
         self._raw_pub.publish(msg)
 
     def _publish_victims(self, stamp, detections):
@@ -146,7 +192,8 @@ class VictimDetector(Node):
         confirmed = self._tracker.update(detections, now_s)
         msg = VictimArray()
         msg.header.stamp, msg.header.frame_id = stamp, self._map_frame
-        msg.victims = [self._victim(t.track_id, t.position, t.confidence, t.peak_k) for t in confirmed]
+        msg.victims = [self._victim(t.track_id, t.position, t.confidence, t.peak_k,
+                                    t.exposure, t.surround_k) for t in confirmed]
         self._victims_pub.publish(msg)
 
 

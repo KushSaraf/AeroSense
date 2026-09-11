@@ -1,4 +1,4 @@
-import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, Thermometer, Video } from 'lucide-react'
+import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, RotateCcw, Thermometer, Video } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
 import StatusPill from '../components/StatusPill'
@@ -23,40 +23,82 @@ const PRIORITY_TONE: Record<string, string> = {
   P1: '#ef5350', P2: '#ff9f43', P3: '#43d17b', UNTRIAGED: '#8ae0ff',
 }
 
+const RESTART_READY_TIMEOUT_MS = 240000
+const RESTART_POLL_MS = 4000
+
 /**
- * Opens the simulation's own windows. They belong here because an operator watching the mission
- * is the person who wants to look at the physics or the point cloud, and both windows attach to
- * the simulation already running rather than starting a second one.
+ * The simulation's own controls, beside the mission they affect. Gazebo and RViz attach to the
+ * simulation already running; restart tears it down and brings up a fresh one, which is the way
+ * out of a crashed drone or a wedged autopilot without leaving the dashboard.
  */
-function ViewerButtons() {
+function SimulationControls() {
   const [busy, setBusy] = useState<string | null>(null)
-  const [failed, setFailed] = useState<string | null>(null)
+  const [note, setNote] = useState<{ text: string; tone: 'warn' | 'ok' } | null>(null)
 
   const open = async (kind: 'gazebo' | 'rviz') => {
     setBusy(kind)
-    setFailed(null)
+    setNote(null)
     try {
       const result = await simulationControl.openViewer(kind)
-      if (!result.opened) setFailed(result.reason ?? `could not open ${kind}`)
+      setNote(result.opened
+        ? { text: `${kind} opened`, tone: 'ok' }
+        : { text: result.reason ?? `could not open ${kind}`, tone: 'warn' })
     } catch {
-      setFailed('the dashboard bridge is not reachable')
+      setNote({ text: 'the dashboard bridge is not reachable', tone: 'warn' })
     } finally {
       setBusy(null)
     }
   }
 
+  const restart = async () => {
+    if (!window.confirm('Restart the simulation? The mission in progress will be stopped.')) return
+    setBusy('restart')
+    setNote({ text: 'stopping the simulation…', tone: 'ok' })
+    try {
+      const result = await simulationControl.restart({ quality: 'low', gui: true, cruiseSpeed: 8 })
+      if (!result.started) {
+        setNote({ text: result.reason ?? 'the simulation did not start', tone: 'warn' })
+        return
+      }
+      setNote({ text: 'waiting for the drone…', tone: 'ok' })
+      const deadline = Date.now() + RESTART_READY_TIMEOUT_MS
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, RESTART_POLL_MS))
+        const state = await fetch(`${API_URL}/api/state`).then((r) => r.json()).catch(() => null)
+        if (state?.connected) {
+          setNote({ text: 'simulation ready — start a sector from Mission Command', tone: 'ok' })
+          return
+        }
+      }
+      setNote({ text: 'the simulation did not come up in time; see logs/dashboard', tone: 'warn' })
+    } catch {
+      setNote({ text: 'the dashboard bridge is not reachable', tone: 'warn' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const button = 'flex items-center gap-2 rounded border px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition disabled:opacity-50'
   return (
     <div className="flex flex-col items-end gap-1">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-end gap-2">
         {([['gazebo', 'GAZEBO', Boxes], ['rviz', 'RVIZ', Layers3]] as const).map(([kind, label, Icon]) => (
           <button key={kind} type="button" onClick={() => void open(kind)} disabled={busy !== null}
                   title={`Open ${label} on the running simulation`}
-                  className="flex items-center gap-2 rounded border border-white/25 bg-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition hover:bg-white/20 disabled:opacity-50">
+                  className={`${button} border-white/25 bg-white/10 hover:bg-white/20`}>
             <Icon size={14} /> {busy === kind ? 'OPENING…' : label}
           </button>
         ))}
+        <button type="button" onClick={() => void restart()} disabled={busy !== null}
+                title="Stop the simulation and start a fresh one"
+                className={`${button} border-amber-300/40 bg-amber-400/15 hover:bg-amber-400/25`}>
+          <RotateCcw size={14} /> {busy === 'restart' ? 'RESTARTING…' : 'RESTART SIM'}
+        </button>
       </div>
-      {failed && <span className="text-[9px] uppercase tracking-[0.12em] text-amber-300">{failed}</span>}
+      {note && (
+        <span className={`max-w-[420px] text-right text-[9px] uppercase tracking-[0.12em] ${
+          note.tone === 'warn' ? 'text-amber-300' : 'text-[#86e2a4]'}`}>{note.text}</span>
+      )}
     </div>
   )
 }
@@ -167,7 +209,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <ViewerButtons />
+            <SimulationControls />
             <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
             <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
               ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
@@ -184,7 +226,7 @@ function DashboardPage() {
               {[
                 ['Model', drone?.model ?? '—'],
                 ['Callsign', drone?.id ?? '—'],
-                ['Battery', drone ? `${drone.battery.toFixed(0)}%` : '—'],
+                ['Battery', drone?.battery != null ? `${drone.battery.toFixed(0)}%` : '—'],
                 ['Flight time', drone?.flightTime ?? '—'],
                 ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
                 ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
@@ -268,7 +310,7 @@ function DashboardPage() {
           <Panel title="Telemetry">
             <div className="grid grid-cols-2 gap-2">
               {[
-                ['Battery', drone ? `${drone.battery.toFixed(0)}%` : '—'],
+                ['Battery', drone?.battery != null ? `${drone.battery.toFixed(0)}%` : '—'],
                 ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
                 ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
                 ['GPS', drone?.gps ?? '—'],

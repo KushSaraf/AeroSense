@@ -72,17 +72,22 @@ def tracker():
     return Tracker(**CFG["tracker"])
 
 
+def seen(position, confidence, peak_k, exposure=1.0, surround_k=293.0):
+    """One look at a casualty, as the detector hands it to the tracker."""
+    return (position, confidence, peak_k, exposure, surround_k)
+
+
 def test_a_single_hot_frame_is_not_a_casualty():
-    assert tracker().update([((10.0, 5.0, 0.0), 0.8, 309.0)], 1.0) == ()
+    assert tracker().update([seen((10.0, 5.0, 0.0), 0.8, 309.0)], 1.0) == ()
 
 
 def test_repeated_looks_confirm_one_casualty_with_a_stable_id():
     t = tracker()
     for i in range(CFG["tracker"]["confirm_hits"]):
-        confirmed = t.update([((10.0 + 0.3 * i, 5.0, 0.0), 0.8, 309.0)], float(i))
+        confirmed = t.update([seen((10.0 + 0.3 * i, 5.0, 0.0), 0.8, 309.0)], float(i))
     assert len(confirmed) == 1
     first = confirmed[0]
-    again = t.update([((10.2, 5.1, 0.0), 0.8, 309.0)], 9.0)
+    again = t.update([seen((10.2, 5.1, 0.0), 0.8, 309.0)], 9.0)
     assert again[0].track_id == first.track_id and again[0].hits == first.hits + 1
     assert again[0].confidence > first.confidence          # agreement builds certainty
     assert again[0].confidence < 1.0                       # but never certainty itself
@@ -91,7 +96,7 @@ def test_repeated_looks_confirm_one_casualty_with_a_stable_id():
 def test_casualties_far_apart_stay_separate():
     t = tracker()
     for i in range(CFG["tracker"]["confirm_hits"]):
-        confirmed = t.update([((0.0, 0.0, 0.0), 0.9, 309.0), ((40.0, 0.0, 0.0), 0.9, 308.0)], float(i))
+        confirmed = t.update([seen((0.0, 0.0, 0.0), 0.9, 309.0), seen((40.0, 0.0, 0.0), 0.9, 308.0)], float(i))
     assert len({c.track_id for c in confirmed}) == 2
 
 
@@ -99,7 +104,7 @@ def test_a_found_casualty_is_never_forgotten_but_stops_being_current():
     """The drone flies on; the casualty stays where it is and stays on the list."""
     t = tracker()
     for i in range(CFG["tracker"]["confirm_hits"]):
-        t.update([((0.0, 0.0, 0.0), 0.9, 309.0)], float(i))
+        t.update([seen((0.0, 0.0, 0.0), 0.9, 309.0)], float(i))
     much_later = CFG["tracker"]["forget_after_s"] + 10
     assert len(t.confirmed(now_s=much_later)) == 1
     assert t.current(now_s=much_later) == ()

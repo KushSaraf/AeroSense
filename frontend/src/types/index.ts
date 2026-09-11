@@ -47,7 +47,8 @@ export interface Drone {
   /** Autopilot flight mode, e.g. GUIDED, LAND, RTL. */
   mode?: string
   armed?: boolean
-  battery: number
+  /** Null until the autopilot has measured it: shown as unknown, never as a number. */
+  battery: number | null
   altitude: number
   speed: number
   link: '5G STRONG' | 'WIFI' | 'OFFLINE'
@@ -88,7 +89,8 @@ export interface AlertItem {
 
 export interface TelemetryPoint {
   time: string
-  battery: number
+  /** Null for samples taken before the autopilot measured it. */
+  battery: number | null
   altitude: number
   speed: number
   gps: number
