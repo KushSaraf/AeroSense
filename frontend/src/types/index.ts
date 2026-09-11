@@ -52,6 +52,10 @@ export interface Drone {
   speed: number
   link: '5G STRONG' | 'WIFI' | 'OFFLINE'
   gps: '3D FIX' | 'LOST' | 'DEGRADED' | 'UNKNOWN'
+  /** Absent until the autopilot has a fix: the map shows nothing rather than a guessed position. */
+  latitude?: number | null
+  longitude?: number | null
+  position?: { x: number; y: number; z: number } | null
   flightTime: string
   autonomy: string
 }
@@ -125,10 +129,29 @@ export interface MapLayerState {
 }
 
 /** One consistent frame of the mission, as the dashboard bridge sends it. */
+/** A mission as the state machine reports it: the plan, plus where the flight has got to. */
+export type LiveMission = Mission & {
+  scenario?: string
+  state?: string
+  reason?: string
+  elapsed?: string
+  elapsedSeconds?: number
+  p1?: number
+  p2?: number
+  p3?: number
+  events?: MissionEvent[]
+}
+
+/** One entry in the mission's event log, as the state machine emitted it. */
+export interface MissionEvent {
+  time: string
+  text: string
+}
+
 export interface LiveState {
   connected: boolean
   drone: Drone
-  mission: Mission
+  mission: LiveMission | null
   victims: Victim[]
   hazards: Hazard[]
   alerts: AlertItem[]

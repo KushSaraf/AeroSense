@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { connectLiveState } from '../services/apiServices'
 import { mockService, resolveService } from '../services/serviceFactory'
-import type { AlertItem, Drone, Hazard, LiveState, Mission, TelemetryPoint, Victim } from '../types'
+import type { AlertItem, Drone, Hazard, LiveMission, LiveState, TelemetryPoint, Victim } from '../types'
 import type { DataSource } from '../services/serviceFactory'
 
 interface MissionData {
-  mission: Mission | null
+  mission: LiveMission | null
   drone: Drone | null
   victims: Victim[]
   hazards: Hazard[]
@@ -17,7 +17,7 @@ interface MissionData {
 }
 
 const empty = {
-  mission: null as Mission | null,
+  mission: null as LiveMission | null,
   drone: null as Drone | null,
   victims: [] as Victim[],
   hazards: [] as Hazard[],

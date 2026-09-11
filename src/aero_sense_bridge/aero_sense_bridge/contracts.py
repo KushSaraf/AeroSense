@@ -56,7 +56,7 @@ def victim_json(victim, stamp) -> dict:
     }
 
 
-def drone_json(status, pose, velocity, battery, flight_seconds: float) -> dict:
+def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None) -> dict:
     speed = 0.0
     if velocity is not None:
         speed = math.dist((0.0, 0.0, 0.0), (velocity.twist.linear.x, velocity.twist.linear.y,
@@ -78,6 +78,10 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float) -> dict:
         "link": LINK_ONLINE,                      # the comms model lands in a later phase
         "gps": "3D FIX" if getattr(status, "gps_status", "") == "OK" else
                (getattr(status, "gps_status", "") or "UNKNOWN"),
+        "latitude": fix.latitude if fix is not None else None,
+        "longitude": fix.longitude if fix is not None else None,
+        "position": {"x": pose.pose.position.x, "y": pose.pose.position.y,
+                     "z": pose.pose.position.z} if pose is not None else None,
         "flightTime": f"{int(flight_seconds // 60):02d}:{int(flight_seconds % 60):02d}",
         "autonomy": f"{max(0.0, percent) * 0.25:.0f} min",   # ~25 min at full charge
     }
@@ -94,19 +98,80 @@ def telemetry_point(stamp, battery_percent: float, altitude: float, speed: float
     }
 
 
-def mission_json(state, victims_found: int, coverage_percent: float) -> dict:
-    """The mission the dashboard shows. Until the mission state machine exists (Phase 23) this
-    reports what is actually true: a drone is connected and searching, or it is not."""
+#: Mission states the state machine publishes, mapped to what the dashboard calls them.
+RUNNING_STATES = {"PRE_FLIGHT", "TAKEOFF", "TRANSIT", "SEARCHING", "VICTIM_DETECTED",
+                  "HAZARD_DETECTED", "LOCAL_REPLAN", "GPS_DENIED", "OFFLINE_AUTONOMY",
+                  "RETURNING", "LANDING"}
+SCENARIO_NAMES = {"earthquake": "Earthquake SAR", "flood": "Flood assessment",
+                  "full": "Full sector sweep"}
+
+
+def mission_json(status, events: list) -> dict | None:
+    """The mission being flown, straight from the state machine.
+
+    None when no mission has been started: an idle simulation is not a mission, and inventing one
+    would put a name, a coverage figure and a progress bar on screen that nothing measured.
+    """
+    if status is None or not status.mission_id:
+        return None
+    elapsed = int(status.elapsed_s)
     return {
-        "id": "M-LIVE",
-        "name": "Live simulation",
-        "disasterType": "Earthquake / flood",
-        "status": state,
+        "id": status.mission_id,
+        "scenario": status.scenario,
+        "name": SCENARIO_NAMES.get(status.scenario, status.scenario.title() or "Mission"),
+        "disasterType": status.scenario.title(),
+        "status": "ACTIVE" if status.state in RUNNING_STATES else
+                  ("COMPLETED" if status.state == "MISSION_COMPLETE" else status.state),
+        "state": status.state,
+        "previousState": status.previous_state,
+        "reason": status.reason,
         "owner": "Aero Sense",
         "date": datetime.now(tz=timezone.utc).strftime("%Y-%m-%d"),
         "type": "Search",
-        "coverage": round(coverage_percent, 1),
-        "progress": round(coverage_percent, 1),
-        "priority": "HIGH",
-        "victimsFound": victims_found,
+        "coverage": round(status.coverage_percent, 1),
+        "progress": round(status.coverage_percent, 1),
+        "priority": "HIGH" if status.p1_count else "MEDIUM",
+        "victimsFound": int(status.victims_detected),
+        "p1": int(status.p1_count),
+        "p2": int(status.p2_count),
+        "p3": int(status.p3_count),
+        "elapsed": f"{elapsed // 60:02d}:{elapsed % 60:02d}",
+        "elapsedSeconds": elapsed,
+        "events": events[-40:],
     }
+
+
+def scenario_catalogue(areas: dict, live_mission: dict | None) -> list:
+    """The missions an operator can fly, built from the sectors the world actually contains.
+
+    Each entry is a real sector with its real bounds, so "area" on the card is measured, not
+    described. A scenario that is running now carries the live mission's state instead of READY,
+    which is what makes the running simulation *the* current mission rather than a separate idea.
+    """
+    catalogue = []
+    for scenario, area in areas.items():
+        width, height = area.max_x - area.min_x, area.max_y - area.min_y
+        entry = {
+            "id": scenario,
+            "scenario": scenario,
+            "name": SCENARIO_NAMES.get(scenario, scenario.title()),
+            "disasterType": scenario.title(),
+            "status": "READY",
+            "areaKm2": round(width * height / 1e6, 3),
+            "bounds": {"minX": area.min_x, "minY": area.min_y,
+                       "maxX": area.max_x, "maxY": area.max_y},
+            "coverage": 0.0,
+            "progress": 0.0,
+            "victimsFound": 0,
+            "owner": "Aero Sense",
+            "type": "Search",
+        }
+        if live_mission and live_mission.get("scenario") == scenario:
+            # the card keeps its scenario id; the run it is showing gets its own
+            entry.update({key: live_mission[key] for key in
+                          ("status", "state", "coverage", "progress", "victimsFound",
+                           "elapsed", "p1", "p2", "p3", "reason")
+                          if key in live_mission})
+            entry["missionId"] = live_mission["id"]
+        catalogue.append(entry)
+    return catalogue

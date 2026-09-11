@@ -1,6 +1,6 @@
 from setuptools import setup
 
-PACKAGE = "aero_sense_mission"
+PACKAGE = "aero_sense_navigation"
 
 setup(
     name=PACKAGE,
@@ -13,11 +13,8 @@ setup(
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="kushsaraf",
-    maintainer_email="codenexusky@gmail.com",
-    description="Aero Sense autopilot adapter, drone interface and mission state machine.",
+    maintainer_email="teamdronematrx@gmail.com",
+    description="Keeps the drone off the obstacles it can see.",
     license="TODO",
-    entry_points={"console_scripts": [
-        f"drone_interface = {PACKAGE}.drone_interface:main",
-        f"mission_manager = {PACKAGE}.mission_manager:main",
-    ]},
+    entry_points={"console_scripts": [f"obstacle_guard = {PACKAGE}.obstacle_guard:main"]},
 )

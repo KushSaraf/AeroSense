@@ -145,7 +145,10 @@ def _launch(context, *args, **kwargs):
                       parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon,
                                    "thermal_resolution_k": cfg["thermal"]["resolution_k"],
                                    "camera_frame": f"{frame_prefix}camera_optical"}])
-    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception,
+    mission = Node(package="aero_sense_mission", executable="mission_manager",
+                   namespace=namespace, output="screen",
+                   parameters=[{"search_altitude_m": 30.0, "leg_spacing_m": 25.0}])
+    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission,
                *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))

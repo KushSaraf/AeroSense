@@ -16,6 +16,7 @@ from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import Point
 from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, Image
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 
 from aero_sense_interfaces.msg import VictimArray, VictimDetection
@@ -58,10 +59,22 @@ class VictimDetector(Node):
         self.create_subscription(CameraInfo, "aero_sense/camera/thermal/camera_info",
                                  lambda m: setattr(self, "_info", m), 1)
         self.create_subscription(Image, "aero_sense/camera/thermal/image_raw", self._on_thermal, 1)
+        self.create_service(Trigger, "aero_sense/perception/reset", self._reset)
         self._raw_pub = self.create_publisher(VictimArray, DETECTIONS_TOPIC, 10)
         self._victims_pub = self.create_publisher(VictimArray, VICTIMS_TOPIC, 10)
         self.get_logger().info(
             f"thermal search above {self._detector_cfg['min_temperature_k']} K -> {VICTIMS_TOPIC}")
+
+    def _reset(self, _request, response):
+        """Forget every track. A new mission must search for itself: without this the tracker
+        carries the previous mission's casualties over, and the drone spends the new flight
+        re-inspecting bodies it found in a different sector."""
+        found = len(self._tracker.confirmed())
+        self._tracker = Tracker(**load_config(self.get_parameter("config_file").value)["tracker"])
+        response.success = True
+        response.message = f"cleared {found} tracks"
+        self.get_logger().info(response.message)
+        return response
 
     # -- pipeline ---------------------------------------------------------------
 

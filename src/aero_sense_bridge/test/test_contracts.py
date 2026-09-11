@@ -54,11 +54,43 @@ def test_drone_reports_its_real_state():
     assert data["altitude"] == 30.0 and data["speed"] == 5.0     # 3-4-5
     assert data["battery"] == 82.0 and data["gps"] == "3D FIX"
     assert data["flightTime"] == "01:35"
+    assert data["position"] == {"x": 0.0, "y": 0.0, "z": 30.0}
+    assert data["latitude"] is None          # no GPS message yet: absent, not invented
 
 
 def test_a_disconnected_drone_is_standby_not_invented():
     data = contracts.drone_json(None, None, None, None, flight_seconds=0.0)
     assert data["status"] == "STANDBY" and data["battery"] == 0.0 and data["gps"] == "UNKNOWN"
+
+
+def mission_status(state="SEARCHING", mission_id="M-20260911-090000"):
+    from aero_sense_interfaces.msg import MissionStatus
+    status = MissionStatus(mission_id=mission_id, scenario="earthquake", state=state,
+                           previous_state="TAKEOFF", reason="flying legs")
+    status.coverage_percent, status.victims_detected, status.elapsed_s = 41.5, 6, 185.0
+    status.p1_count = 2
+    return status
+
+
+def test_no_mission_is_reported_as_no_mission():
+    """An idle simulation is not a mission: inventing one would put a name, a coverage figure and
+    a progress bar on screen that nothing measured."""
+    assert contracts.mission_json(None, []) is None
+    from aero_sense_interfaces.msg import MissionStatus
+    assert contracts.mission_json(MissionStatus(), []) is None
+
+
+def test_a_running_mission_reports_the_state_machine_not_a_guess():
+    data = contracts.mission_json(mission_status(), [{"time": "09:00:01", "text": "TAKEOFF"}])
+    assert data["id"] == "M-20260911-090000" and data["status"] == "ACTIVE"
+    assert data["state"] == "SEARCHING" and data["coverage"] == 41.5
+    assert data["victimsFound"] == 6 and data["p1"] == 2
+    assert data["elapsed"] == "03:05" and data["events"][-1]["text"] == "TAKEOFF"
+    assert data["name"] == "Earthquake SAR"
+
+
+def test_a_finished_mission_is_completed_not_active():
+    assert contracts.mission_json(mission_status("MISSION_COMPLETE"), [])["status"] == "COMPLETED"
 
 
 def test_starting_a_second_simulation_is_refused(monkeypatch):
@@ -78,3 +110,28 @@ def test_status_reports_what_is_running(monkeypatch):
     monkeypatch.setattr(supervisor, "simulation_processes", lambda: [1, 2, 3])
     busy = supervisor.status()
     assert busy["running"] is True and busy["processes"] == 3
+
+
+def test_the_catalogue_offers_the_sectors_the_world_actually_has():
+    from aero_sense_mission.search_pattern import Area
+    areas = {"earthquake": Area(-180.0, 10.0, -20.0, 92.0), "flood": Area(20.0, 20.0, 180.0, 80.0)}
+    catalogue = contracts.scenario_catalogue(areas, live_mission=None)
+    assert [entry["id"] for entry in catalogue] == ["earthquake", "flood"]
+    assert all(entry["status"] == "READY" for entry in catalogue)
+    quake = catalogue[0]
+    assert quake["name"] == "Earthquake SAR"
+    assert quake["areaKm2"] == round(160 * 82 / 1e6, 3)      # measured, not described
+    assert quake["bounds"]["minX"] == -180.0
+
+
+def test_a_running_scenario_shows_its_live_mission_not_ready():
+    from aero_sense_mission.search_pattern import Area
+    areas = {"earthquake": Area(-180.0, 10.0, -20.0, 92.0), "flood": Area(20.0, 20.0, 180.0, 80.0)}
+    live = contracts.mission_json(mission_status(), [])
+    catalogue = contracts.scenario_catalogue(areas, live)
+    running = next(entry for entry in catalogue if entry["id"] == "earthquake")
+    idle = next(entry for entry in catalogue if entry["id"] == "flood")
+    assert running["status"] == "ACTIVE" and running["coverage"] == 41.5
+    assert running["id"] == "earthquake" and running["missionId"] == live["id"]
+    assert running["victimsFound"] == 6
+    assert idle["status"] == "READY" and idle["coverage"] == 0.0

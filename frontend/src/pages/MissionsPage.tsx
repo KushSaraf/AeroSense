@@ -1,62 +1,88 @@
-import { CalendarDays, Eye, Filter, Pencil, Plus, Settings2, Trash2, UserRound } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Eye, Loader2, OctagonX, Play, Radar } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import SectorThumbnail from '../components/SectorThumbnail'
+import { useMission } from '../hooks/useMission'
+import { useMissions } from '../hooks/useMissions'
+import type { MissionCard } from '../hooks/useMissions'
+import type { Victim } from '../types'
 import { useSimulation } from '../hooks/useSimulation'
 
-const missionRows = [
-  { name: 'Urban Search — Grid', status: 'ACTIVE', date: '10-09-25 , 12:40', owner: 'KU2025', type: 'Disaster Survey', tone: 'from-[#40604f] via-[#6b744b] to-[#273b38]', image: '/mission-tiles/satellite-center.jpg' },
-  { name: 'Disaster Survey — Adaptive', status: 'ETA 12:45', date: '06-08-25 , 2:25', owner: 'KU2024', type: 'Adaptive Search', tone: 'from-[#687449] via-[#a87543] to-[#334b35]', image: '/mission-tiles/satellite-west.jpg' },
-  { name: 'Perimeter Recon — Point-to-Point', status: 'DONE', date: '19-07-25 , 7:30', owner: 'KU2023', type: 'Recon', tone: 'from-[#a45f40] via-[#8e6b4b] to-[#4c3d32]', image: '/mission-tiles/satellite-east.jpg' },
-  { name: 'Flood Assessment (Lawn-Mower)', status: 'COMPLETED', date: '14-07-25 , 9:10', owner: 'KU2022', type: 'Assessment', tone: 'from-[#3b7147] via-[#51785c] to-[#244252]', image: '/mission-tiles/satellite-south.jpg' },
-  { name: 'Landslide Inspection (Custom)', status: 'COMPLETED', date: '02-07-25 , 6:50', owner: 'KU2021', type: 'Inspection', tone: 'from-[#315a61] via-[#4c6b54] to-[#253b4a]', image: '/mission-tiles/satellite-north.jpg' },
-]
-
-const statusColors: Record<string, string> = {
-  ACTIVE: 'bg-[#39e65a] text-[#0e2415]',
-  'ETA 12:45': 'bg-[#f2d72d] text-[#2c2910]',
-  DONE: 'bg-[#b9c0c9] text-[#252d39]',
-  COMPLETED: 'bg-[#b9c0c9] text-[#252d39]',
+const statusTone: Record<string, string> = {
+  ACTIVE: 'bg-[#86e2a4]',
+  COMPLETED: 'bg-white/45',
+  READY: 'bg-[#8ae0ff]',
 }
 
-/**
- * Turns a plan into a running mission: starts the simulation the dashboard then shows, and stops
- * it again. Live data only exists while one is running.
- */
-function SimulationControls() {
-  const { phase, status, error, start, stop } = useSimulation()
-  const busy = phase === 'starting' || phase === 'stopping'
-  const label = {
-    unknown: 'BRIDGE OFFLINE',
-    offline: 'START SIMULATION',
-    starting: 'STARTING...',
-    running: 'STOP SIMULATION',
-    stopping: 'STOPPING...',
-  }[phase]
-
+/** The sectors this world contains, as cards an operator can fly. */
+function MissionRow({ mission, busy, onStart, onView, victims, drone }: {
+  mission: MissionCard
+  busy: boolean
+  onStart: (scenario: string) => void
+  onView: () => void
+  victims: Victim[]
+  drone?: { x: number; y: number } | null
+}) {
+  const running = mission.status === 'ACTIVE'
+  const inSector = victims.filter((victim) => victim.position
+    && victim.position.x >= mission.bounds.minX && victim.position.x <= mission.bounds.maxX
+    && victim.position.y >= mission.bounds.minY && victim.position.y <= mission.bounds.maxY)
   return (
-    <div className="ml-auto flex items-center gap-3">
-      {error && <span className="max-w-[380px] truncate text-[10px] tracking-[0.1em] text-amber-300" title={error}>{error}</span>}
-      {status?.running && <span className="text-[10px] tracking-[0.14em] text-emerald-300">{status.processes} PROCESSES LIVE</span>}
-      <button
-        type="button"
-        disabled={busy || phase === 'unknown'}
-        onClick={() => (phase === 'running' ? void stop() : void start({ quality: 'low', gui: true }))}
-        className={`mission-filter ${phase === 'running' ? 'bg-[#e2707a] text-white' : 'bg-[#86e2a4] text-[#13251b]'} ${busy || phase === 'unknown' ? 'opacity-60' : ''}`}
-      >
-        {label}
-      </button>
-    </div>
+    <tr className="text-[11px] uppercase tracking-[0.12em] text-white/85">
+      <td className="flex items-center gap-3 border-t border-white/20 px-3 py-3">
+        <SectorThumbnail bounds={mission.bounds} victims={inSector} active={running}
+                         drone={running ? drone : null} />
+        <div>
+        <div className="font-semibold text-white">{mission.name}</div>
+        <div className="text-[10px] text-white/55">
+          {mission.disasterType} · {(mission.areaKm2 * 1e6 / 1e4).toFixed(1)} ha · {mission.type}
+        </div>
+        </div>
+      </td>
+      <td className="border-t border-white/20 px-3">
+        <span className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${statusTone[mission.status] ?? 'bg-white/40'}`} />
+          {running ? mission.state ?? 'ACTIVE' : mission.status}
+        </span>
+        {running && mission.reason && (
+          <div className="mt-1 max-w-[260px] truncate text-[9px] normal-case tracking-normal text-white/50" title={mission.reason}>
+            {mission.reason}
+          </div>
+        )}
+      </td>
+      <td className="border-t border-white/20 px-3">
+        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-white/15">
+          <div className="h-full rounded-full bg-[#8ae0ff]" style={{ width: `${Math.min(100, mission.coverage)}%` }} />
+        </div>
+        <div className="mt-1 text-[10px] text-white/60">{mission.coverage.toFixed(0)}% searched</div>
+      </td>
+      <td className="border-t border-white/20 px-3">
+        {mission.victimsFound}
+        {mission.p1 ? <span className="ml-2 rounded bg-[#e2707a]/25 px-1.5 py-0.5 text-[9px] text-[#ffb9bf]">P1 {mission.p1}</span> : null}
+      </td>
+      <td className="border-t border-white/20 px-3 text-white/70">{mission.elapsed ?? '—'}</td>
+      <td className="border-t border-white/20 px-3">
+        <div className="flex gap-2">
+          <button type="button" title="Open the live dashboard" onClick={onView} className="mission-action"><Eye size={17} /></button>
+          <button
+            type="button"
+            title={running ? 'This sector is being flown' : 'Start this mission'}
+            disabled={busy || running}
+            onClick={() => onStart(mission.scenario)}
+            className={`mission-action ${busy || running ? 'opacity-40' : 'text-[#86e2a4]'}`}
+          >
+            {busy ? <Loader2 size={17} className="animate-spin" /> : <Play size={17} />}
+          </button>
+        </div>
+      </td>
+    </tr>
   )
 }
 
 function MissionsPage() {
   const navigate = useNavigate()
-  const [statusFilter, setStatusFilter] = useState('ALL')
-  const [removedMissions, setRemovedMissions] = useState<string[]>([])
-  const filteredMissions = useMemo(() => missionRows.filter((mission) => {
-    if (removedMissions.includes(mission.name)) return false
-    return statusFilter === 'ALL' || mission.status === statusFilter
-  }), [removedMissions, statusFilter])
+  const { missions, active, busy, error, startMission, abortMission } = useMissions()
+  const simulation = useSimulation()
+  const { victims, drone } = useMission()
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-4 md:p-5">
@@ -71,48 +97,84 @@ function MissionsPage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 xl:flex-row">
-        <aside className="grid shrink-0 gap-3 sm:grid-cols-3 xl:flex xl:w-[255px] xl:flex-col">
-          <div className="mission-side-card min-h-[120px] bg-[linear-gradient(135deg,rgba(67,93,73,0.95),rgba(26,44,48,0.96))]">
+        <aside className="grid shrink-0 gap-3 sm:grid-cols-2 xl:flex xl:w-[255px] xl:flex-col">
+          <div className="mission-side-card min-h-[150px] bg-[linear-gradient(135deg,rgba(67,93,73,0.95),rgba(26,44,48,0.96))]">
             <div className="mission-side-label">ACTIVE MISSION</div>
-            <div className="mt-5 text-[30px] font-bold tracking-[0.04em] text-white">ETA 12:45</div>
-            <div className="mt-3 flex justify-between text-[10px] uppercase tracking-[0.2em] text-white/75"><span>START</span><span>REPLAY</span></div>
+            {active ? (
+              <>
+                <div className="mt-4 text-[22px] font-bold leading-tight text-white">{active.name}</div>
+                <div className="mt-1 text-[11px] tracking-[0.12em] text-white/70">{active.state} · {active.elapsed}</div>
+                <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-white/80">
+                  <span>{active.coverage.toFixed(0)}% searched</span>
+                  <span>{active.victimsFound} found</span>
+                </div>
+                <button type="button" onClick={() => void abortMission()} className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-[#e2707a]/25 px-2 py-2 text-[10px] uppercase tracking-[0.16em] text-[#ffc7cb] transition hover:bg-[#e2707a]/40">
+                  <OctagonX size={14} /> Abort and return
+                </button>
+              </>
+            ) : (
+              <div className="mt-5 text-[12px] leading-relaxed tracking-[0.1em] text-white/70">
+                No mission is flying. Start one from the list to bring up the simulation and search a sector.
+              </div>
+            )}
           </div>
-          <div className="mission-side-card min-h-[145px] bg-[linear-gradient(135deg,rgba(85,95,120,0.96),rgba(34,43,65,0.98))]">
-            <div className="mission-side-label">DRONE REPORT</div>
-            <div className="mt-5 text-center text-[34px] text-white">⌁</div>
-            <div className="mt-2 text-center text-[10px] uppercase leading-[1.7] tracking-[0.18em] text-white/75">Name : AS-01<br />Model No : KU202509</div>
-          </div>
-          <div className="mission-side-card hidden min-h-[120px] bg-[linear-gradient(135deg,rgba(30,50,65,0.96),rgba(40,52,75,0.96))] xl:block">
-            <div className="text-[10px] uppercase leading-[1.8] tracking-[0.2em] text-white/75">Autonomous<br />search and rescue</div>
-            <div className="mt-4 text-right text-[10px] uppercase tracking-[0.18em] text-white/55">From disaster to hope</div>
+
+          <div className="mission-side-card min-h-[130px] bg-[linear-gradient(135deg,rgba(85,95,120,0.96),rgba(34,43,65,0.98))]">
+            <div className="mission-side-label">SIMULATION</div>
+            <div className="mt-4 text-[13px] tracking-[0.14em] text-white">
+              {simulation.status?.running ? `${simulation.status.processes} processes live` : 'Not running'}
+            </div>
+            <button
+              type="button"
+              disabled={simulation.phase === 'unknown' || simulation.phase === 'starting' || simulation.phase === 'stopping'}
+              onClick={() => (simulation.status?.running ? void simulation.stop() : void simulation.start({ quality: 'low', gui: true }))}
+              className="mt-3 w-full rounded bg-white/10 px-2 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition hover:bg-white/20"
+            >
+              {simulation.status?.running ? 'Stop simulation' : 'Start simulation'}
+            </button>
           </div>
         </aside>
 
         <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-white/15 bg-[#596278] p-3">
-          <div className="mb-3 flex flex-wrap gap-2">
-            <button type="button" className="mission-filter"><Filter size={15} /> FILTER..</button>
-            <button type="button" onClick={() => setStatusFilter(statusFilter === 'ACTIVE' ? 'ALL' : 'ACTIVE')} className={`mission-filter ${statusFilter === 'ACTIVE' ? 'mission-filter-active' : ''}`}><Settings2 size={15} /> STATUS..</button>
-            <button type="button" className="mission-filter"><UserRound size={15} /> OWNER..</button>
-            <button type="button" className="mission-filter"><CalendarDays size={15} /> DATE..</button>
-            <SimulationControls />
-            <button type="button" onClick={() => navigate('/dashboard/missions/new')} className="mission-filter bg-[#69748c] text-white"><Plus size={16} /> NEW MISSION</button>
+          {error && (
+            <div className="mb-3 rounded border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-amber-200">
+              {error}
+            </div>
+          )}
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/70">
+            <Radar size={15} />
+            <span>Sectors in this world</span>
+            <span className="ml-auto text-white/50">{missions.length} available</span>
           </div>
-
-          <div className="h-[calc(100%-52px)] overflow-auto rounded border border-white/20">
-            <table className="w-full min-w-[850px] border-separate border-spacing-0 text-left text-[12px] uppercase tracking-[0.12em] text-white/90">
-              <thead className="sticky top-0 z-10 bg-[#4d566c] text-[14px] text-white">
-                <tr><th className="border-r border-white/20 px-4 py-4">Template</th><th className="border-r border-white/20 px-4 py-4">Status</th><th className="border-r border-white/20 px-4 py-4">Date / Time</th><th className="border-r border-white/20 px-4 py-4">Owner</th><th className="px-4 py-4">Actions</th></tr>
+          <div className="overflow-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="text-[10px] uppercase tracking-[0.18em] text-white/60">
+                  <th className="px-3 pb-2">Sector</th>
+                  <th className="px-3 pb-2">Status</th>
+                  <th className="px-3 pb-2">Coverage</th>
+                  <th className="px-3 pb-2">Casualties</th>
+                  <th className="px-3 pb-2">Elapsed</th>
+                  <th className="px-3 pb-2">Actions</th>
+                </tr>
               </thead>
               <tbody>
-                {filteredMissions.map((mission) => (
-                  <tr key={mission.name} className="bg-[#626b80]/60 transition hover:bg-[#6d778d]">
-                    <td className="border-r border-t border-white/20 px-3 py-2"><div className="flex items-center gap-3"><div className={`relative h-14 w-[190px] overflow-hidden rounded-md border border-white/50 bg-gradient-to-br ${mission.tone}`}><img src={mission.image} alt={`${mission.name} satellite area`} loading="lazy" className="mission-thumbnail h-full w-full object-cover" /><div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(7,18,24,0.05),rgba(7,18,24,0.5))]" /><div className="absolute inset-0 bg-[linear-gradient(135deg,transparent_40%,rgba(255,255,255,0.2)_41%,transparent_43%)]" /></div><div className="min-w-[185px] text-[11px] font-bold tracking-[0.08em]">{mission.name}<div className="mt-1 text-[9px] font-normal text-white/60">{mission.type}</div></div></div></td>
-                    <td className="border-r border-t border-white/20 px-4"><span className="flex items-center gap-3 font-bold"><i className={`h-4 w-4 rounded-full ${statusColors[mission.status]}`} />{mission.status}</span></td>
-                    <td className="border-r border-t border-white/20 px-4 font-bold tracking-[0.08em]">{mission.date}</td>
-                    <td className="border-r border-t border-white/20 px-4"><div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/55 bg-white/15"><UserRound size={21} /></span><strong>{mission.owner}</strong></div></td>
-                    <td className="border-t border-white/20 px-3"><div className="flex gap-2"><button type="button" title="View mission" onClick={() => navigate(`/dashboard/missions/${mission.name.toLowerCase().replaceAll(' ', '-')}`)} className="mission-action"><Eye size={17} /></button><button type="button" title="Edit mission" onClick={() => navigate('/dashboard/missions/new')} className="mission-action"><Pencil size={17} /></button><button type="button" title="Delete mission" onClick={() => setRemovedMissions((current) => [...current, mission.name])} className="mission-action"><Trash2 size={17} /></button></div></td>
-                  </tr>
+                {missions.map((mission) => (
+                  <MissionRow
+                    key={mission.id}
+                    mission={mission}
+                    busy={busy === mission.scenario}
+                    onStart={(scenario) => void startMission(scenario)}
+                    onView={() => navigate('/dashboard')}
+                    victims={victims}
+                    drone={drone?.position ? { x: drone.position.x, y: drone.position.y } : null}
+                  />
                 ))}
+                {missions.length === 0 && !error && (
+                  <tr><td colSpan={6} className="border-t border-white/20 px-3 py-6 text-center text-[11px] uppercase tracking-[0.14em] text-white/50">
+                    Waiting for the dashboard bridge…
+                  </td></tr>
+                )}
               </tbody>
             </table>
           </div>

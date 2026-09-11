@@ -3,7 +3,6 @@ import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDataSource } from '../hooks/useDataSource'
 import {
   Bell,
-  Binary,
   Cpu,
   Crosshair,
   Gauge,
@@ -44,9 +43,7 @@ const missionNav = [
   { label: 'MISSION REPLAY', to: '/dashboard/replay', icon: Undo2 },
 ]
 
-const toolNav = [
-  { label: 'SIMULATION LAB', to: '/dashboard/simulation', icon: Binary },
-]
+
 
 const pageTitles: Record<string, string> = {
   '/': 'Command Home',
@@ -65,7 +62,6 @@ const pageTitles: Record<string, string> = {
   '/dashboard/telemetry': 'Telemetry',
   '/dashboard/reports': 'Mission Reports',
   '/dashboard/replay': 'Mission Replay',
-  '/dashboard/simulation': 'Simulation Lab',
   '/dashboard/settings': 'System Settings',
 }
 
@@ -143,24 +139,6 @@ function AppShell({ children }: { children: ReactNode }) {
             </NavLink>
           ))}
 
-          {!collapsed && (
-            <div className="mt-4 px-3 pb-1 text-[9px] tracking-[0.22em] text-text/45">TOOLS</div>
-          )}
-          {toolNav.map(({ label, to, icon: Icon }) => (
-            <NavLink
-              key={label}
-              to={to}
-              title={label}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 text-[11px] tracking-[0.14em] transition ${collapsed ? 'justify-center' : ''} ${
-                  isActive ? 'bg-white/15 text-white' : 'text-text/75 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <Icon size={16} />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
-          ))}
         </nav>
 
         <div className="border-t border-white/10 p-3 text-center text-[10px] tracking-[0.18em] text-text/60">

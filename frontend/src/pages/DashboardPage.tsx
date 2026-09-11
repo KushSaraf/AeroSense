@@ -1,28 +1,273 @@
-import { AlertTriangle, Check, ChevronDown, MapPinned, Radio, Send, Thermometer, Video } from 'lucide-react'
-import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts'
-import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, TileLayer } from 'react-leaflet'
-import { useParams } from 'react-router-dom'
+import { AlertTriangle, MapPinned, Radio, Thermometer, Video } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
 import StatusPill from '../components/StatusPill'
-import { alerts, hazards, mapCenter, mission, missions, victims } from '../data/mockMissionData'
+import { API_URL } from '../services/apiServices'
+import { useMission } from '../hooks/useMission'
+import type { Victim } from '../types'
 import 'leaflet/dist/leaflet.css'
 
-const hazardData = [{ name: 'Critical', value: 3, color: '#ef5350' }, { name: 'High', value: 4, color: '#ff9f43' }, { name: 'Moderate', value: 3, color: '#f2d14b' }, { name: 'Cleared', value: 2, color: '#43d17b' }]
-const path = [[28.612, 77.216], [28.614, 77.219], [28.616, 77.223], [28.613, 77.227]] as const
+/** The world's origin, from the simulation's spherical coordinates. */
+const DEFAULT_CENTRE: [number, number] = [-35.363262, 149.165237]
+/** The stages the mission state machine actually goes through, in order. */
+const MISSION_STAGES = [
+  { state: 'PRE_FLIGHT', label: 'Pre-flight' },
+  { state: 'TAKEOFF', label: 'Takeoff' },
+  { state: 'SEARCHING', label: 'Search the sector' },
+  { state: 'VICTIM_DETECTED', label: 'Inspect casualties' },
+  { state: 'RETURNING', label: 'Return to base' },
+  { state: 'LANDING', label: 'Land' },
+  { state: 'MISSION_COMPLETE', label: 'Complete' },
+]
+const PRIORITY_TONE: Record<string, string> = {
+  P1: '#ef5350', P2: '#ff9f43', P3: '#43d17b', UNTRIAGED: '#8ae0ff',
+}
+
+function Panel({ title, icon, children, action }: {
+  title: string; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode
+}) {
+  return (
+    <section className="panel overflow-hidden p-3">
+      <div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-white">
+        <span className="flex items-center gap-2">{icon}{title}</span>
+        {action}
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function CameraFeed() {
+  const [camera, setCamera] = useState<'rgb' | 'thermal' | 'both'>('rgb')
+  const feed = (which: 'rgb' | 'thermal') => (
+    <img
+      key={which}
+      src={`${API_URL}/api/camera/${which}`}
+      alt={`${which} camera`}
+      className="h-28 w-full rounded border border-white/15 object-cover"
+    />
+  )
+  return (
+    <>
+      <div className="mt-3 grid grid-cols-3 gap-1">
+        {(['rgb', 'thermal', 'both'] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setCamera(option)}
+            className={`rounded border px-2 py-2 text-[9px] uppercase ${
+              camera === option ? 'border-[#8ae0ff]/50 bg-[#8ae0ff]/15 text-white' : 'border-white/15 bg-white/5 text-white/70'
+            }`}
+          >
+            {option === 'rgb' ? <Video size={13} className="mx-auto mb-1" />
+              : option === 'thermal' ? <Thermometer size={13} className="mx-auto mb-1" /> : null}
+            {option === 'rgb' ? 'Live feed' : option === 'thermal' ? 'Thermal' : 'Both'}
+          </button>
+        ))}
+      </div>
+      <div className={`mt-3 grid gap-2 ${camera === 'both' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {camera === 'both' ? [feed('rgb'), feed('thermal')] : feed(camera)}
+      </div>
+    </>
+  )
+}
+
+function VictimRow({ victim }: { victim: Victim }) {
+  return (
+    <div className="flex items-center justify-between border-b border-white/10 py-2 text-[10px] uppercase tracking-[0.1em] text-white/75">
+      <span className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIORITY_TONE[victim.priority] ?? '#8ae0ff' }} />
+        {victim.id}
+      </span>
+      <span className="text-white/55">{victim.thermalStrength} · {(victim.confidence * 100).toFixed(0)}%</span>
+    </div>
+  )
+}
 
 function DashboardPage() {
-  const { missionId } = useParams()
-  const activeMission = missions.find((item) => item.name.toLowerCase().replaceAll(' ', '-') === missionId) ?? mission
-  const center: [number, number] = [mapCenter.lat, mapCenter.lng]
-  return <div className="dashboard-page min-h-full bg-[#202635] text-text"><div className="mx-auto max-w-[1800px] space-y-3">
-    <header className="flex min-h-[62px] items-center justify-between rounded-lg border border-white/15 bg-[#4e586e] px-4 py-3"><div><div className="aero-micro text-[9px] text-white/55">Mission / active operation</div><h1 className="aero-heading mt-1 text-[26px] uppercase leading-none text-white md:text-[32px]">MISSION: {activeMission.name}</h1><div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/70">{activeMission.disasterType} — {activeMission.owner}</div></div><div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block"><span className="text-[#86e2a4]">● SYSTEM ONLINE</span><br />ONE DRONE&nbsp; | &nbsp;MANY LIVES</div></header>
-    <div className="dashboard-layout">
-      <section className="panel overflow-hidden p-3"><div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-white"><span className="flex items-center gap-2"><Radio size={15} /> DRONE 1</span><StatusPill label="ACTIVE" tone="green" /></div><div className="relative h-[142px] overflow-hidden rounded-md border border-white/15 bg-[#263248]"><img src="/drone-render.png" alt="AS-01 drone" className="absolute left-[-23%] top-[-51%] w-[146%] max-w-none mix-blend-screen opacity-90" /></div><div className="mt-3 space-y-2 border-b border-white/10 pb-3 text-[10px] uppercase tracking-[0.13em] text-white/70">{[['MODEL', 'PX4 + RB5'], ['CALLSIGN', 'AS-01'], ['BATTERY', '78%'], ['FLIGHT TIME', '14:32 / 25:00'], ['ALTITUDE', '50 m'], ['SPEED', '5.2 m/s'], ['LINK', 'Strong (5G)'], ['MODE', 'Autonomous (SAR)']].map(([label, value]) => <div key={label} className="flex justify-between gap-3"><span>{label}</span><strong className="text-white">{value}</strong></div>)}</div><div className="mt-3 grid grid-cols-3 gap-1"><button type="button" className="rounded border border-[#8ae0ff]/50 bg-[#8ae0ff]/15 px-2 py-2 text-[9px] uppercase"><Video size={13} className="mx-auto mb-1" />Live feed</button><button type="button" className="rounded border border-white/15 bg-white/5 px-2 py-2 text-[9px] uppercase"><Thermometer size={13} className="mx-auto mb-1" />Thermal</button><button type="button" className="rounded border border-white/15 bg-white/5 px-2 py-2 text-[9px] uppercase">Both</button></div><div className="mt-3 grid grid-cols-2 gap-2"><img src="/disaster-landscape.png" alt="RGB disaster feed" className="h-24 w-full rounded border border-white/15 object-cover" /><img src="/disaster-landscape.png" alt="Thermal disaster feed" className="h-24 w-full rounded border border-white/15 object-cover brightness-125 saturate-[2.2] hue-rotate-[300deg]" /></div></section>
-      <section className="panel min-h-[485px] overflow-hidden p-3"><div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-white"><span className="flex items-center gap-2"><MapPinned size={15} /> MAP VIEW</span><button type="button" className="flex items-center gap-2 rounded border border-white/15 bg-[#29364d] px-3 py-2 text-[9px] uppercase">Satellite view <ChevronDown size={13} /></button></div><div className="relative h-[440px] overflow-hidden rounded-md border border-white/15"><MapContainer center={center} zoom={14} style={{ height: '100%', width: '100%' }}><TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />{victims.map((victim) => <Marker key={victim.id} position={[victim.latitude, victim.longitude]}><Popup>{victim.id} · {victim.priority}</Popup></Marker>)}{hazards.map((hazard) => <Polygon key={hazard.id} positions={hazard.coords as unknown as [number, number][]} pathOptions={{ color: hazard.severity === 'CRITICAL' ? '#ef5350' : '#ff9f43', fillColor: hazard.severity === 'CRITICAL' ? '#ef5350' : '#ff9f43', fillOpacity: 0.3, weight: 2 }} />)}<Polyline positions={path as unknown as [number, number][]} pathOptions={{ color: '#42d7c7', weight: 4, dashArray: '7 8' }} /><CircleMarker center={[28.6139, 77.2208]} radius={8} pathOptions={{ color: '#42d7c7', fillColor: '#42d7c7', fillOpacity: 1 }} /></MapContainer><div className="pointer-events-none absolute bottom-3 left-3 z-[500] rounded border border-white/20 bg-[#202b40]/90 p-3 text-[9px] uppercase leading-5 text-white/80"><strong className="text-white">LEGEND</strong><br /><span className="text-red-300">●</span> Victim P1 &nbsp; <span className="text-yellow-300">●</span> Victim P2<br /><span className="text-orange-300">■</span> Hazard &nbsp; <span className="text-cyan-300">- -</span> Drone path</div></div></section>
-      <section className="panel min-h-[485px] overflow-hidden p-3"><div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-white">ALERT FEED <span className="rounded border border-white/15 px-2 py-1 text-[9px] text-white/60">{alerts.length} ACTIVE</span></div><div className="space-y-2">{alerts.slice(0, 5).map((alert) => <div key={alert.id} className="rounded-md border border-white/10 bg-[#3a465f]/65 p-2.5"><div className="flex gap-2"><div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-red-500/20 text-red-300"><AlertTriangle size={16} /></div><div><strong className="text-[11px] uppercase text-white">{alert.title}</strong><div className="mt-1 text-[10px] text-white/60">{alert.location} · {alert.timestamp}</div><p className="mt-1 text-[10px] leading-4 text-white/75">{alert.rationale}</p></div></div></div>)}</div></section>
+  const { mission, drone, victims, source, loading } = useMission()
+  const [track, setTrack] = useState<[number, number][]>([])
+
+  // the flown track is built from the positions that arrive, not from a stored route
+  useEffect(() => {
+    if (drone?.latitude == null || drone?.longitude == null) return
+    setTrack((current) => {
+      const point: [number, number] = [drone.latitude as number, drone.longitude as number]
+      const last = current[current.length - 1]
+      if (last && Math.abs(last[0] - point[0]) < 1e-6 && Math.abs(last[1] - point[1]) < 1e-6) return current
+      return [...current.slice(-400), point]
+    })
+  }, [drone?.latitude, drone?.longitude])
+
+  const counts = useMemo(() => {
+    const tally: Record<string, number> = { P1: 0, P2: 0, P3: 0, UNTRIAGED: 0 }
+    victims.forEach((victim) => { tally[victim.priority] = (tally[victim.priority] ?? 0) + 1 })
+    return tally
+  }, [victims])
+
+  const centre: [number, number] = drone?.latitude != null && drone?.longitude != null
+    ? [drone.latitude, drone.longitude]
+    : DEFAULT_CENTRE
+  const stageIndex = MISSION_STAGES.findIndex((stage) => stage.state === mission?.state)
+
+  if (loading) {
+    return <div className="grid min-h-full place-items-center text-[11px] uppercase tracking-[0.2em] text-white/60">Connecting…</div>
+  }
+
+  return (
+    <div className="dashboard-page min-h-full bg-[#202635] text-text">
+      <div className="mx-auto max-w-[1800px] space-y-3">
+        <header className="flex min-h-[62px] items-center justify-between rounded-lg border border-white/15 bg-[#4e586e] px-4 py-3">
+          <div>
+            <div className="aero-micro text-[9px] text-white/55">Mission / active operation</div>
+            <h1 className="aero-heading mt-1 text-[26px] uppercase leading-none text-white md:text-[32px]">
+              {mission ? `MISSION: ${mission.name}` : 'NO ACTIVE MISSION'}
+            </h1>
+            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/70">
+              {mission ? `${mission.state ?? mission.status} — ${mission.reason ?? ''}`
+                : 'Start a sector from Mission Command to fly one'}
+            </div>
+          </div>
+          <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
+            <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
+              ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
+            </span><br />
+            {mission?.elapsed ? `ELAPSED ${mission.elapsed}` : 'ONE DRONE | MANY LIVES'}
+          </div>
+        </header>
+
+        <div className="dashboard-layout">
+          <Panel title="Drone 1" icon={<Radio size={15} />}
+                 action={<StatusPill label={drone?.status ?? 'OFFLINE'} tone={drone?.armed ? 'green' : 'gray'} />}>
+            <div className="space-y-2 border-b border-white/10 pb-3 text-[10px] uppercase tracking-[0.13em] text-white/70">
+              {[
+                ['Model', drone?.model ?? '—'],
+                ['Callsign', drone?.id ?? '—'],
+                ['Battery', drone ? `${drone.battery.toFixed(0)}%` : '—'],
+                ['Flight time', drone?.flightTime ?? '—'],
+                ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
+                ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
+                ['GPS', drone?.gps ?? '—'],
+                ['Mode', drone?.mode ?? '—'],
+              ].map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3"><span>{label}</span><strong className="text-white">{value}</strong></div>
+              ))}
+            </div>
+            <CameraFeed />
+          </Panel>
+
+          <Panel title="Map view" icon={<MapPinned size={15} />}>
+            <div className="relative h-[440px] overflow-hidden rounded-md border border-white/15">
+              <MapContainer center={centre} zoom={17} style={{ height: '100%', width: '100%' }}>
+                <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                {victims.map((victim) => (
+                  <CircleMarker
+                    key={victim.id}
+                    center={[victim.latitude, victim.longitude]}
+                    radius={7}
+                    pathOptions={{ color: PRIORITY_TONE[victim.priority] ?? '#8ae0ff', fillOpacity: 0.85 }}
+                  >
+                    <Popup>{victim.id} · {victim.priority} · {(victim.confidence * 100).toFixed(0)}%<br />{victim.rationale}</Popup>
+                  </CircleMarker>
+                ))}
+                {track.length > 1 && <Polyline positions={track} pathOptions={{ color: '#42d7c7', weight: 3 }} />}
+                {drone?.latitude != null && drone?.longitude != null && (
+                  <CircleMarker center={[drone.latitude, drone.longitude]} radius={8}
+                                pathOptions={{ color: '#42d7c7', fillColor: '#42d7c7', fillOpacity: 1 }}>
+                    <Popup>{drone.id} · {drone.altitude.toFixed(0)} m</Popup>
+                  </CircleMarker>
+                )}
+              </MapContainer>
+            </div>
+          </Panel>
+
+          <Panel title="Mission events"
+                 action={<span className="rounded border border-white/15 px-2 py-1 text-[9px] text-white/60">{mission?.events?.length ?? 0}</span>}>
+            <div className="max-h-[440px] space-y-2 overflow-auto">
+              {(mission?.events ?? []).slice().reverse().map((event, index) => (
+                <div key={`${event.time}-${index}`} className="rounded-md border border-white/10 bg-[#3a465f]/65 p-2.5">
+                  <div className="flex gap-2">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded bg-[#8ae0ff]/15 text-[#8ae0ff]">
+                      <AlertTriangle size={15} />
+                    </div>
+                    <div>
+                      <div className="text-[10px] text-white/55">{event.time}</div>
+                      <p className="mt-1 text-[10px] leading-4 text-white/80">{event.text}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {!mission?.events?.length && (
+                <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">No mission events yet.</p>
+              )}
+            </div>
+          </Panel>
+        </div>
+
+        <div className="dashboard-lower">
+          <Panel title="Mission status">
+            {MISSION_STAGES.map((stage, index) => {
+              const done = stageIndex > index || mission?.state === 'MISSION_COMPLETE'
+              const current = stageIndex === index
+              return (
+                <div key={stage.state} className="flex items-center justify-between border-b border-white/10 py-2 text-[9px] uppercase text-white/70">
+                  <span className="flex items-center gap-2">
+                    <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
+                      done ? 'border-[#43d17b] text-[#43d17b]' : current ? 'border-[#8ae0ff] text-[#8ae0ff]' : 'border-white/25'}`}>
+                      {done ? '✓' : '○'}
+                    </span>
+                    {stage.label}
+                  </span>
+                  <span>{done ? 'Done' : current ? 'In progress' : 'Pending'}</span>
+                </div>
+              )
+            })}
+          </Panel>
+
+          <Panel title="Telemetry">
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                ['Battery', drone ? `${drone.battery.toFixed(0)}%` : '—'],
+                ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
+                ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
+                ['GPS', drone?.gps ?? '—'],
+              ].map(([label, value]) => (
+                <div key={label} className="rounded border border-white/15 bg-[#3a465f]/75 p-3">
+                  <div className="text-[9px] uppercase text-white/55">{label}</div>
+                  <div className="mt-3 text-[15px] font-bold text-white">{value}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Casualties"
+                 action={<span className="text-[9px] text-white/55">{victims.length} found</span>}>
+            <div className="mb-2 flex gap-2 text-[9px] uppercase text-white/70">
+              {Object.entries(counts).filter(([, value]) => value > 0).map(([priority, value]) => (
+                <span key={priority} className="rounded px-2 py-1" style={{ backgroundColor: `${PRIORITY_TONE[priority]}22`, color: PRIORITY_TONE[priority] }}>
+                  {priority} {value}
+                </span>
+              ))}
+              {victims.length === 0 && <span className="text-white/45">None detected yet</span>}
+            </div>
+            <div className="max-h-[150px] overflow-auto">
+              {victims.map((victim) => <VictimRow key={victim.id} victim={victim} />)}
+            </div>
+          </Panel>
+
+          <Panel title="Coverage">
+            <div className="text-[34px] font-bold text-white">{mission ? `${mission.coverage.toFixed(0)}%` : '—'}</div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
+              <div className="h-full rounded-full bg-[#8ae0ff]" style={{ width: `${mission?.coverage ?? 0}%` }} />
+            </div>
+            <p className="mt-3 text-[9px] uppercase leading-4 tracking-[0.12em] text-white/55">
+              Measured from where the camera actually looked, not from legs flown.
+            </p>
+          </Panel>
+        </div>
+      </div>
     </div>
-    <div className="dashboard-lower"><section className="panel p-3"><div className="mb-3 text-[10px] font-bold uppercase text-white">MISSION STATUS</div>{['Takeoff', 'Survey Area', 'Detect & Map Hazards', 'Locate Survivors', 'Generate Safe Routes', 'Return to Base'].map((item, index) => <div key={item} className="flex items-center justify-between border-b border-white/10 py-2 text-[9px] uppercase text-white/70"><span className="flex items-center gap-2"><span className={`flex h-4 w-4 items-center justify-center rounded-full border ${index < 2 ? 'border-[#43d17b] text-[#43d17b]' : 'border-white/25'}`}>{index < 2 ? <Check size={10} /> : '○'}</span>{item}</span><span>{index < 2 ? 'In progress' : 'Pending'}</span></div>)}</section><section className="panel p-3"><div className="mb-3 text-[10px] font-bold uppercase text-white">TELEMETRY</div><div className="grid grid-cols-2 gap-2">{[['BATTERY', '78%'], ['ALTITUDE', '50 m'], ['SPEED', '5.2 m/s'], ['GPS', '3D FIX']].map(([label, value]) => <div key={label} className="rounded border border-white/15 bg-[#3a465f]/75 p-3"><div className="text-[9px] uppercase text-white/55">{label}</div><div className="mt-3 text-[15px] font-bold text-white">{value}</div></div>)}</div></section><section className="panel p-3"><div className="mb-2 text-[10px] font-bold uppercase text-white">HAZARD STATISTICS</div><div className="flex items-center gap-2"><div className="h-24 w-24"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={hazardData} dataKey="value" innerRadius={27} outerRadius={40} paddingAngle={3} stroke="none">{hazardData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}</Pie></PieChart></ResponsiveContainer></div><div className="space-y-1 text-[9px] uppercase text-white/70">{hazardData.map((entry) => <div key={entry.name}><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />{entry.name}</div>)}</div></div></section><section className="panel p-3"><div className="mb-3 text-[10px] font-bold uppercase text-white">SUGGESTED SAFE ROUTE</div><div className="relative h-20 overflow-hidden rounded border border-white/15 bg-[#29364c]"><div className="absolute inset-0 bg-[linear-gradient(145deg,transparent_48%,rgba(67,209,123,0.85)_49%,rgba(67,209,123,0.85)_51%,transparent_52%)]" /><div className="absolute bottom-2 left-3 rounded bg-[#43d17b] px-2 py-1 text-[9px] font-bold text-[#14251b]">LOW RISK</div></div><div className="mt-2 flex items-center justify-between text-[9px] uppercase text-white/65"><span>420 m · 6 min</span><button type="button" className="rounded bg-[#6c9aca] px-2 py-1 text-white"><Send size={12} /></button></div></section></div>
-    <footer className="flex justify-between border-t border-white/10 px-1 pt-2 text-[9px] uppercase text-white/45"><span>AERO SENSE | BUILT FOR A SAFER TOMORROW</span><span>DETECT | LOCATE | ASSESS | GUIDE | SAVE LIVES</span></footer>
-  </div></div>
+  )
 }
 
 export default DashboardPage

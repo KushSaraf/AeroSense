@@ -13,7 +13,6 @@ import CommunicationPage from './pages/CommunicationPage'
 import TelemetryPage from './pages/TelemetryPage'
 import ReportsPage from './pages/ReportsPage'
 import ReplayPage from './pages/ReplayPage'
-import SimulationPage from './pages/SimulationPage'
 import SettingsPage from './pages/SettingsPage'
 
 function App() {
@@ -38,7 +37,6 @@ function App() {
           <Route path="/dashboard/telemetry" element={<TelemetryPage />} />
           <Route path="/dashboard/reports" element={<ReportsPage />} />
           <Route path="/dashboard/replay" element={<ReplayPage />} />
-          <Route path="/dashboard/simulation" element={<SimulationPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
         </Routes>
       </AppShell>
