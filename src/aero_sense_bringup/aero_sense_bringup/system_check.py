@@ -20,7 +20,7 @@ MAVLINK_DIAGNOSTICS_URL = "udpin:127.0.0.1:14552"
 UAV_WS = Path(os.environ.get("UAV_WS", Path.home() / "uav_ws"))
 WORKSPACE_PACKAGES = ("aero_sense_interfaces", "aero_sense_bringup", "aero_sense_description",
                       "aero_sense_gazebo", "aero_sense_mission", "aero_sense_scenario_manager",
-                      "aero_sense_perception")
+                      "aero_sense_perception", "aero_sense_visualization")
 #: Topics that must exist while the simulation runs (grows as phases land).
 LIVE_TOPICS = (
     "/clock",

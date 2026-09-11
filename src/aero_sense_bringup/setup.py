@@ -19,5 +19,8 @@ setup(
     maintainer_email="codenexusky@gmail.com",
     description="Launch files, configuration and diagnostics for the Aero Sense SAR simulation.",
     license="TODO",
-    entry_points={"console_scripts": [f"system_check = {PACKAGE}.system_check:main"]},
+    entry_points={"console_scripts": [
+        f"system_check = {PACKAGE}.system_check:main",
+        f"stop_sim = {PACKAGE}.stop_sim:main",
+    ]},
 )

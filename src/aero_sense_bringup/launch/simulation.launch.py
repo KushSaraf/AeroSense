@@ -87,6 +87,11 @@ def _victim_actions(world, gz_world: str) -> list:
 
 
 def _launch(context, *args, **kwargs):
+    if not worlds.port_is_free(SITL_TCP_PORT):
+        raise RuntimeError(
+            f"port {SITL_TCP_PORT} is already in use, so ArduPilot SITL cannot start and the "
+            "drone would never fly. A simulation is already running: use it, or stop it with "
+            "tools/stop_sim.sh and launch again.")
     world_name = LaunchConfiguration("world").perform(context)
     namespace = LaunchConfiguration("namespace").perform(context)
     quality = LaunchConfiguration("quality").perform(context)

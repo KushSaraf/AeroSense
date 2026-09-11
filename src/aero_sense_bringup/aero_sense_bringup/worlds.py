@@ -2,6 +2,7 @@
 and where the world's models are found."""
 import math
 import os
+import socket
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -15,6 +16,22 @@ REFERENCE_DIR = Path(os.environ.get("AERO_SENSE_REFERENCE", Path.home() / "sih_2
 REFERENCE_MODEL_DIRS = ("tdf_gazebo-main/models", "gazebo_models_worlds_collection-master/models",
                         "Autonomous-robot-for-fire-detection-main/models",
                         "darpa_subt_worlds-main/worlds/models")
+
+def port_is_free(port: int, host: str = "127.0.0.1") -> bool:
+    """Whether a TCP port can still be bound.
+
+    SITL exits immediately if its port is taken, and a launch that ignores this leaves a world
+    with a drone in it that no autopilot is flying — which looks like "the drone is broken"
+    rather than "a simulation is already running".
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((host, port))
+        except OSError:
+            return False
+    return True
+
 
 def world_name(world: Path) -> str:
     return ET.parse(world).getroot().find("world").get("name")

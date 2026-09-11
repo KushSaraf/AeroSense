@@ -1,5 +1,6 @@
 """Phase 4 checks: every world declares a spawn point and all its models resolve."""
 import math
+import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -119,3 +120,54 @@ def test_no_victim_is_buried_in_a_structure():
             if abs(local_x) < half_x + VICTIM_CLEARANCE_M and abs(local_y) < half_y + VICTIM_CLEARANCE_M:
                 buried.append(f"{victim['id']} inside {name}")
     assert not buried
+
+
+def test_a_busy_sitl_port_is_reported_rather_than_ignored():
+    """A second launch must fail loudly: SITL exits on a taken port, leaving a world whose drone
+    no autopilot flies, which reads as a broken drone rather than a duplicate simulation."""
+    import socket
+    assert worlds.port_is_free(5760) or True          # free or not, the call must not raise
+    holder = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    holder.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    holder.bind(("127.0.0.1", 0))
+    holder.listen(1)
+    port = holder.getsockname()[1]
+    try:
+        assert not worlds.port_is_free(port)
+    finally:
+        holder.close()
+    assert worlds.port_is_free(port)                  # and free again once released
+
+
+#: (pid, argv) pairs resembling a real `ps`, including the shell that is doing the stopping.
+PROCESS_SAMPLE = [
+    (10, ["gz", "sim", "-r", "-s", "-v2", "/opt/aero_sense_disaster.sdf"]),
+    (11, ["gz", "sim", "-g", "-v2"]),
+    (12, ["/home/u/uav_ws/install/ardupilot_sitl/bin/arducopter", "--model", "JSON"]),
+    (13, ["/usr/bin/python3", "/home/u/.local/bin/mavproxy.py", "--master", "tcp:127.0.0.1:5760"]),
+    (14, ["/usr/bin/python3", "/opt/install/aero_sense_perception/lib/.../victim_detector"]),
+    (15, ["/opt/ros/humble/lib/tf2_ros/static_transform_publisher", "--x", "0.12"]),
+    (20, ["gz", "topic", "-e", "-t", "/clock"]),                     # a query, not a simulation
+    (21, ["/bin/bash", "-c", "pgrep -f 'gz sim|arducopter' && echo done"]),   # the caller
+    (22, ["/usr/bin/python3", "/usr/bin/colcon", "build"]),
+    (23, ["rviz2", "-d", "/opt/aero_sense.rviz"]),
+]
+
+
+def test_stop_sim_matches_the_simulation_and_nothing_else():
+    from aero_sense_bringup import stop_sim
+    assert set(stop_sim.simulation_pids(PROCESS_SAMPLE)) == {10, 11, 12, 13, 14, 15, 23}
+
+
+def test_stop_sim_never_kills_the_shell_that_merely_mentions_it():
+    """A shell whose arguments contain "gz sim" is not a simulation; killing it would take the
+    caller down mid-stop, which an earlier text-matching version did."""
+    from aero_sense_bringup import stop_sim
+    caller = [(21, ["/bin/bash", "-c", "pgrep -f 'gz sim|arducopter'"])]
+    assert stop_sim.simulation_pids(caller) == []
+
+
+def test_stop_sim_excludes_our_own_process_tree():
+    from aero_sense_bringup import stop_sim
+    assert 12 not in stop_sim.simulation_pids(PROCESS_SAMPLE, exclude={12})
+    assert os.getpid() in stop_sim.own_process_tree()

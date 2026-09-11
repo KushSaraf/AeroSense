@@ -36,6 +36,45 @@ ros2 run aero_sense_bringup system_check
 The single-process prototype below still works (`./run_sim.sh`) until its pieces are
 migrated into the packages.
 
+## Running the full system
+
+```bash
+source /opt/ros/humble/setup.bash && source ~/uav_ws/install/setup.bash
+cd ~/sih_2026 && colcon build --base-paths src && source install/setup.bash
+
+ros2 launch aero_sense_bringup full_system.launch.py     # world + drone + perception + RViz
+```
+
+Arguments: `gui:=false` (no Gazebo window), `rviz:=false`, `quality:=low|medium|high`,
+`victims:=false`, `world:=…`, `namespace:=drone_01`.
+
+**Re-source after pulling or rebuilding.** `ros2 launch` resolves packages from the environment
+as it was sourced: a terminal sourced before a package existed will start everything except that
+package's nodes, which looks like a partly-working simulation.
+
+The drone spawns on the command-base pad at **(0, −110)**, 110 m south of the world origin where
+the Gazebo camera starts — it is off-screen until you move the view, and it does not move until
+commanded:
+
+```bash
+ros2 service call /aero_sense/drone/takeoff std_srvs/srv/Trigger
+python3 tools/search_evaluation.py       # fly a search and score it against ground truth
+python3 tools/camera_snapshot.py --at 55 8 35 --look-at 60 40 --tag flood
+ros2 run aero_sense_bringup system_check
+ros2 run aero_sense_bringup stop_sim     # stop everything, including what outlives Ctrl-C
+```
+
+Only one simulation can run at a time: SITL needs port 5760, and a second launch now fails with
+that message instead of quietly starting a world whose drone no autopilot flies.
+
+### What RViz shows
+
+`full_system.launch.py` opens RViz on `aero_sense_visualization/config/aero_sense.rviz`:
+the drone's axes and TF tree, **red spheres for casualties the drone found** (labelled with id,
+priority and confidence), **green translucent spheres for ground truth** (evaluation only —
+switch the layer off to watch the search honestly), the LiDAR cloud, and the RGB and thermal
+camera streams. The view starts over the earthquake sector; the base is to the south.
+
 ## Reference assets
 
 The disaster world is built from open GitHub model repos, used in place (not vendored, so
