@@ -2,8 +2,8 @@
 
     ros2 launch aero_sense_bringup full_system.launch.py
 
-Arguments are those of simulation.launch.py (world, gui, quality, victims, namespace) plus
-rviz:=false to leave the view out. Stop it with Ctrl-C, or tools/stop_sim.sh if anything
+Arguments are those of simulation.launch.py (world, gui, quality, victims, namespace,
+cruise_speed) plus rviz:=false to leave the view out. Stop it with Ctrl-C, or tools/stop_sim.sh if anything
 survives.
 """
 from pathlib import Path
@@ -15,7 +15,7 @@ from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 
-FORWARDED = ("world", "gui", "namespace", "quality", "victims")
+FORWARDED = ("world", "gui", "namespace", "quality", "victims", "cruise_speed")
 
 
 def generate_launch_description() -> LaunchDescription:
@@ -27,6 +27,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("namespace", default_value=""),
         DeclareLaunchArgument("quality", default_value="medium"),
         DeclareLaunchArgument("victims", default_value="true"),
+        DeclareLaunchArgument("cruise_speed", default_value="4.0"),
         DeclareLaunchArgument("rviz", default_value="true", description="open the RViz view"),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(launch_dir / "simulation.launch.py")),

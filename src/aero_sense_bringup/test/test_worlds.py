@@ -110,7 +110,7 @@ def test_no_victim_is_buried_in_a_structure():
     world = next(w for w in WORLDS if w.stem == "aero_sense_disaster")
     structures = list(_structures(world))
     assert structures, "no known structures found in the world"
-    buried = []
+    buried, inside_on_purpose = [], []
     for victim in victim_table.load():
         for name, x, y, yaw, half_x, half_y in structures:
             dx, dy = victim["x"] - x, victim["y"] - y
@@ -118,8 +118,14 @@ def test_no_victim_is_buried_in_a_structure():
             local_x = dx * math.cos(-yaw) - dy * math.sin(-yaw)
             local_y = dx * math.sin(-yaw) + dy * math.cos(-yaw)
             if abs(local_x) < half_x + VICTIM_CLEARANCE_M and abs(local_y) < half_y + VICTIM_CLEARANCE_M:
-                buried.append(f"{victim['id']} inside {name}")
+                if victim.get("inside_structure"):
+                    inside_on_purpose.append(victim["id"])
+                else:
+                    buried.append(f"{victim['id']} inside {name}")
     assert not buried
+    # a stale flag is its own bug: it would silence the check for a victim standing in the open
+    flagged = {v["id"] for v in victim_table.load() if v.get("inside_structure")}
+    assert flagged == set(inside_on_purpose), f"inside_structure set but not inside: {flagged - set(inside_on_purpose)}"
 
 
 def test_a_busy_sitl_port_is_reported_rather_than_ignored():
@@ -151,12 +157,14 @@ PROCESS_SAMPLE = [
     (21, ["/bin/bash", "-c", "pgrep -f 'gz sim|arducopter' && echo done"]),   # the caller
     (22, ["/usr/bin/python3", "/usr/bin/colcon", "build"]),
     (23, ["rviz2", "-d", "/opt/aero_sense.rviz"]),
+    # Gazebo's launcher execs with the whole line in one argument
+    (24, ["gz sim -r -s -v2 /opt/share/worlds/aero_sense_disaster.sdf"]),
 ]
 
 
 def test_stop_sim_matches_the_simulation_and_nothing_else():
     from aero_sense_bringup import stop_sim
-    assert set(stop_sim.simulation_pids(PROCESS_SAMPLE)) == {10, 11, 12, 13, 14, 15, 23}
+    assert set(stop_sim.simulation_pids(PROCESS_SAMPLE)) == {10, 11, 12, 13, 14, 15, 23, 24}
 
 
 def test_stop_sim_never_kills_the_shell_that_merely_mentions_it():
@@ -165,6 +173,15 @@ def test_stop_sim_never_kills_the_shell_that_merely_mentions_it():
     from aero_sense_bringup import stop_sim
     caller = [(21, ["/bin/bash", "-c", "pgrep -f 'gz sim|arducopter'"])]
     assert stop_sim.simulation_pids(caller) == []
+
+
+def test_stop_sim_matches_gazebo_when_its_command_line_is_one_argument():
+    """Five servers once survived a "successful" stop because the program name read as the whole
+    command line."""
+    from aero_sense_bringup import stop_sim
+    single = [(30, ["gz sim -r -s -v2 /opt/world.sdf"])]
+    assert stop_sim.simulation_pids(single) == [30]
+    assert stop_sim.simulation_pids([(31, ["gz topic -e -t /clock"])]) == []
 
 
 def test_stop_sim_excludes_our_own_process_tree():

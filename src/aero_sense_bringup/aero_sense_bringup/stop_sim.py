@@ -11,6 +11,7 @@ caller down with it.
 import os
 import signal
 import socket
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -24,7 +25,18 @@ SITL_TCP_PORT = 5760
 GRACE_S = 2.0
 
 
+def _tokens(argv: list) -> list:
+    """Gazebo's launcher execs with its whole command line in a single argument, so argv can be
+    ["gz sim -r -s -v2 world.sdf"]. Split that back into tokens, or the program name reads as the
+    entire line and matches nothing — which left five servers running while stop_sim reported
+    success."""
+    if len(argv) == 1 and " " in argv[0]:
+        return argv[0].split()
+    return argv
+
+
 def _is_simulation(argv: list) -> bool:
+    argv = _tokens(argv)
     if not argv:
         return False
     program = Path(argv[0]).name
@@ -79,6 +91,12 @@ def port_is_free(port: int = SITL_TCP_PORT) -> bool:
     return True
 
 
+def stop_ros_daemon() -> None:
+    """The daemon caches node and topic information; a stale one makes a fresh simulation look
+    half-connected in `ros2 topic list`."""
+    subprocess.run(["ros2", "daemon", "stop"], capture_output=True, timeout=15, check=False)
+
+
 def main() -> None:
     ours = own_process_tree()
     stopped = []
@@ -94,6 +112,7 @@ def main() -> None:
                 pass
         time.sleep(GRACE_S)
 
+    stop_ros_daemon()
     left = simulation_pids(running_processes(), exclude=ours)
     free = port_is_free()
     if left or not free:

@@ -109,13 +109,15 @@ victims:
     expected_priority: P3
     note: no useful thermal contrast; only RGB shape betrays this one
 
-  # --- S2 flood. z sits them at the water surface; perception projects onto the ground plane,
-  # so expect a few tens of centimetres of extra error until depth is used for range.
+  # --- S2 flood. The water surface is at 0.6 m and a body extends upward from its spawn z, so
+  # spawning at 0.6 left them sitting on top of the flood. 0.25 puts the waterline across the
+  # middle of the casualty. Perception projects onto the ground plane, so expect a few tens of
+  # centimetres of extra error here until depth is used for range.
   - id: V10
     state: trapped
     x: 55.0
     y: 32.0
-    z: 0.6
+    z: 0.25
     yaw_deg: 40
     temperature_k: 306.0
     occlusion: none
@@ -126,7 +128,7 @@ victims:
     state: seated
     x: 100.0
     y: 60.0
-    z: 0.6
+    z: 0.25
     yaw_deg: 150
     temperature_k: 305.0
     occlusion: partial
@@ -137,9 +139,47 @@ victims:
     state: lying
     x: 150.0
     y: 45.0
-    z: 0.6
+    z: 0.25
     yaw_deg: 250
     temperature_k: 308.0
     occlusion: none
     expected_priority: P2
     note: clinging to wreckage in open water
+
+  # --- Trapped inside collapsed buildings. `inside_structure` marks this as deliberate: the
+  # clearance test rejects any *other* victim inside a mesh, because that is normally an
+  # accident that makes a casualty invisible to every sensor. These are the hard cases a real
+  # search faces: findable only where the roof has come away, and a drone honestly cannot see
+  # the rest from above.
+  - id: V13
+    state: trapped
+    x: -164.0
+    y: 13.0
+    yaw_deg: 35
+    temperature_k: 308.0
+    occlusion: heavy
+    inside_structure: true
+    expected_priority: P1
+    note: inside the second terrace, under the collapsed roof
+
+  - id: V14
+    state: trapped
+    x: -93.0
+    y: 37.0
+    yaw_deg: -70
+    temperature_k: 307.0
+    occlusion: heavy
+    inside_structure: true
+    expected_priority: P1
+    note: inside the market-block house, visible only where the roof has gone
+
+  - id: V15
+    state: seated
+    x: -94.0
+    y: 63.0
+    yaw_deg: 120
+    temperature_k: 309.0
+    occlusion: heavy
+    inside_structure: true
+    expected_priority: P2
+    note: sheltering inside the north terrace, conscious

@@ -66,13 +66,25 @@ class VictimDetector(Node):
     # -- pipeline ---------------------------------------------------------------
 
     def _camera_pose(self, stamp):
-        """(position, rotation) of the camera in `map`, or None until TF is ready."""
+        """(position, rotation) of the camera in `map` *when the frame was taken*, or None until
+        TF is ready.
+
+        The stamp matters more than it looks: using the latest transform instead projects each
+        detection from wherever the drone has since flown to, so the same casualty lands in a
+        different place every frame, never associates into one track, and is never confirmed.
+        At 4 m/s that error hid nothing; at 8 m/s it cost half the casualties.
+        """
         try:
-            tf = self._tf.lookup_transform(self._map_frame, self._camera_frame, rclpy.time.Time())
-        except Exception as exc:                       # TF not up yet, or the frame moved away
-            self.get_logger().warn(f"no transform {self._map_frame} <- {self._camera_frame}: {exc}",
-                                   throttle_duration_sec=10.0)
-            return None
+            tf = self._tf.lookup_transform(self._map_frame, self._camera_frame,
+                                           rclpy.time.Time.from_msg(stamp),
+                                           timeout=rclpy.duration.Duration(seconds=0.1))
+        except Exception:
+            try:                                       # before the buffer starts, or after a gap
+                tf = self._tf.lookup_transform(self._map_frame, self._camera_frame, rclpy.time.Time())
+            except Exception as exc:
+                self.get_logger().warn(f"no transform {self._map_frame} <- {self._camera_frame}: {exc}",
+                                       throttle_duration_sec=10.0)
+                return None
         t, q = tf.transform.translation, tf.transform.rotation
         return np.array([t.x, t.y, t.z]), geolocate.quaternion_to_matrix(q.x, q.y, q.z, q.w)
 

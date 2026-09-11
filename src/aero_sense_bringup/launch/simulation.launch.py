@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium] [victims:=true]
+        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0]
 
 Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
 for evaluation.
@@ -36,6 +36,9 @@ DIAGNOSTICS_OUT = "127.0.0.1:14552"    # system_check
 MAVLINK_OUTS = (GCS_OUT, ONBOARD_OUT, DIAGNOSTICS_OUT)
 #: SITL must be listening on its TCP port before MAVProxy connects to it.
 MAVPROXY_DELAY_S = 3.0
+#: The Gazebo GUI asks the server for the scene once, at startup: started together they race,
+#: and the GUI loses often enough to come up as an empty window with a live real-time factor.
+GUI_DELAY_S = 5.0
 SITL_DIR = Path.home() / ".ros" / "aero_sense" / "sitl"
 GENERATED_DIR = Path.home() / ".ros" / "aero_sense" / "generated"
 DEFAULT_DRONE = "aero_sense_drone"
@@ -109,8 +112,9 @@ def _launch(context, *args, **kwargs):
 
     gz_server = ExecuteProcess(cmd=["gz", "sim", "-r", "-s", "-v2", str(world)],
                                additional_env=env, output="screen")
-    gz_gui = ExecuteProcess(cmd=["gz", "sim", "-g", "-v2"], additional_env=env, output="screen",
-                            condition=IfCondition(LaunchConfiguration("gui")))
+    gz_gui = TimerAction(period=GUI_DELAY_S, actions=[
+        ExecuteProcess(cmd=["gz", "sim", "-g", "-v2"], additional_env=env, output="screen")],
+        condition=IfCondition(LaunchConfiguration("gui")))
     sitl = ExecuteProcess(
         cmd=[str(Path(get_package_prefix("ardupilot_sitl")) / "bin" / "arducopter"),
              "--model", "JSON", "--speedup", "1", "--slave", "0", "-w",
@@ -132,7 +136,9 @@ def _launch(context, *args, **kwargs):
                   parameters=[{"config_file": str(bridge_config)}], output="screen")
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
                  parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}",
-                              "base_frame": f"{frame_prefix}base_link"}], output="screen")
+                              "base_frame": f"{frame_prefix}base_link",
+                              "cruise_speed_mps": float(LaunchConfiguration("cruise_speed").perform(context))}],
+                 output="screen")
     origin_lat, origin_lon, _ = worlds.origin(world)
     perception = Node(package="aero_sense_perception", executable="victim_detector",
                       namespace=namespace, output="screen",
@@ -157,5 +163,7 @@ def generate_launch_description() -> LaunchDescription:
                               description="sensor quality profile (resolution / rate)"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
+        DeclareLaunchArgument("cruise_speed", default_value="4.0",
+                              description="m/s between waypoints; raise it to fly a demo quickly"),
         OpaqueFunction(function=_launch),
     ])
