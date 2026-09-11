@@ -13,28 +13,16 @@ ArduPilot SITL (EKF3) <──────────── MAVLink (GUIDED) ─
                                            store-and-forward downlink ──> dashboard :8080
 ```
 
-## ROS 2 workspace (in progress — see docs/ARCHITECTURE.md)
+## ROS 2 workspace
 
-The system is being rebuilt as ROS 2 packages under `src/` in 23 phases. Done so far:
-Phase 1 (interfaces, `system_check`) and Phase 2 (Gazebo + ArduPilot SITL + MAVLink/ROS
-`drone_interface`).
+The system is being rebuilt as ROS 2 packages under `src/` (see `docs/ARCHITECTURE.md`). Landed
+so far: interfaces and `system_check`; Gazebo + ArduPilot SITL flown from ROS; the sensor payload
+(RGB, depth, LWIR, LiDAR, IMU, barometer) with quality profiles; the disaster world — dense
+earthquake blocks, a flooded village and a landslide ridge; casualties with real body heat;
+thermal perception that finds them; and the RViz view.
 
-```bash
-source /opt/ros/humble/setup.bash
-source ~/uav_ws/install/setup.bash          # ros_gz, ardupilot_gazebo, ardupilot_sitl
-colcon build --base-paths src               # src only: reference/ holds ROS 1 packages
-source install/setup.bash
-
-ros2 launch aero_sense_bringup simulation.launch.py [gui:=false] [namespace:=drone_01]
-ros2 service call /aero_sense/drone/takeoff std_srvs/srv/Trigger
-ros2 topic pub --once /aero_sense/drone/setpoint geometry_msgs/msg/PoseStamped \
-  "{header: {frame_id: map}, pose: {position: {x: 10.0, y: 5.0, z: 15.0}, orientation: {w: 1.0}}}"
-ros2 service call /aero_sense/drone/land std_srvs/srv/Trigger
-ros2 run aero_sense_bringup system_check
-```
-
-The single-process prototype below still works (`./run_sim.sh`) until its pieces are
-migrated into the packages.
+The single-process prototype below still works (`./run_sim.sh`) until its pieces are migrated
+into the packages.
 
 ## Running the full system
 
