@@ -1,12 +1,14 @@
 import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, RotateCcw, Thermometer, Video } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
 import StatusPill from '../components/StatusPill'
-import { API_URL, simulationControl } from '../services/apiServices'
+import { API_URL, cameraSrc, simulationControl } from '../services/apiServices'
+import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import type { Victim } from '../types'
 import 'leaflet/dist/leaflet.css'
 
+const DASHBOARD_TRACK_LIMIT = 400
 /** The world's origin, from the simulation's spherical coordinates. */
 const DEFAULT_CENTRE: [number, number] = [-35.363262, 149.165237]
 /** The stages the mission state machine actually goes through, in order. */
@@ -122,7 +124,7 @@ function CameraFeed() {
   const feed = (which: 'rgb' | 'thermal') => (
     <img
       key={which}
-      src={`${API_URL}/api/camera/${which}`}
+      src={cameraSrc(which)}
       alt={`${which} camera`}
       className="h-28 w-full rounded border border-white/15 object-cover"
     />
@@ -166,18 +168,8 @@ function VictimRow({ victim }: { victim: Victim }) {
 
 function DashboardPage() {
   const { mission, drone, victims, source, loading } = useMission()
-  const [track, setTrack] = useState<[number, number][]>([])
-
-  // the flown track is built from the positions that arrive, not from a stored route
-  useEffect(() => {
-    if (drone?.latitude == null || drone?.longitude == null) return
-    setTrack((current) => {
-      const point: [number, number] = [drone.latitude as number, drone.longitude as number]
-      const last = current[current.length - 1]
-      if (last && Math.abs(last[0] - point[0]) < 1e-6 && Math.abs(last[1] - point[1]) < 1e-6) return current
-      return [...current.slice(-400), point]
-    })
-  }, [drone?.latitude, drone?.longitude])
+  const track = useFlightTrack(drone?.latitude, drone?.longitude, mission?.id, mission?.elapsedSeconds,
+                               DASHBOARD_TRACK_LIMIT)
 
   const counts = useMemo(() => {
     const tally: Record<string, number> = { P1: 0, P2: 0, P3: 0, UNTRIAGED: 0 }

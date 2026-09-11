@@ -144,11 +144,16 @@ class DashboardBridge(Node):
         if mission and mission["status"] == "COMPLETED":
             # keep finished missions so their report survives the next takeoff
             self._history[mission["id"]] = {"mission": mission, "victims": self.victims(),
-                                            "drone": self.drone(), "events": list(self._events)}
+                                            "drone": self.drone(), "events": self._own_events()}
         return mission
 
+    def _own_events(self) -> list:
+        """The current mission's events; the log itself runs across missions."""
+        mission_id = self._mission_state.mission_id if self._mission_state else None
+        return contracts.mission_events(list(self._events), mission_id)
+
     def alerts(self) -> list:
-        return contracts.alerts_json(self.victims(), list(self._events))
+        return contracts.alerts_json(self.victims(), self._own_events())
 
     def perception(self) -> dict:
         """What the detector is actually doing, measured rather than described."""
@@ -175,7 +180,7 @@ class DashboardBridge(Node):
             live = self.mission()
             if live and live["id"] == mission_id:
                 record = {"mission": live, "victims": self.victims(), "drone": self.drone(),
-                          "events": list(self._events)}
+                          "events": self._own_events()}
         if record is None:
             return None
         return contracts.report_json(record["mission"], record["victims"], record["drone"],

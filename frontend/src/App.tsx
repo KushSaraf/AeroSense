@@ -17,7 +17,7 @@ import SettingsPage from './pages/SettingsPage'
  */
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <AppShell>
         <Routes>
           <Route path="/" element={<HomePage />} />

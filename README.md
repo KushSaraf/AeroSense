@@ -1,5 +1,30 @@
 # Aero Sense — search-and-rescue drone simulation
 
+**Website: https://kushsaraf.github.io/AeroSense_SIH26/** — the command dashboard playing back a
+real recorded flight of the earthquake sector: the drone's track, its thermal and RGB camera,
+every casualty it confirmed with its triage, the obstacle-avoidance and mission events, and the
+printable report. The simulation itself (Gazebo, ArduPilot SITL, ROS 2) cannot run on a web host,
+so the site says on every page that it is a replay; run `tools/dashboard.sh` to fly one live.
+Re-record it with `python3 tools/record_replay.py` while the dashboard is running.
+
+Tests, flight results, the triage scorecard and screenshots: [docs/VERIFICATION.md](docs/VERIFICATION.md).
+
+## Screenshots
+
+From the recorded flight on the website. More, with the test and flight results, in
+[docs/VERIFICATION.md](docs/VERIFICATION.md).
+
+| | |
+|---|---|
+| ![Live dashboard](docs/images/site-dashboard.png) | ![Live map](docs/images/site-map.png) |
+| **Live dashboard** 3:20 into the flight: drone telemetry, its camera, casualties with triage, measured coverage, mission events | **Live map**: both sectors on satellite imagery, the drone and the triaged casualties |
+| ![Mission report](docs/images/site-reports.png) | ![Mission command](docs/images/site-mission-command.png) |
+| **Mission report**: printable A4, every figure from recorded mission data | **Mission command**: the earthquake and flood sectors, start either from here |
+| ![Alert center](docs/images/site-alerts.png) | ![Drone thermal camera beside the radio mast](docs/images/drone-thermal_0158.jpg) |
+| **Alert center**: raised only by real detections and mission events | **The drone's thermal camera**: a warm body beside the radio mast the route goes round |
+| ![Drone RGB camera over the collapsed terraces](docs/images/drone-rgb_0039.jpg) | ![Drone thermal camera over the collapsed terraces](docs/images/drone-thermal_0039.jpg) |
+| **RGB camera**: the first casualty, in the lane between collapsed terraces | **Thermal (LWIR)**, the same moment |
+
 Autonomous SAR drone in a Gazebo disaster zone, flown by ArduPilot SITL, with the onboard
 AI stack (detection, thermal fusion, mapping, risk engine, safe-route planning,
 store-and-forward comms) and a live command-centre dashboard.
@@ -81,16 +106,34 @@ camera streams. The view starts over the earthquake sector; the base is to the s
 
 ## Reference assets
 
-The disaster world is built from open GitHub model repos, used in place (not vendored, so
-`reference/` is gitignored). Clone or unpack them into `reference/`, or point
-`AERO_SENSE_REFERENCE` at another directory:
+The disaster world is built from open-source Gazebo model repos, used in place and never copied
+into this repo (`reference/` is gitignored), so each keeps its own license. Recreate the folder
+with the names the build expects:
 
-| Directory in `reference/` | Used for |
-|---|---|
-| `tdf_gazebo-main` | collapsed houses / industrial / fire & police stations, vehicles, trees, radio mast, water tower |
-| `gazebo_models_worlds_collection-master` | debris meshes, broken brick walls (wrapped in `aero_sense_gazebo/models` with PBR materials) |
-| `Autonomous-robot-for-fire-detection-main` | `suv` textures used by the tdf bus; fire model (Phase 14) |
-| `darpa_subt_worlds-main` | jersey barriers; survivor and tunnel models for later phases |
+```bash
+mkdir -p reference && cd reference && touch COLCON_IGNORE      # ROS 1 packages: colcon must skip them
+git clone https://github.com/rsanchezmo/tdf_gazebo tdf_gazebo-main
+git clone https://github.com/leonhartyao/gazebo_models_worlds_collection gazebo_models_worlds_collection-master
+git clone https://github.com/kyriakosar/Autonomous-robot-for-fire-detection Autonomous-robot-for-fire-detection-main
+git clone https://github.com/LTU-RAI/darpa_subt_worlds darpa_subt_worlds-main
+```
+
+Or point `AERO_SENSE_REFERENCE` at another directory holding them.
+
+| Directory in `reference/` | Source | License | Used for |
+|---|---|---|---|
+| `tdf_gazebo-main` | [rsanchezmo/tdf_gazebo](https://github.com/rsanchezmo/tdf_gazebo) | MIT | collapsed houses, industrial hall, fire and police stations, vehicles, trees, radio mast, water tower |
+| `gazebo_models_worlds_collection-master` | [leonhartyao/gazebo_models_worlds_collection](https://github.com/leonhartyao/gazebo_models_worlds_collection) | GPL-3.0 | debris meshes and broken brick walls (wrapped in `aero_sense_gazebo/models` with PBR materials) |
+| `Autonomous-robot-for-fire-detection-main` | [kyriakosar/Autonomous-robot-for-fire-detection](https://github.com/kyriakosar/Autonomous-robot-for-fire-detection) | none stated | `suv` textures used by the tdf bus |
+| `darpa_subt_worlds-main` | [LTU-RAI/darpa_subt_worlds](https://github.com/LTU-RAI/darpa_subt_worlds) | MIT | jersey barriers |
+
+Consulted while designing the scenarios, not loaded by the world:
+
+| Project | License | What it informed |
+|---|---|---|
+| [bhavyakeerthi3/Autonomous-Drone-Simulator](https://github.com/bhavyakeerthi3/Autonomous-Drone-Simulator) | MIT | ROS 2 + ArduPilot SITL disaster-monitoring layout |
+| [disaster-robotics-proalertas/usv_sim_lsa](https://github.com/disaster-robotics-proalertas/usv_sim_lsa) | Apache-2.0 | flood water and currents in Gazebo |
+| [lirs-kfu/lirs-usim-public](https://gitlab.com/lirs-kfu/lirs-usim-public) (GitLab) | none stated | urban search-and-rescue simulator structure |
 
 `ros2 run aero_sense_bringup system_check` reports them missing. Their meshes name textures by
 bare filename, so each model's `materials/textures` goes on `GZ_SIM_RESOURCE_PATH`

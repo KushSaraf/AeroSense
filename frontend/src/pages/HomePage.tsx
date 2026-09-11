@@ -11,7 +11,8 @@ const capabilityItems = [
 function HomePage() {
   return (
     <section className="relative h-full overflow-hidden bg-[#25344a] text-[#172235]">
-      <div className="absolute inset-0 bg-[url('/disaster-landscape.png')] bg-cover bg-center opacity-80" />
+      <div className="absolute inset-0 bg-cover bg-center opacity-80"
+           style={{ backgroundImage: `url(${import.meta.env.BASE_URL}disaster-landscape.png)` }} />
       <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(132,151,169,0.38)_0%,rgba(62,82,105,0.58)_53%,rgba(18,32,51,0.96)_100%)]" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_24%_26%,rgba(210,222,232,0.28),transparent_32%),linear-gradient(90deg,rgba(210,218,225,0.14)_1px,transparent_1px),linear-gradient(rgba(210,218,225,0.12)_1px,transparent_1px)] bg-[size:auto,80px_80px,80px_80px] opacity-75" />
       <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[linear-gradient(180deg,transparent,rgba(16,29,47,0.72))]" />
@@ -45,7 +46,7 @@ function HomePage() {
         </div>
 
         <div className="absolute left-[28%] top-[26%] h-[48%] w-[66%] overflow-hidden">
-          <img src="/drone-render.png" alt="Aero Sense rescue drone" className="absolute left-[-6%] top-[-24%] w-[112%] max-w-none mix-blend-multiply drop-shadow-[0_20px_22px_rgba(12,20,32,0.35)]" />
+          <img src={`${import.meta.env.BASE_URL}drone-render.png`} alt="Aero Sense rescue drone" className="absolute left-[-6%] top-[-24%] w-[112%] max-w-none mix-blend-multiply drop-shadow-[0_20px_22px_rgba(12,20,32,0.35)]" />
         </div>
 
         <div className="absolute inset-x-0 bottom-[10%] flex justify-center px-8">

@@ -149,6 +149,23 @@ SCENARIO_NAMES = {"earthquake": "Earthquake SAR", "flood": "Flood assessment",
                   "full": "Full sector sweep"}
 
 
+def mission_events(events: list, mission_id: str | None) -> list:
+    """The events that belong to one mission.
+
+    The bridge's event log runs across missions and simulation restarts, so without this the
+    dashboard and the alert centre showed a previous flight's MISSION_COMPLETE and EMERGENCY next
+    to the current one. A mission id carries its start time (M-YYYYMMDD-HHMMSS); every event of
+    that mission is logged at or after it.
+    ponytail: compares HH:MM:SS, so a mission running across midnight loses its post-midnight
+    events; add the date to event stamps if missions ever fly through midnight.
+    """
+    stamp = (mission_id or "").rsplit("-", 1)[-1]
+    if len(stamp) != 6 or not stamp.isdigit():
+        return list(events)
+    start = f"{stamp[0:2]}:{stamp[2:4]}:{stamp[4:6]}"
+    return [event for event in events if event.get("time", "") >= start]
+
+
 def mission_json(status, events: list) -> dict | None:
     """The mission being flown, straight from the state machine.
 
@@ -180,7 +197,7 @@ def mission_json(status, events: list) -> dict | None:
         "p3": int(status.p3_count),
         "elapsed": f"{elapsed // 60:02d}:{elapsed % 60:02d}",
         "elapsedSeconds": elapsed,
-        "events": events[-40:],
+        "events": mission_events(events, status.mission_id)[-40:],
     }
 
 
@@ -292,13 +309,15 @@ def alerts_json(victims: list, events: list) -> list:
             "rationale": victim.get("rationale", ""),
             "status": "OPEN",
         })
-    for index, event in enumerate(reversed(events)):
+    for event in reversed(events):
         text = event.get("text", "")
         for marker, severity, title in SYSTEM_EVENT_MARKERS:
             if marker.lower() not in text.lower():
                 continue
             alerts.append({
-                "id": f"A-SYS-{index}",
+                # named by the event itself: a position in the log shifted as the log grew, so
+                # one event came back under a new id and was listed twice
+                "id": f"A-SYS-{event.get('time', '').replace(':', '')}-{title.lower().replace(' ', '-')}",
                 "priority": "SYSTEM",
                 "severity": severity,
                 "type": "SYSTEM",

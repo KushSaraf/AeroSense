@@ -254,3 +254,37 @@ def test_connected_means_heard_recently_not_ever():
     assert contracts.link_fresh(None, 100.0) is False              # never heard
     assert contracts.link_fresh(99.0, 100.0) is True               # heard a second ago
     assert contracts.link_fresh(90.0, 100.0) is False              # the simulation has gone
+
+
+def test_events_of_earlier_missions_are_not_this_missions():
+    """The log spans missions; a previous flight's completion must not appear in this one."""
+    log = [{"time": "12:09:27", "text": "MISSION_COMPLETE: 8 casualties found"},
+           {"time": "15:17:34", "text": "EMERGENCY: takeoff failed"},
+           {"time": "15:19:48", "text": "PRE_FLIGHT: mission started"},
+           {"time": "15:20:27", "text": "casualty V-001 confirmed"}]
+
+    own = contracts.mission_events(log, "M-20260911-151948")
+
+    assert [e["time"] for e in own] == ["15:19:48", "15:20:27"]
+    assert contracts.mission_events(log, None) == log            # no mission: nothing to scope
+
+
+def test_system_alerts_keep_their_id_as_the_log_grows():
+    """Ids by log position shifted as events arrived, listing one event twice."""
+    log = [{"time": "15:25:50", "text": "RETURNING: search pattern complete"}]
+    first = [a["id"] for a in contracts.alerts_json([], log)]
+    later = [a["id"] for a in contracts.alerts_json(
+        [], log + [{"time": "15:26:30", "text": "MISSION_COMPLETE: 8 casualties found"}])]
+
+    assert first[0] in later
+    assert len(later) == len(set(later)) == 2
+
+
+def test_the_mission_view_carries_only_its_own_events():
+    status = mission_status(mission_id="M-20260911-151948")
+    log = [{"time": "12:09:27", "text": "MISSION_COMPLETE: old flight"},
+           {"time": "15:19:48", "text": "PRE_FLIGHT: mission started"}]
+
+    events = contracts.mission_json(status, log)["events"]
+
+    assert events == [{"time": "15:19:48", "text": "PRE_FLIGHT: mission started"}]

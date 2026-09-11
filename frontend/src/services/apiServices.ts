@@ -6,6 +6,7 @@
  * — triage priority, hazard risk, reachability — the bridge says so and the UI shows it as
  * unknown, rather than showing a plausible number no part of the system computed.
  */
+import { IS_REPLAY, replayCameraSrc, respond } from './replay'
 import type {
   AlertItem, Drone, Hazard, LiveState, Mission, TelemetryPoint, Victim,
 } from '../types'
@@ -57,6 +58,13 @@ export const connectLiveState = (
   onState: (state: LiveState) => void,
   onClosed?: () => void,
 ): (() => void) => {
+  if (IS_REPLAY) {
+    // the recording stands in for the socket: the same frames, at the replay clock
+    const timer = setInterval(() => {
+      void respond('GET', '/api/state').then((state) => onState(state as LiveState))
+    }, 500)
+    return () => clearInterval(timer)
+  }
   const url = `${API_BASE.replace(/^http/, 'ws')}/ws`
   let socket: WebSocket | null = null
   let closedByCaller = false
@@ -135,3 +143,7 @@ export const simulationControl = {
 }
 
 export const API_URL = API_BASE
+
+/** The drone's camera: the bridge's live MJPEG stream, or the recorded snapshot in a replay. */
+export const cameraSrc = (camera: 'rgb' | 'thermal'): string =>
+  IS_REPLAY ? replayCameraSrc(camera) : `${API_BASE}/api/camera/${camera}`

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import { useWorld } from '../hooks/useWorld'
 import type { LatLon } from '../hooks/useWorld'
@@ -34,18 +35,9 @@ function MapPage() {
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
   const [layers, setLayers] = useState({ sectors: true, victims: true, track: true })
-  const [track, setTrack] = useState<[number, number][]>([])
-
   const latitude = drone?.latitude
   const longitude = drone?.longitude
-  useEffect(() => {
-    if (latitude == null || longitude == null) return
-    setTrack((flown) => {
-      const last = flown[flown.length - 1]
-      if (last && Math.abs(last[0] - latitude) < 1e-6 && Math.abs(last[1] - longitude) < 1e-6) return flown
-      return [...flown, [latitude, longitude] as [number, number]].slice(-TRACK_LIMIT)
-    })
-  }, [latitude, longitude])
+  const track = useFlightTrack(latitude, longitude, mission?.id, mission?.elapsedSeconds, TRACK_LIMIT)
 
   const flownSector = world?.sectors.find((sector) => sector.id === mission?.scenario)
   const centre: [number, number] | null = flownSector

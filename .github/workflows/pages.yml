@@ -1,0 +1,52 @@
+# The public site: the dashboard, playing back a real recorded flight.
+# The simulation itself (Gazebo, ArduPilot SITL, ROS 2) cannot run on a web host; the site says
+# so on every page, and tools/dashboard.sh runs the live system locally.
+name: Deploy replay site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_REPLAY: '1'
+          PAGES_BASE: /${{ github.event.repository.name }}/
+      # client-side routes: a deep link such as /dashboard/map must still load the app
+      - run: cp dist/index.html dist/404.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

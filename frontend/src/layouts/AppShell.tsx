@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDataSource } from '../hooks/useDataSource'
+import ReplayBar from '../components/ReplayBar'
+import { IS_REPLAY } from '../services/replay'
 import {
   Activity,
   Bell,
@@ -140,7 +142,7 @@ function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <header className="relative flex h-[74px] items-center justify-between border-b border-white/10 bg-[#202a40]/95 px-5 text-text backdrop-blur-sm">
           <div className="flex items-center gap-4">
-            <img src="/as-logo.png" alt="AS" className="h-12 w-12 object-contain" />
+            <img src={`${import.meta.env.BASE_URL}as-logo.png`} alt="AS" className="h-12 w-12 object-contain" />
             <div>
               <div className="text-[20px] font-semibold tracking-[0.2em] uppercase">AERO SENSE</div>
               <div className="hidden items-center gap-2 text-[11px] tracking-[0.2em] text-text/70 md:flex">
@@ -165,7 +167,7 @@ function AppShell({ children }: { children: ReactNode }) {
                   : 'bg-amber-500/20 text-amber-300'
               }`}
             >
-              {dataSource === 'live' ? 'LIVE' : 'NO SIMULATION'}
+              {IS_REPLAY ? 'REPLAY' : dataSource === 'live' ? 'LIVE' : 'NO SIMULATION'}
             </span>
             <time className="ml-1 border-l border-white/10 pl-4 font-mono text-[16px] tracking-[0.12em] text-text" dateTime={currentTime.toISOString()}>{formattedTime}</time>
           </div>
@@ -198,6 +200,7 @@ function AppShell({ children }: { children: ReactNode }) {
           )}
         </header>
 
+        {IS_REPLAY && <ReplayBar />}
         <main className="app-main min-h-0 flex-1 overflow-auto bg-[#202635]">{children}</main>
       </div>
     </div>
