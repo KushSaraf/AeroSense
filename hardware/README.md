@@ -6,6 +6,7 @@ and a labelled placeholder until then.
 
 ```
 hardware/
+├── concept/                                  the first hexacopter look, saved as GLB + STL
 ├── images/                                   the frame as designed (CAD screenshots)
 └── cad/                                      STEP files (not in git: see below)
     ├── hexacopter_frame/                     the team's frame: final assembly + parts/ (plates, arms,
