@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
-"""Make the battery mesh: a black box with its rating printed on the long faces.
+"""Make a labelled box mesh for a part that has no CAD: battery, flight controller, companion
+computer, ESC. The label is printed upright on every face, sized to fit that face.
 
-Stands in for the pack until its CAD exists. Size in metres (length x width x height, length
-along the drone's x axis); the label reads upright from the sides and from below.
+Size in metres (length x width x height, length along the drone's x axis); colours 0-1 RGB.
 
-    python3 tools/make_battery_mesh.py --size 0.200 0.077 0.063 --label "6S 10000mAh" \
-        src/aero_sense_description/meshes/battery.glb
+    python3 tools/make_label_box.py src/aero_sense_description/meshes/battery.glb \
+        --size 0.200 0.077 0.063 --label "6S 10000mAh"
+    python3 tools/make_label_box.py src/aero_sense_description/meshes/flight_controller.glb \
+        --size 0.0543 0.039 0.0175 --label "Pixhawk 6C Mini" --body 0.85 0.85 0.87 --text 0.05 0.05 0.05
 """
 import argparse
 from pathlib import Path
@@ -15,49 +17,57 @@ import trimesh
 from PIL import Image, ImageDraw, ImageFont
 
 FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
-LABEL_PX = (1000, 320)          # label area of the texture, ~ the long faces' aspect
-BLANK_PX = 24                   # plain strip at the right edge for the end faces
-BODY_RGB = (18, 18, 20)
-TEXT_RGB = (235, 235, 235)
+TEXTURE_WIDTH_PX = 1024
+#: Texture rows, one per face pair: (name, face axes (right, up) as box-size indices).
+REGIONS = (("top", (0, 1)), ("side", (0, 2)), ("end", (1, 2)))
 
 
-def texture(label: str) -> Image.Image:
-    image = Image.new("RGB", (LABEL_PX[0] + BLANK_PX, LABEL_PX[1]), BODY_RGB)
+def fitted_label(image: Image.Image, box_px: tuple, label: str, text_rgb: tuple) -> None:
+    """Draw `label` centred in box_px = (left, top, width, height), as large as fits."""
+    left, top, width, height = box_px
     draw = ImageDraw.Draw(image)
-    size = 200
-    while True:                     # largest font that leaves a margin on every side
+    for size in range(max(8, int(height * 0.6)), 7, -2):
         font = ImageFont.truetype(FONT, size)
-        left, top, right, bottom = draw.textbbox((0, 0), label, font=font)
-        if right - left <= LABEL_PX[0] * 0.85 and bottom - top <= LABEL_PX[1] * 0.6:
-            break
-        size -= 5
-    draw.text(((LABEL_PX[0] - (right - left)) / 2 - left, (LABEL_PX[1] - (bottom - top)) / 2 - top),
-              label, font=font, fill=TEXT_RGB)
-    return image
+        l, t, r, b = draw.textbbox((0, 0), label, font=font)
+        if r - l <= width * 0.88 and b - t <= height * 0.6:
+            draw.text((left + (width - (r - l)) / 2 - l, top + (height - (b - t)) / 2 - t), label,
+                      font=font, fill=text_rgb)
+            return
 
 
-def box(size) -> tuple:
-    """24 vertices, 12 triangles, uvs: each face's (right, up) as seen from outside maps to the
-    label, so the text is never mirrored; the end faces sample the blank strip."""
+def texture(size, label: str, body_rgb: tuple, text_rgb: tuple) -> tuple:
+    """One row per face pair, each with that face's aspect; returns (image, row v-ranges)."""
+    heights = [max(16, int(TEXTURE_WIDTH_PX * size[v] / size[u])) for _, (u, v) in REGIONS]
+    image = Image.new("RGB", (TEXTURE_WIDTH_PX, sum(heights)), body_rgb)
+    rows, y = {}, 0
+    for (name, _), h in zip(REGIONS, heights):
+        fitted_label(image, (0, y, TEXTURE_WIDTH_PX, h), label, text_rgb)
+        # uv v runs bottom-up, image rows top-down
+        rows[name] = (1 - (y + h) / image.height, 1 - y / image.height)
+        y += h
+    return image, rows
+
+
+def box(size, rows) -> tuple:
+    """24 vertices, 12 triangles and uvs: each face's (right, up) as seen from outside maps onto
+    its row of the texture, so no label is mirrored."""
     hx, hy, hz = (s / 2 for s in size)
-    u_blank = (LABEL_PX[0] + BLANK_PX / 2) / (LABEL_PX[0] + BLANK_PX)
-    u_label = LABEL_PX[0] / (LABEL_PX[0] + BLANK_PX)
-    # (centre, right, up, labelled) per face
-    faces = [((0, hy, 0), (-1, 0, 0), (0, 0, 1), True),     # left side, seen from +y
-             ((0, -hy, 0), (1, 0, 0), (0, 0, 1), True),     # right side, seen from -y
-             ((0, 0, -hz), (-1, 0, 0), (0, 1, 0), True),    # underside, seen from below
-             ((0, 0, hz), (1, 0, 0), (0, 1, 0), True),      # top
-             ((hx, 0, 0), (0, 1, 0), (0, 0, 1), False),     # front end
-             ((-hx, 0, 0), (0, -1, 0), (0, 0, 1), False)]   # rear end
+    # (centre, right, up, texture row)
+    faces = [((0, hy, 0), (-1, 0, 0), (0, 0, 1), "side"),     # left side, seen from +y
+             ((0, -hy, 0), (1, 0, 0), (0, 0, 1), "side"),     # right side, seen from -y
+             ((0, 0, -hz), (-1, 0, 0), (0, 1, 0), "top"),     # underside, seen from below
+             ((0, 0, hz), (1, 0, 0), (0, 1, 0), "top"),       # top
+             ((hx, 0, 0), (0, 1, 0), (0, 0, 1), "end"),       # front end
+             ((-hx, 0, 0), (0, -1, 0), (0, 0, 1), "end")]     # rear end
     half = np.array((hx, hy, hz))
     vertices, uvs, triangles = [], [], []
-    for centre, right, up, labelled in faces:
+    for centre, right, up, row in faces:
         c, r, u = (np.array(v, dtype=float) for v in (centre, right, up))
-        r_len, u_len = abs(r @ half), abs(u @ half)
+        v0, v1 = rows[row]
         base = len(vertices)
         for sr, su in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-            vertices.append(c + sr * r * r_len + su * u * u_len)
-            uvs.append(((sr + 1) / 2 * u_label, (su + 1) / 2) if labelled else (u_blank, 0.5))
+            vertices.append(c + sr * r * abs(r @ half) + su * u * abs(u @ half))
+            uvs.append(((sr + 1) / 2, v0 + (su + 1) / 2 * (v1 - v0)))
         triangles += [(base, base + 1, base + 2), (base, base + 2, base + 3)]
     return np.array(vertices), np.array(triangles), np.array(uvs)
 
@@ -67,10 +77,13 @@ def main():
     parser.add_argument("out", type=Path)
     parser.add_argument("--size", type=float, nargs=3, required=True)
     parser.add_argument("--label", required=True)
+    parser.add_argument("--body", type=float, nargs=3, default=(0.07, 0.07, 0.08))
+    parser.add_argument("--text", type=float, nargs=3, default=(0.92, 0.92, 0.92))
     args = parser.parse_args()
-    vertices, triangles, uvs = box(args.size)
-    material = trimesh.visual.material.PBRMaterial(baseColorTexture=texture(args.label),
-                                                   metallicFactor=0.0, roughnessFactor=0.7)
+    to_rgb = lambda c: tuple(int(255 * v) for v in c)
+    image, rows = texture(args.size, args.label, to_rgb(args.body), to_rgb(args.text))
+    vertices, triangles, uvs = box(args.size, rows)
+    material = trimesh.visual.material.PBRMaterial(baseColorTexture=image, metallicFactor=0.0, roughnessFactor=0.7)
     mesh = trimesh.Trimesh(vertices, triangles, process=False,
                            visual=trimesh.visual.TextureVisuals(uv=uvs, material=material))
     args.out.parent.mkdir(parents=True, exist_ok=True)

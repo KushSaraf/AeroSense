@@ -145,12 +145,48 @@ def test_cameras_hang_clear_of_the_ground_and_under_the_battery():
     cfg = render.load("low")
     af = cfg["airframe"]
     camera_z = cfg["mount"]["xyz"][2]
-    battery_bottom = -af["plate_stack_m"][2] / 2 - af["battery_size_m"][2] - af["camera_bracket_m"]
     oak_depth_m = 0.0231
-    assert math.isclose(camera_z, battery_bottom - oak_depth_m, abs_tol=1e-3)
+    assert math.isclose(camera_z, render.layout(cfg)["tray_bottom"] - oak_depth_m, abs_tol=1e-3)
     skid_bottom = af["skids"]["z_m"] - af["skids"]["radius_m"]
     assert camera_z - 0.3 > skid_bottom            # ground outside the cameras' near clip at rest
     model = ET.fromstring(render.model_sdf(cfg, "hexa")).find("model")
     for i in range(6):
         z = float(model.find(f"link[@name='rotor_{i}']/pose").text.split()[2])
         assert z > af["motor_mount_top_m"]
+
+
+def _glb_extent(path):
+    """Axis-aligned size of a GLB's positions, read from its accessors' min/max."""
+    import json
+    import struct
+    data = path.read_bytes()
+    length = struct.unpack_from("<I", data, 12)[0]
+    gltf = json.loads(data[20:20 + length])
+    lo = [min(a["min"][i] for a in gltf["accessors"] if a.get("type") == "VEC3" and "min" in a) for i in range(3)]
+    hi = [max(a["max"][i] for a in gltf["accessors"] if a.get("type") == "VEC3" and "max" in a) for i in range(3)]
+    return [h - l for l, h in zip(lo, hi)]
+
+
+def test_labelled_parts_are_their_published_size_and_nothing_floats():
+    """Each labelled box mesh is the size the table says; the camera tray hangs from the bottom
+    plate (hangers reach it) and the Lepton carrier fills the tray-to-lens gap."""
+    cfg = render.load("low")
+    af = cfg["airframe"]
+    meshes = render.share() / "meshes"
+    sizes = {"battery.glb": af["battery_size_m"]}
+    sizes.update({part["mesh"]: part["size_m"] for part in af["avionics"].values() if "mesh" in part})
+    for mesh, size in sizes.items():
+        assert [round(v, 4) for v in _glb_extent(meshes / mesh)] == [round(v, 4) for v in size], mesh
+    parts = render.layout(cfg)
+    boxes = {b["name"]: b for b in parts["boxes"]}
+    hanger = boxes["camera_hanger_left"]
+    assert math.isclose(hanger["xyz"][2] + hanger["size"][2] / 2, -af["plate_stack_m"][2] / 2)
+    assert math.isclose(hanger["xyz"][2] - hanger["size"][2] / 2, parts["tray_bottom"])
+    carrier = boxes["lepton_carrier"]
+    lepton_depth_m = 0.0071
+    assert math.isclose(carrier["xyz"][2] - carrier["size"][2] / 2 - lepton_depth_m, cfg["mount"]["xyz"][2], abs_tol=5e-4)
+    assert len([m for m in parts["meshes"] if m["name"].startswith("esc_")]) == 6
+    wires = {w["name"]: w for w in parts["wires"]}
+    mast, base = wires["gps_mast_0"], boxes["gps_mast_base"]            # mast stands on its base, base on the plate
+    assert math.isclose(mast["xyz"][2] - mast["length"] / 2, base["xyz"][2] + base["size"][2] / 2)
+    assert math.isclose(base["xyz"][2] - base["size"][2] / 2, af["plate_top_z_m"])

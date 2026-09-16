@@ -21,10 +21,30 @@ airframe:
     z_m: -0.5669              # tube axis below base_link
     radius_m: 0.0156          # end-cap radius: what touches the ground (worlds.GEAR_HEIGHT_M)
     length_m: 0.531
-  # 6S 10000 mAh LiPo under the bottom plate (meshes/battery.glb, tools/make_battery_mesh.py).
-  # Typical size for the class until the exact pack is chosen.
+  # 6S 10000 mAh LiPo strapped under the bottom plate. Typical size for the class until the
+  # exact pack is chosen.
   battery_size_m: [0.200, 0.077, 0.063]
-  camera_bracket_m: 0.005     # plate between the battery and the cameras
+  battery_strap_x_m: [-0.07, 0.07]    # two straps round the battery and the bottom plate
+  camera_mount:               # tray below the battery, hung from the bottom plate by two side plates
+    tray_size_m: [0.060, 0.140, 0.004]
+    clearance_m: 0.002        # tray to battery: the tray hangs from the frame, not the battery
+    hanger_thickness_m: 0.003
+    lepton_carrier_m: [0.030, 0.022, 0.0159]   # board between tray and Lepton: faces flush with the OAK-D
+  # Labelled boxes at the parts' published sizes (tools/make_label_box.py, meshes/*.glb):
+  #   Pixhawk 6C Mini 54.3x39x17.5 mm (Holybro, Model A); Qualcomm RB5 dev kit 85x54 mm
+  #   (Thundercomm, 96Boards), 20 mm tall with SoM and heatsink (estimate); Readytosky 45A ESC
+  #   28.5x13 mm, ~6 mm in heat-shrink. The FC and RB5 sit on the bottom plate in the bay between
+  #   the plates, under the top plate's opening; an ESC is tied under each arm.
+  avionics:
+    flight_controller: {mesh: flight_controller.glb, size_m: [0.0543, 0.039, 0.0175], xy_m: [0.035, 0.0]}
+    companion_computer: {mesh: companion_computer.glb, size_m: [0.085, 0.054, 0.020], xy_m: [-0.062, 0.0]}
+    esc: {mesh: esc.glb, size_m: [0.0285, 0.013, 0.006], arm_radius_m: 0.30}
+    # Holybro M10 GPS puck 50 mm x 14.4 mm on its folding mast with the 140 mm carbon rod, at the
+    # back of the top plate between the rear arms: clear of the props and the cameras.
+    gps: {puck_diameter_m: 0.050, puck_height_m: 0.0144, mast_m: 0.140, base_m: [0.026, 0.026, 0.015], xy_m: [-0.155, 0.0]}
+  arm_underside_z_m: -0.014   # frame CAD: bottom of the 30 mm arm tubes
+  plate_inner_z_m: -0.040     # frame CAD: top face of the bottom plate (floor of the bay)
+  plate_top_z_m: 0.050        # frame CAD: top face of the top plate
   body_mass_kg: 2.2           # not yet the real build's: weigh it, or add up datasheet masses
   # ixx, iyy scaled from the flown 0.30 m-arm design by the arm length, so attitude response per
   # rotor torque stays where ArduPilot's default gains fly it.
@@ -32,8 +52,9 @@ airframe:
   motor_max_rad_s: 838        # generic motor at full throttle (the iris motor: ~8000 rpm)
 
 mount:                        # payload_link in the airframe (FLU, metres): the cameras' front face
-  # Under the battery: bottom plate -0.05, battery 0.063, bracket 0.005, OAK-D 0.023 deep.
-  xyz: [0.0, 0.0, -0.141]
+  # Under the camera tray: bottom plate -0.05, battery 0.063, clearance 0.002, tray 0.004,
+  # OAK-D 0.0231 deep (tested against the airframe numbers).
+  xyz: [0.0, 0.0, -0.1421]
   camera_pitch_rad: 1.5708    # straight down; RGB, depth and thermal share the tilt and optical centre
   thermal_mesh_offset_y_m: 0.058   # Lepton mesh to the OAK-D's left (visual only, see drone.sdf.jinja)
 

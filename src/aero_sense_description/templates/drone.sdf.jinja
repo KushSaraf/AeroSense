@@ -39,16 +39,28 @@
         <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
       </collision>
 {% endfor %}
-      <!-- Battery under the bottom plate, then the camera bracket; the cameras hang below it. -->
-      <visual name="battery">
-        <pose>0 0 {{ -(plates[2] / 2) - af.battery_size_m[2] / 2 }} 0 0 0</pose>
-        <geometry><mesh><uri>file://{{ meshes }}/battery.glb</uri></mesh></geometry>
+      <!-- Parts without CAD (render.layout): labelled boxes at their published sizes, the battery
+           straps, the camera tray hung from the bottom plate, and the wiring. -->
+{% for m in parts.meshes %}
+      <visual name="{{ m.name }}">
+        <pose>{{ m.xyz | join(' ') }} 0 0 {{ m.yaw }}</pose>
+        <geometry><mesh><uri>file://{{ meshes }}/{{ m.mesh }}</uri></mesh></geometry>
       </visual>
-      <visual name="camera_bracket">
-        <pose>{{ cfg.mount.xyz[0] }} {{ cfg.mount.thermal_mesh_offset_y_m / 2 }} {{ -(plates[2] / 2) - af.battery_size_m[2] - af.camera_bracket_m / 2 }} 0 0 0</pose>
-        <geometry><box><size>0.045 {{ 0.11 + cfg.mount.thermal_mesh_offset_y_m }} {{ af.camera_bracket_m }}</size></box></geometry>
-        <material><diffuse>0.15 0.15 0.16 1</diffuse></material>
+{% endfor %}
+{% for b in parts.boxes %}
+      <visual name="{{ b.name }}">
+        <pose>{{ b.xyz | join(' ') }} 0 0 0</pose>
+        <geometry><box><size>{{ b.size | join(' ') }}</size></box></geometry>
+        <material><diffuse>{{ b.rgba }}</diffuse></material>
       </visual>
+{% endfor %}
+{% for w in parts.wires %}
+      <visual name="wire_{{ w.name }}">
+        <pose>{{ w.xyz | join(' ') }} {{ w.rpy | join(' ') }}</pose>
+        <geometry><cylinder><radius>{{ w.radius }}</radius><length>{{ w.length }}</length></cylinder></geometry>
+        <material><diffuse>{{ w.rgba }}</diffuse></material>
+      </visual>
+{% endfor %}
       <!-- Generic motors on the frame's motor mounts. -->
 {% for r in rotors %}
       <visual name="motor_{{ loop.index0 }}">
@@ -82,7 +94,6 @@
     </joint>
 
 {% for r in rotors %}
-{% set colour = "1 0.45 0.05 1" if r.motor in (3, 5) else "0.1 0.1 0.1 1" %}
 {% set fwd = 1 if r.spin == "ccw" else -1 %}
     <link name="{{ r.name }}">
       <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + 0.04 }} 0 0 0</pose>
@@ -93,12 +104,12 @@
       <collision name="collision">
         <geometry><cylinder><radius>0.1</radius><length>0.005</length></cylinder></geometry>
       </collision>
-      <!-- motor {{ r.motor }}, {{ r.spin }}; the front pair (motors 3 and 5) is orange so heading reads at a glance -->
+      <!-- motor {{ r.motor }}, {{ r.spin }} -->
       <visual name="prop">
         <geometry>
           <mesh><uri>package://ardupilot_gazebo/models/iris_with_standoffs/meshes/iris_prop_{{ r.spin }}.dae</uri></mesh>
         </geometry>
-        <material><ambient>{{ colour }}</ambient><diffuse>{{ colour }}</diffuse></material>
+        <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material>
       </visual>
     </link>
     <joint name="{{ r.name }}_joint" type="revolute">

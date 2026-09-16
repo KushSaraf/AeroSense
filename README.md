@@ -34,7 +34,7 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 | `aero_sense_interfaces` | custom messages and services (victims, alerts, mission status, …) |
 | `aero_sense_bringup` | launch files (`full_system`, `simulation`, `visualization`), `system_check`, `stop_sim` |
 | `aero_sense_description` | the bespoke Hexa-X hexacopter + sensor payload, rendered from `config/sensors.yaml` |
-| `aero_sense_gazebo` | the disaster world and its models (rubble, terrain, flood water, roads) |
+| `aero_sense_gazebo` | the disaster world and its models (rubble, broken walls, flood water, roads) |
 | `aero_sense_mission` | mission manager, autopilot adapter (MAVLink), search pattern, airspace |
 | `aero_sense_perception` | thermal victim detection, tracking, geolocation, triage, structure map |
 | `aero_sense_navigation` | obstacle field for detours around structures |
@@ -57,7 +57,9 @@ Hexa-X motor mixer (`FRAME_CLASS 2`, `FRAME_TYPE 1`). Everything is generated fr
 
 The frame is the team's own design, meshed from its CAD (arms, motor mounts and skid landing
 gear), and the cameras are the real ones from their manufacturers' CAD: a Luxonis OAK-D Pro W and
-a FLIR Lepton 3.5, pointing straight down under the 6S 10000 mAh battery. [hardware/README.md](hardware/README.md) lists every part, what
+a FLIR Lepton 3.5, pointing straight down from a tray hung under the strapped 6S 10000 mAh battery.
+The Pixhawk 6C Mini and Qualcomm RB5 sit in the bay between the plates and an ESC under each arm,
+as labelled boxes at their published sizes, wired up. [hardware/README.md](hardware/README.md) lists every part, what
 is still to be chosen, and how to turn a new STEP file into a mesh (`tools/step_to_mesh.py`).
 The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
 
@@ -70,9 +72,8 @@ The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilo
 | `search_evaluation.py` | fly a search and score it against ground truth |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
-| `make_terrain.py` | regenerate the landslide sector's terrain mesh |
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |
-| `make_battery_mesh.py` | the labelled battery box, until the pack's CAD exists |
+| `make_label_box.py` | labelled boxes for parts without CAD (battery, flight controller, RB5, ESCs) |
 
 ## Running it
 
