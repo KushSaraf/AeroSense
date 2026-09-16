@@ -34,7 +34,7 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 | `aero_sense_interfaces` | custom messages and services (victims, alerts, mission status, …) |
 | `aero_sense_bringup` | launch files (`full_system`, `simulation`, `visualization`), `system_check`, `stop_sim` |
 | `aero_sense_description` | the bespoke Hexa-X hexacopter + sensor payload, rendered from `config/sensors.yaml` |
-| `aero_sense_gazebo` | the disaster world and its models (rubble, broken walls, flood water, roads) |
+| `aero_sense_gazebo` | the disaster world: earthquake and flood sectors, command base, signs and zone names, search areas outlined in yellow |
 | `aero_sense_mission` | mission manager, autopilot adapter (MAVLink), search pattern, airspace |
 | `aero_sense_perception` | thermal victim detection, tracking, geolocation, triage, structure map |
 | `aero_sense_navigation` | obstacle field for detours around structures |

@@ -188,7 +188,12 @@ replay.launch.py              rosbag2 play + RViz
    x -200          0            x +200
 ```
 
-World file: `aero_sense_gazebo/worlds/aero_sense_disaster.sdf`. Roads connect every sector
+World file: `aero_sense_gazebo/worlds/aero_sense_disaster.sdf`. So that someone new can read it at a glance,
+`aero_sense_zone_signs` adds signboards beside the spine road pointing to each sector, the zone
+names painted large on the ground (legible from the Gazebo overview), a COMMAND BASE board and
+lettering at the pad, and each mission's search area outlined in yellow (tested against
+`mission_manager.SCENARIO_AREAS`); `aero_sense_surroundings` runs fields to the horizon. All of it
+is outside the search areas or at ambient temperature, below the thermal detector's threshold. Roads connect every sector
 through the central intersection. Ground and roads are tiled-UV OBJ quads
 (`aero_sense_ground`, `aero_sense_roads`) with reference textures (tdf dirt; DARPA SubT
 Asphalt01 albedo/normal/roughness) and LWIR temperatures: asphalt 301 K, pad 300 K,

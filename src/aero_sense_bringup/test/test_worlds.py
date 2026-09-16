@@ -205,3 +205,14 @@ def test_spawn_height_is_the_drone_standing_on_its_gear():
             reach = float(box.findtext("size").split()[2]) / 2
         lowest.append(z - reach)
     assert math.isclose(-min(lowest), worlds.GEAR_HEIGHT_M, abs_tol=1e-4)
+
+
+def test_search_area_outlines_match_the_missions():
+    """The yellow outlines people see are the areas the missions actually search."""
+    from aero_sense_mission.mission_manager import SCENARIO_AREAS
+    sdf = Path(get_package_share_directory("aero_sense_gazebo")) / "models" / "aero_sense_zone_signs" / "model.sdf"
+    visuals = {v.get("name"): v for v in ET.parse(sdf).getroot().iter("visual")}
+    for scenario, area in SCENARIO_AREAS.items():
+        x = [float(visuals[f"outline_{scenario}_{side}"].findtext("pose").split()[0]) for side in ("west", "east")]
+        y = [float(visuals[f"outline_{scenario}_{side}"].findtext("pose").split()[1]) for side in ("south", "north")]
+        assert (x, y) == ([area.min_x, area.max_x], [area.min_y, area.max_y]), scenario

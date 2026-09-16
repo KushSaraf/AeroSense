@@ -24,6 +24,8 @@
     so buildings and vehicles are submerged to that depth. Casualties are in the water, which is
     colder than the ground in LWIR, not warmer.
   Assets come from reference/ (gitignored): tdf_gazebo and gazebo_models_worlds_collection.
+  For people watching: signboards and zone names point to each sector, the yellow outlines are the
+  areas the missions search, and farmland runs to the horizon (aero_sense_zone_signs, _surroundings).
 -->
 <sdf version="1.9">
   <world name="aero_sense_disaster">
@@ -78,6 +80,9 @@
          S1 streets x = -100 and y = 50); see aero_sense_gazebo/models. -->
     <include><name>ground</name><pose>0 -20 0 0 0 0</pose><uri>model://aero_sense_ground</uri></include>
     <include><name>roads</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_roads</uri></include>
+    <include><name>surroundings</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_surroundings</uri></include>
+    <!-- Signs, zone names and search-area outlines for people watching (aero_sense_zone_signs). -->
+    <include><name>zone_signs</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_zone_signs</uri></include>
 
     <!-- Command base: landing pad with an H marking, and the operations tent. -->
     <model name="command_base">

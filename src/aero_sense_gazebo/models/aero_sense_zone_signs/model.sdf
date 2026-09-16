@@ -1,0 +1,141 @@
+<?xml version="1.0"?>
+<!-- Wayfinding, so someone who has never seen the world can tell what is where. Included at the
+     world origin, so every pose below is a world position.
+     Signboards stand beside the spine road facing the command base; zone names are painted on the
+     grass south of each sector and beside the pad; the yellow outlines are exactly the areas the
+     missions search (aero_sense_mission.mission_manager.SCENARIO_AREAS, tested). Everything sits
+     outside the search areas or at ambient temperature, below the thermal detector's threshold,
+     so none of it can be mistaken for a casualty. Label meshes: tools/make_label_box.py. -->
+<sdf version="1.9">
+  <model name="aero_sense_zone_signs">
+    <static>true</static>
+    <link name="link">
+      <visual name="board_earthquake">
+        <pose>-22 -10 4.25 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/board_earthquake.glb</uri></mesh></geometry>
+      </visual>
+      <collision name="board_earthquake_collision">
+        <pose>-22 -10 4.25 0 0 0</pose>
+        <geometry><box><size>16 0.25 3.5</size></box></geometry>
+      </collision>
+      <visual name="post_earthquake_l">
+        <pose>-28.5 -9.7 3.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>6.0</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="post_earthquake_r">
+        <pose>-15.5 -9.7 3.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>6.0</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="board_flood">
+        <pose>22 -10 4.25 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/board_flood.glb</uri></mesh></geometry>
+      </visual>
+      <collision name="board_flood_collision">
+        <pose>22 -10 4.25 0 0 0</pose>
+        <geometry><box><size>16 0.25 3.5</size></box></geometry>
+      </collision>
+      <visual name="post_flood_l">
+        <pose>15.5 -9.7 3.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>6.0</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="post_flood_r">
+        <pose>28.5 -9.7 3.0 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>6.0</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="board_base">
+        <pose>14 -119.5 2.25 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/board_base.glb</uri></mesh></geometry>
+      </visual>
+      <collision name="board_base_collision">
+        <pose>14 -119.5 2.25 0 0 0</pose>
+        <geometry><box><size>10 0.25 2.5</size></box></geometry>
+      </collision>
+      <visual name="post_base_l">
+        <pose>10.5 -119.2 1.75 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>3.5</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="post_base_r">
+        <pose>17.5 -119.2 1.75 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><cylinder><radius>0.15</radius><length>3.5</length></cylinder></geometry>
+        <material><ambient>0.25 0.25 0.27 1</ambient><diffuse>0.25 0.25 0.27 1</diffuse></material>
+      </visual>
+      <visual name="ground_earthquake">
+        <pose>-100 -18 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_earthquake.glb</uri></mesh></geometry>
+      </visual>
+      <visual name="ground_flood">
+        <pose>100 -18 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_flood.glb</uri></mesh></geometry>
+      </visual>
+      <visual name="ground_base">
+        <pose>28 -104 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_base.glb</uri></mesh></geometry>
+      </visual>
+      <visual name="outline_earthquake_south">
+        <pose>-100.0 10.0 0.015 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>160.6 0.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_earthquake_north">
+        <pose>-100.0 92.0 0.015 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>160.6 0.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_earthquake_west">
+        <pose>-180.0 51.0 0.015 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.6 82.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_earthquake_east">
+        <pose>-20.0 51.0 0.015 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.6 82.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_flood_south">
+        <pose>100.0 20.0 0.62 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>160.6 0.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_flood_north">
+        <pose>100.0 80.0 0.62 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>160.6 0.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_flood_west">
+        <pose>20.0 50.0 0.62 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.6 60.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="outline_flood_east">
+        <pose>180.0 50.0 0.62 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.6 60.6 0.01</size></box></geometry>
+        <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>
