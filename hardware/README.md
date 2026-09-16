@@ -19,22 +19,25 @@ Lepton 3.5 "IDD CAD data" from [FLIR](https://oem.flir.com/products/lepton/?mode
 
 ## Parts list
 
+CAD is kept for the major parts only, the ones that give the drone its shape: frame, motors,
+propellers, battery, landing gear and the two cameras. Small electronics stay as they are.
+
 | Part | Chosen | CAD | In the sim |
 |---|---|---|---|
-| Flight controller | **Holybro Pixhawk 6C Mini** (ArduCopter, Hexa-X) | ❌ | ArduPilot SITL, not drawn |
-| Companion computer | **Qualcomm RB5** | ❌ | not drawn |
+| Flight controller | **Holybro Pixhawk 6C Mini** (ArduCopter, Hexa-X) | not needed | ArduPilot SITL, not drawn |
+| Companion computer | **Qualcomm RB5** | not needed | not drawn |
 | Stereo depth + RGB camera | **Luxonis OAK-D Pro W** with IR (dot projector + flood illuminator), OV9782 colour | ✅ `cad/oak_d_pro_w` | mesh `oak_d_pro_w.glb`, pointing straight down under the battery |
 | Thermal camera | **FLIR Lepton 3.5** (500-0771-01, 160 × 120, radiometric) in Molex socket 105028-2001 | ✅ `cad/flir_lepton_3_5` | mesh `flir_lepton_3_5.glb`, beside the OAK-D |
-| ESCs (×6) | **Readytosky BLHeli 45A, 2–6S** | ❌ | not drawn |
-| Motors (×6) | **T-Motor, 400–450 KV** (exact model to confirm) | ❌ | ArduPilot iris rotor thrust model |
-| Battery | **6S 10000 mAh LiPo** | ❌ | black box labelled "6S 10000mAh", 200 × 77 × 63 mm, slung under the body |
-| Propellers | — | ❌ | iris 10" props |
-| Frame (centre plates, arms) | — | ❌ | white puck + arms, 0.30 m arm length |
-| Landing gear | — | ❌ | four 200 mm legs hanging from the diagonal arms |
-| GNSS module | — | ❌ | SITL GPS, not drawn |
-| Lepton carrier board | — | ❌ | not drawn |
-| Camera bracket | — | ❌ | dark plate between battery and cameras |
-| Power module, telemetry radio, RC receiver | — | ❌ | not drawn |
+| ESCs (×6) | **Readytosky BLHeli 45A, 2–6S** | not needed | not drawn |
+| Motors (×6) | **T-Motor, 400–450 KV** (exact model to confirm) | ❌ wanted | ArduPilot iris rotor thrust model |
+| Battery | **6S 10000 mAh LiPo** | ❌ wanted | black box labelled "6S 10000mAh", 200 × 77 × 63 mm, slung under the body |
+| Propellers | — | ❌ wanted | iris 10" props |
+| Frame (centre plates, arms) | — | ❌ wanted | white puck + arms, 0.30 m arm length |
+| Landing gear | — | ❌ wanted | four 200 mm legs hanging from the diagonal arms |
+| GNSS module | — | not needed | SITL GPS, not drawn |
+| Lepton carrier board | — | not needed | not drawn |
+| Camera bracket | — | not needed | dark plate between battery and cameras |
+| Power module, telemetry radio, RC receiver | — | not needed | not drawn |
 
 You wrote the OAK-D's sensor as "OV9728"; the OAK-D Pro W's colour options are the IMX378 and
 the OV9782, and OV9782 is the one that pairs with a W model's wide stereo, so the sim uses it
@@ -60,10 +63,9 @@ not needed (they remain in FLIR's download).
    or a USB board such as PureThermal.
 6. **Power:** a power module rated for 6S to feed the Pixhawk and measure the pack, and a 5 V
    supply for the RB5 and cameras.
-7. **Landing gear, camera bracket** (CAD for both; the sim's are simple shapes), **telemetry radio**
-   and **RC receiver**.
-8. **CAD** for the Pixhawk 6C Mini, RB5, ESCs, motors and battery, to replace "not drawn" and the
-   battery box with the real parts (`tools/step_to_mesh.py` converts them).
+7. **Landing gear** (the sim's legs are simple cylinders), **telemetry radio** and **RC receiver**.
+8. **CAD for the major parts only:** frame, motors, propellers, battery and landing gear, to
+   replace the sim's simple shapes and the battery box (`tools/step_to_mesh.py` converts them).
 
 ## Real sensor specs, as simulated
 
