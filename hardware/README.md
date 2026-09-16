@@ -19,8 +19,8 @@ Lepton 3.5 "IDD CAD data" from [FLIR](https://oem.flir.com/products/lepton/?mode
 
 ## Parts list
 
-CAD is kept for the major parts only, the ones that give the drone its shape: frame, motors,
-propellers, battery, landing gear and the two cameras. Small electronics stay as they are.
+CAD is kept for the major parts only, the ones that give the drone its shape: frame, battery,
+landing gear and the two cameras. Motors and propellers stay generic until they are bought.
 
 | Part | Chosen | CAD | In the sim |
 |---|---|---|---|
@@ -29,9 +29,9 @@ propellers, battery, landing gear and the two cameras. Small electronics stay as
 | Stereo depth + RGB camera | **Luxonis OAK-D Pro W** with IR (dot projector + flood illuminator), OV9782 colour | ✅ `cad/oak_d_pro_w` | mesh `oak_d_pro_w.glb`, pointing straight down under the battery |
 | Thermal camera | **FLIR Lepton 3.5** (500-0771-01, 160 × 120, radiometric) in Molex socket 105028-2001 | ✅ `cad/flir_lepton_3_5` | mesh `flir_lepton_3_5.glb`, beside the OAK-D |
 | ESCs (×6) | **Readytosky BLHeli 45A, 2–6S** | not needed | not drawn |
-| Motors (×6) | **T-Motor, 400–450 KV** (exact model to confirm) | ❌ wanted | ArduPilot iris rotor thrust model |
+| Motors (×6) | generic (not bought yet; T-Motor 400–450 KV class planned) | not needed | generic: ArduPilot iris motor model |
 | Battery | **6S 10000 mAh LiPo** | ❌ wanted | black box labelled "6S 10000mAh", 200 × 77 × 63 mm, slung under the body |
-| Propellers | — | ❌ wanted | iris 10" props |
+| Propellers | generic (not bought yet) | not needed | generic: iris 10" props |
 | Frame (centre plates, arms) | — | ❌ wanted | white puck + arms, 0.30 m arm length |
 | Landing gear | — | ❌ wanted | four 200 mm legs hanging from the diagonal arms |
 | GNSS module | — | not needed | SITL GPS, not drawn |
@@ -50,10 +50,9 @@ not needed (they remain in FLIR's download).
 
 ## Still needed, and why
 
-1. **Exact motor model and propeller size.** 400–450 KV on 6S usually swings 15–17" props. That
-   sets the frame size (props that large need arms of roughly 0.45 m or more, not the sim's
-   0.30 m) and the thrust the simulation should use: today it still flies on the iris's 10" rotor
-   model, so hover throttle, top speed and payload margin in the sim are not yet this drone's.
+1. **Motors and propellers: generic for now.** The sim flies on ArduPilot's iris motor and 10"
+   prop model. When real ones are bought, their KV, prop size and thrust replace it (400–450 KV
+   on 6S usually swings 15–17" props, which would also need longer arms than today's 0.30 m).
 2. **Frame** sized for those props: centre plates and arms. Sets `arm_m`, mass and inertia.
 3. **Mass budget.** Battery, RB5, OAK-D, motors and frame together set `airframe.body_mass_kg`
    and inertia; the sim still uses 2.2 kg until the parts are weighed or their datasheet masses
@@ -64,7 +63,7 @@ not needed (they remain in FLIR's download).
 6. **Power:** a power module rated for 6S to feed the Pixhawk and measure the pack, and a 5 V
    supply for the RB5 and cameras.
 7. **Landing gear** (the sim's legs are simple cylinders), **telemetry radio** and **RC receiver**.
-8. **CAD for the major parts only:** frame, motors, propellers, battery and landing gear, to
+8. **CAD for the major parts only:** frame, battery and landing gear, to
    replace the sim's simple shapes and the battery box (`tools/step_to_mesh.py` converts them).
 
 ## Real sensor specs, as simulated
