@@ -20,9 +20,6 @@ FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "lidar_link", "imu_
 #: forward, spin seen from above). Copied from AP_MotorsMatrix::setup_hexa_matrix; the model's
 #: rotor_<i>_joint is ArduPilot's motor i+1, so this order must not change.
 HEXA_X = ((90, "cw"), (-90, "ccw"), (-30, "cw"), (150, "ccw"), (30, "ccw"), (-150, "cw"))
-#: Landing legs sit between the arms.
-GEAR_BEARINGS_DEG = (60, 120, -120, -60)
-GEAR_RADIUS_M = 0.16
 
 def share() -> Path:
     return Path(get_package_share_directory(PACKAGE))
@@ -64,9 +61,7 @@ def model_sdf(cfg: dict, name: str, frame_prefix: str = "") -> str:
                              undefined=jinja2.StrictUndefined, trim_blocks=True, lstrip_blocks=True)
     return env.get_template("drone.sdf.jinja").render(
         cfg=cfg, name=name, frames=frames(frame_prefix), topics=gz_topics(name),
-        rotors=rotors(cfg["airframe"]["arm_m"]),
-        legs=[(GEAR_RADIUS_M * math.cos(math.radians(b)), -GEAR_RADIUS_M * math.sin(math.radians(b)))
-              for b in GEAR_BEARINGS_DEG])
+        rotors=rotors(cfg["airframe"]["arm_m"]), meshes=share() / "meshes")
 
 
 def _gz_to_ros(ros: str, gz: str, ros_type: str, gz_type: str) -> dict:

@@ -10,6 +10,9 @@ airframe:
   # rotor's LiftDrag blades and prop mesh); motor order in render.HEXA_X, SITL frame in hexa.parm.
   # Swap these for the real components' figures when the build is specified.
   arm_m: 0.30                 # hub centre to motor axis; adjacent rotors are arm_m apart (props 0.2 m)
+  body_radius_m: 0.11
+  body_height_m: 0.08         # the drone lands on the body's underside
+  battery_size_m: [0.155, 0.048, 0.052]   # placeholder envelope (6S 5000 mAh class) until the pack is chosen
   body_mass_kg: 2.2           # frame + battery + electronics; rotors, flight IMU and payload add ~0.35
   body_inertia: [0.02, 0.02, 0.04]   # ixx, iyy, izz (kg m^2) about base_link
   motor_max_rad_s: 838        # rotor speed at full throttle (the iris motor: ~8000 rpm)
@@ -17,6 +20,7 @@ airframe:
 mount:                        # payload_link in the airframe (FLU, metres)
   xyz: [0.12, 0.0, -0.03]
   camera_pitch_rad: 0.9599    # 55 deg down; RGB, depth and thermal share tilt and HFOV
+  thermal_mesh_offset_y_m: 0.058   # Lepton mesh to the OAK-D's left (visual only, see drone.sdf.jinja)
 camera_hfov_rad: 1.2
 
 rgb:
@@ -38,7 +42,7 @@ thermal:
 lidar:
   offset_xyz: [0.0, 0.0, -0.05]   # below the payload, clear of the rotors
   vertical_fov_rad: [-0.2618, 0.2618]   # +-15 deg, VLP-16 style
-  range_m: [0.5, 100.0]       # min clears the airframe's own legs
+  range_m: [0.5, 100.0]       # min clears the airframe's own arms and props
   noise_stddev: 0.01          # metres
 imu:                          # companion-computer IMU; the flight IMU stays noise-free for SITL
   rate_hz: 100

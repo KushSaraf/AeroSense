@@ -18,7 +18,7 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
         (f"share/{PACKAGE}", ["package.xml"]),
-    ] + tree("models") + tree("config") + tree("templates"),
+    ] + tree("config") + tree("templates") + tree("meshes"),
     install_requires=["setuptools", "jinja2", "pyyaml"],
     zip_safe=True,
     maintainer="kushsaraf",
