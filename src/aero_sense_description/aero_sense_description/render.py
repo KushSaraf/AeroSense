@@ -15,7 +15,7 @@ QUALITIES = ("low", "medium", "high")
 CAMERAS = ("rgb", "depth", "thermal")
 #: Camera body frame (x forward, z up) -> optical frame (z forward, x right, y down).
 OPTICAL_RPY = (-math.pi / 2, 0.0, -math.pi / 2)
-FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "lidar_link", "imu_link", "baro_link")
+FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "imu_link", "baro_link")
 #: ArduPilot Hexa-X (FRAME_CLASS 2, FRAME_TYPE 1), in motor order: (bearing deg clockwise from
 #: forward, spin seen from above). Copied from AP_MotorsMatrix::setup_hexa_matrix; the model's
 #: rotor_<i>_joint is ArduPilot's motor i+1, so this order must not change.
@@ -39,7 +39,7 @@ def frames(prefix: str = "") -> dict:
 
 def gz_topics(name: str) -> dict:
     """Gazebo topics of the drone model `name` (its model name scopes them per drone)."""
-    topics = {"lidar": f"/{name}/lidar", "imu": f"/{name}/imu", "baro": f"/{name}/baro"}
+    topics = {"imu": f"/{name}/imu", "baro": f"/{name}/baro"}
     for cam in CAMERAS:
         topics[cam] = f"/{name}/{cam}/image"
         topics[f"{cam}_info"] = f"/{name}/{cam}/camera_info"
@@ -81,8 +81,6 @@ def bridge_config(name: str) -> list:
                        "sensor_msgs/msg/CameraInfo", "gz.msgs.CameraInfo"),
         ]
     return entries + [
-        _gz_to_ros("aero_sense/lidar/points", f"{t['lidar']}/points",
-                   "sensor_msgs/msg/PointCloud2", "gz.msgs.PointCloudPacked"),
         _gz_to_ros("aero_sense/imu", t["imu"], "sensor_msgs/msg/Imu", "gz.msgs.IMU"),
         _gz_to_ros("aero_sense/baro", t["baro"], "sensor_msgs/msg/FluidPressure", "gz.msgs.FluidPressure"),
     ]
@@ -92,11 +90,9 @@ def static_transforms(cfg: dict, frame_prefix: str = "") -> tuple:
     """(parent, child, xyz, rpy) for every sensor frame, matching the poses in the model."""
     f = frames(frame_prefix)
     mount = cfg["mount"]["xyz"]
-    lidar = [m + o for m, o in zip(mount, cfg["lidar"]["offset_xyz"])]
     return (
         (f["base_link"], f["camera_link"], mount, (0.0, cfg["mount"]["camera_pitch_rad"], 0.0)),
         (f["camera_link"], f["camera_optical"], (0.0, 0.0, 0.0), OPTICAL_RPY),
-        (f["base_link"], f["lidar_link"], lidar, (0.0, 0.0, 0.0)),
         (f["base_link"], f["imu_link"], mount, (0.0, 0.0, 0.0)),
         (f["base_link"], f["baro_link"], mount, (0.0, 0.0, 0.0)),
     )

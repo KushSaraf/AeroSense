@@ -51,7 +51,7 @@ Hexa-X motor mixer (`FRAME_CLASS 2`, `FRAME_TYPE 1`). Everything is generated fr
 
 - `airframe:` arm length, body size and mass, inertia, max motor speed, battery envelope. Replace
   these with the real components' figures.
-- `mount:` and the sensor sections: the payload (RGB, depth, LWIR thermal, LiDAR, IMU, barometer).
+- `mount:` and the sensor sections: the payload (RGB, depth, LWIR thermal, IMU, barometer), each with the real part's field of view.
   Sensors sit on their own `payload_link`, separate from the flight model, so adding one does not
   touch how the drone flies.
 
@@ -132,7 +132,7 @@ cd frontend && npm run build                                  # type-check and b
 `full_system.launch.py` opens RViz on `aero_sense_visualization/config/aero_sense.rviz`:
 the drone's axes and TF tree, **red spheres for casualties the drone found** (labelled with id,
 priority and confidence), **green translucent spheres for ground truth** (evaluation only —
-switch the layer off to watch the search honestly), the LiDAR cloud, and the RGB and thermal
+switch the layer off to watch the search honestly), and the RGB and thermal
 camera streams. The view starts over the earthquake sector; the base is to the south.
 
 ## Screenshots

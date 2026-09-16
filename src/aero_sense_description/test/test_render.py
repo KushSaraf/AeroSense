@@ -8,8 +8,7 @@ from ament_index_python.packages import get_package_share_directory
 
 from aero_sense_description import render
 
-SENSORS = {"rgb": "camera", "depth": "depth_camera", "thermal": "thermal", "lidar": "gpu_lidar",
-           "imu": "imu", "baro": "air_pressure"}
+SENSORS = {"rgb": "camera", "depth": "depth_camera", "thermal": "thermal", "imu": "imu", "baro": "air_pressure"}
 
 
 def payload_sensors(sdf):
@@ -27,7 +26,7 @@ def test_every_sensor_renders_with_profile_values(quality):
     sensors = sensors_of(quality)
     assert {n: s.get("type") for n, s in sensors.items()} == SENSORS
     assert int(sensors["rgb"].find("camera/image/width").text) == cfg["profile"]["rgb"]["width"]
-    assert int(sensors["lidar"].find("lidar/scan/vertical/samples").text) == cfg["profile"]["lidar"]["channels"]
+    assert int(sensors["depth"].find("camera/image/width").text) == cfg["profile"]["depth"]["width"]
     for name, sensor in sensors.items():        # everything is noisy, nothing is ideal ...
         has_noise = sensor.find(".//noise") is not None
         assert has_noise == (name != "thermal"), name   # ... except thermal: <noise> crashes gz 8
@@ -96,7 +95,7 @@ def test_sdf_albedo_maps_only_on_clean_meshes():
 def test_generate_writes_model_and_bridge(tmp_path):
     model, bridge, cfg = render.generate(tmp_path / "gen", "low", "aero_sense_drone")
     assert ET.parse(model).getroot().find("model").get("name") == "aero_sense_drone"
-    assert "aero_sense/lidar/points" in bridge.read_text() and cfg["quality"] == "low"
+    assert "aero_sense/camera/thermal/image_raw" in bridge.read_text() and cfg["quality"] == "low"
 
 
 def test_hexa_x_matches_ardupilot_motor_order():
@@ -124,3 +123,17 @@ def test_sitl_frame_is_hexa_x():
     params = dict(line.split() for line in (render.share() / "config" / "hexa.parm").read_text().splitlines()
                   if line.strip() and not line.startswith("#"))
     assert params == {"FRAME_CLASS": "2", "FRAME_TYPE": "1"}
+
+
+@pytest.mark.parametrize("quality", render.QUALITIES)
+def test_cameras_are_the_real_parts(quality):
+    """Lepton 3.5: 160x120 at 57 deg whatever the quality; OAK-D Pro W: 95 deg colour, 127 deg
+    stereo at 16:10. A profile may shrink the OAK-D's frames, never change what it can see."""
+    sensors = sensors_of(quality)
+    hfov = {n: math.degrees(float(sensors[n].findtext("camera/horizontal_fov"))) for n in ("rgb", "depth", "thermal")}
+    assert [round(hfov[n]) for n in ("thermal", "rgb", "depth")] == [57, 95, 127]
+    thermal = sensors["thermal"].find("camera/image")
+    assert (thermal.findtext("width"), thermal.findtext("height")) == ("160", "120")
+    rgb, depth = sensors["rgb"].find("camera/image"), sensors["depth"].find("camera/image")
+    assert int(rgb.findtext("width")) * 3 == int(rgb.findtext("height")) * 4
+    assert int(depth.findtext("width")) * 10 == int(depth.findtext("height")) * 16

@@ -19,7 +19,7 @@ cd frontend && npx tsc -b && npm run build                           # type-chec
 | `src/aero_sense_bringup/test` | 21 | world files, model paths, stopping every simulation process |
 | `src/aero_sense_description/test` | 10 | the drone model and its sensor payload |
 | `src/aero_sense_mission/test` | 22 | search pattern, measured coverage, obstacle detours round tall structures |
-| `src/aero_sense_navigation/test` | 8 | LiDAR corridor obstacle detection |
+| `src/aero_sense_navigation/test` | 8 | LiDAR corridor obstacle detection (library, for a future LiDAR; no simulated one) |
 | `src/aero_sense_perception/test` | 27 | thermal detection, geolocation, tracking, triage, structure map |
 | `src/aero_sense_scenario_manager/test` | 10 | the casualty table and its ground truth |
 | `src/aero_sense_visualization/test` | 4 | RViz markers |

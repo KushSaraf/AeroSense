@@ -8,8 +8,8 @@ detector:
   # Ground is 298 K and asphalt 301 K; a live body is 306-311 K. gz quantises heat to ~2.6 K,
   # so the threshold sits a full step above the warmest surface.
   min_temperature_k: 304.0
-  # A person at 25 m covers roughly 20-60 px in the 320x256 thermal image; below that it is
-  # noise, far above it is a heat source the size of a building.
+  # A person seen from 30 m (36 m slant) covers roughly 10-20 px in the Lepton 3.5's 160x120
+  # image; below 4 it is noise, far above it is a heat source the size of a building.
   min_blob_px: 4
   max_blob_px: 4000
   # Confidence reaches 1.0 this far above the threshold (a 310 K body against 304 K).

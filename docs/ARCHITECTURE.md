@@ -26,7 +26,7 @@ field loaded from CSV (generated from `hazards.yaml`).
 ```
 Gazebo Harmonic (disaster world, 5 sectors)
  ├─ physics, ArduPilotPlugin ◄──JSON FDM──► ArduPilot SITL (EKF3) ◄─MAVLink─┐
- ├─ sensors: RGB, depth, thermal, LiDAR, IMU, NavSat, baro, chemical        │
+ ├─ sensors: RGB, depth, thermal, IMU, NavSat, baro, chemical               │
  └─ ground-truth poses (perception aid + evaluation only)                   │
         │ ros_gz_bridge                                                     │
         ▼                                                                   │
@@ -75,8 +75,8 @@ once superseded.
 ## Frames
 
 `map` (ENU, origin = command base, the world origin) → `odom` → `base_link` →
-`camera_link` → `camera_optical` (RGB, depth and thermal share one mount, tilt and HFOV);
-`base_link` → `lidar_link`, `imu_link`, `baro_link`. Sensor frames are static TFs rendered from
+`camera_link` → `camera_optical` (RGB, depth and thermal share one mount, tilt and optical centre);
+`base_link` → `imu_link`, `baro_link`. Sensor frames are static TFs rendered from
 the same table as the model (below); a namespaced drone prefixes them (`drone_01/base_link`).
 Lat/lon come from the world's `spherical_coordinates` (WGS84) through one conversion module.
 
@@ -88,8 +88,7 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 | Topic | Type | Producer |
 |---|---|---|
 | `aero_sense/camera/{rgb,depth,thermal}/image_raw`, `…/camera_info` | Image (rgb8 / 32FC1 / mono16 0.01 K), CameraInfo | Gazebo |
-| `aero_sense/lidar/points` | sensor_msgs/PointCloud2 | Gazebo |
-| `aero_sense/imu`, `aero_sense/baro` | Imu, FluidPressure | Gazebo (companion IMU, barometer) |
+| `aero_sense/imu`, `aero_sense/baro` | Imu, FluidPressure | Gazebo (OAK-D IMU, flight-controller barometer) |
 | `aero_sense/gps/fix` | NavSatFix | autopilot GPS (degradable, Phase 17) |
 | `aero_sense/drone/pose`, `/velocity`, `/battery`, `/status` | PoseStamped, TwistStamped, BatteryState, DroneStatus | mission (from MAVLink) |
 | `aero_sense/localization/pose`, `/status` | PoseStamped, LocalizationStatus | localization |
@@ -108,17 +107,19 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 
 `aero_sense_description/config/sensors.yaml` is the single source for the payload:
 `render.py` turns it into the drone SDF, the ros_gz_bridge config and the static TFs, and
-`simulation.launch.py quality:=low|medium|high` picks the resolution/rate profile. Measured
-on the medium profile (RTF 1.0, headless, RTX 2050):
+`simulation.launch.py quality:=low|medium|high` picks the OAK-D's resolution/rate profile.
+Every camera has the real part's field of view (hardware/README.md); the Lepton 3.5 renders at its
+native 160×120 in every profile. There is no LiDAR: none is part of the build, and no node read
+the simulated one (`aero_sense_navigation/obstacle_field.py` is ready for one if it is added).
+Medium profile (RTF 1.0, headless, RTX 2050):
 
-| Sensor | Medium profile | Measured rate | Noise (configured → measured) |
-|---|---|---|---|
-| RGB | 960×540 | 9.1 Hz / 10 | σ 0.007 of full scale |
-| Depth | 640×480 | 4.8 Hz / 5 | σ 0.02 m → 0.018 m (18.50 m vs 18.52 m geometric at 15 m AGL) |
-| Thermal (LWIR) | 320×256 mono16 | 8.7 Hz / 9 | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
-| LiDAR | 16 × 900, ±15°, 0.5–100 m | 9.7 Hz / 10 | σ 0.01 m; no self-hits in flight |
-| IMU (companion) | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
-| Barometer | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
+| Sensor | Real part | Simulated (medium) | Measured rate | Noise (configured → measured) |
+|---|---|---|---|---|
+| RGB | OAK-D Pro W IMX378, 95° | 1024×768, 95° | 9.5 Hz / 10 | σ 0.007 of full scale |
+| Depth | OAK-D Pro W OV9282 stereo, 127°, 0.7–12 m | 1280×800, 127°, 0.7–12 m | 4.5 Hz / 5 | σ 0.02 m (measured 0.018 m at the earlier 68.8° FOV) |
+| Thermal (LWIR) | FLIR Lepton 3.5, 160×120, 57°, 8.6 Hz | 160×120 mono16, 57° | 8.4 Hz / 8.6 | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
+| IMU | OAK-D Pro W BNO086 | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
+| Barometer | flight controller | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
 
 The flight IMU inside the hexacopter model stays noise-free: ArduPilot SITL consumes it and adds
 its own sensor model. GPS is the autopilot's (`SIM_GPS1_*`), so GPS denial acts on what the
@@ -256,7 +257,7 @@ Each phase ends with: build → launch → test → inspect topics → fix → d
 |---|---|---|
 | 1 | Repository + ROS workspace | interfaces build; message round-trip tests pass; `system_check` runs |
 | 2 | ArduPilot + Gazebo drone | `simulation.launch.py` spawns the drone; takeoff + hover by MAVLink from a ROS node |
-| 3 | Sensors | RGB/thermal/depth/LiDAR/IMU/GPS on `/aero_sense/*` at configured rates, with noise |
+| 3 | Sensors | RGB/thermal/depth/IMU/GPS on `/aero_sense/*` at configured rates, with noise |
 | 4 | Earthquake sector | sector renders, drone flies it, GT victims placed with line of sight |
 | 5 | Victim simulation | `victims.yaml`-driven actors: lying/waving/walking, thermal, occlusion |
 | 6 | Perception | detections → persistent IDs → fused confidence → lat/lon on `/aero_sense/victims` |

@@ -2,8 +2,11 @@
 # the ros_gz_bridge config and the sensor TF frames (aero_sense_description/render.py), so a
 # sensor's Gazebo topic, ROS topic and frame cannot drift apart.
 #
-# Quality profiles trade resolution and rate for simulation speed; noise is a property of the
-# sensor, so it is the same in every profile. Select with `quality:=low|medium|high`.
+# Every camera is the real part's: field of view, range and (for the Lepton) resolution come from
+# the manufacturer's datasheet (hardware/README.md). Quality profiles only trade the OAK-D's
+# resolution and rate for simulation speed - its native 4056x3040 colour frame is too heavy to
+# render live. Noise is a property of the sensor, so it is the same in every profile.
+# Select with `quality:=low|medium|high`.
 
 airframe:
   # Bespoke Hexa-X. Built only from ArduPilot's own Gazebo parts (ArduPilotPlugin, the iris
@@ -19,18 +22,25 @@ airframe:
 
 mount:                        # payload_link in the airframe (FLU, metres)
   xyz: [0.12, 0.0, -0.03]
-  camera_pitch_rad: 0.9599    # 55 deg down; RGB, depth and thermal share tilt and HFOV
+  camera_pitch_rad: 0.9599    # 55 deg down; RGB, depth and thermal share the tilt and optical centre
   thermal_mesh_offset_y_m: 0.058   # Lepton mesh to the OAK-D's left (visual only, see drone.sdf.jinja)
-camera_hfov_rad: 1.2
 
-rgb:
+rgb:                          # OAK-D Pro W colour camera, IMX378
+  hfov_rad: 1.6581            # 95 deg
   clip_m: [0.3, 300.0]
   noise_stddev: 0.007         # fraction of full scale per channel
-depth:
-  clip_m: [0.3, 100.0]
+depth:                        # OAK-D Pro W stereo pair, OV9282, 75 mm baseline
+  hfov_rad: 2.2166            # 127 deg
+  clip_m: [0.7, 12.0]         # Luxonis' ideal depth range: nothing reads at search altitude
   noise_stddev: 0.02          # metres
-thermal:
+thermal:                      # FLIR Lepton 3.5: fixed 160x120, so not part of the quality profiles
+  hfov_rad: 0.9948            # 57 deg
+  width: 160
+  height: 120
+  rate_hz: 8.6
   clip_m: [0.3, 150.0]
+  # The real Lepton reads -10 to 400 C (low gain). The sim keeps 600 K: L16 counts x resolution_k
+  # must reach max_temp, and 673 K would need a coarser scale than the 0.01 K below.
   temp_range_k: [253.15, 600.0]   # must still cover fire (550 K, Phase 14)
   # Measured: gz renders heat sources through an 8-bit path, so the real step is 256 *
   # resolution_k (2.6 K here), whatever min/max say - narrowing the range changed nothing.
@@ -39,32 +49,21 @@ thermal:
   # and perception must not assume finer than 2.6 K.
   resolution_k: 0.01          # scale of the L16 counts (1 count = 0.01 K), not the precision
   # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera.
-lidar:
-  offset_xyz: [0.0, 0.0, -0.05]   # below the payload, clear of the rotors
-  vertical_fov_rad: [-0.2618, 0.2618]   # +-15 deg, VLP-16 style
-  range_m: [0.5, 100.0]       # min clears the airframe's own arms and props
-  noise_stddev: 0.01          # metres
-imu:                          # companion-computer IMU; the flight IMU stays noise-free for SITL
+imu:                          # OAK-D Pro W's BNO086; the flight IMU stays noise-free for SITL
   rate_hz: 100
   gyro_stddev: 0.0009         # rad/s
   accel_stddev: 0.017         # m/s^2
-baro:
+baro:                         # flight controller's barometer
   rate_hz: 10
   noise_stddev: 5.0           # Pa (~0.4 m)
 
-profiles:
+profiles:                     # OAK-D resolution and rate only (4:3 colour, 16:10 stereo, as the sensors)
   low:
-    rgb:     {width: 640,  height: 360, rate_hz: 5}
-    depth:   {width: 320,  height: 240, rate_hz: 5}
-    thermal: {width: 160,  height: 128, rate_hz: 5}
-    lidar:   {channels: 16, samples: 450, rate_hz: 5}
+    rgb:     {width: 640,  height: 480, rate_hz: 5}
+    depth:   {width: 640,  height: 400, rate_hz: 5}
   medium:
-    rgb:     {width: 960,  height: 540, rate_hz: 10}
-    depth:   {width: 640,  height: 480, rate_hz: 5}
-    thermal: {width: 320,  height: 256, rate_hz: 9}
-    lidar:   {channels: 16, samples: 900, rate_hz: 10}
+    rgb:     {width: 1024, height: 768, rate_hz: 10}
+    depth:   {width: 1280, height: 800, rate_hz: 5}
   high:
-    rgb:     {width: 1280, height: 720, rate_hz: 15}
-    depth:   {width: 848,  height: 480, rate_hz: 10}
-    thermal: {width: 640,  height: 512, rate_hz: 9}
-    lidar:   {channels: 32, samples: 1800, rate_hz: 10}
+    rgb:     {width: 1600, height: 1200, rate_hz: 15}
+    depth:   {width: 1280, height: 800, rate_hz: 10}

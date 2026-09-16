@@ -59,15 +59,15 @@ not needed (they remain in FLIR's download).
 8. **Camera bracket** holding both cameras 55° down (3-D printed), plus power module, telemetry
    radio and RC receiver.
 
-## Real sensor specs vs. what the sim renders
+## Real sensor specs, as simulated
 
-| | Real part | Simulated now (`quality:=medium`) |
+| | Real part | Simulated (`quality:=medium`) |
 |---|---|---|
-| Thermal | Lepton 3.5: 160 × 120, 57° HFOV, 8.6 Hz, 8–14 µm, < 50 mK NETD, radiometric, −10 to 400 °C (low gain) | 320 × 256, 68.8° HFOV, 9 Hz |
-| RGB | OAK-D Pro W: IMX378 4056 × 3040, 95° HFOV | 960 × 540, 68.8° HFOV |
-| Depth | OAK-D Pro W: OV9282 stereo pair 1280 × 800, 127° HFOV, 75 mm baseline, ~0.7–12 m | 640 × 480, 68.8° HFOV, 0.3–100 m |
-| IMU | BNO086 inside the OAK-D Pro W | separate companion IMU |
-| LiDAR | none chosen | 16-channel, not used by any node |
+| Thermal | Lepton 3.5: 160 × 120, 57° HFOV, 8.6 Hz, 8–14 µm, < 50 mK NETD, radiometric, −10 to 400 °C (low gain) | 160 × 120, 57°, 8.6 Hz; 253–600 K range, ~2.6 K rendering step |
+| RGB | OAK-D Pro W: IMX378 4056 × 3040, 95° HFOV | 1024 × 768, 95° (native resolution too heavy to render live) |
+| Depth | OAK-D Pro W: OV9282 stereo pair 1280 × 800, 127° HFOV, 75 mm baseline, ~0.7–12 m | 1280 × 800, 127°, 0.7–12 m |
+| IMU | BNO086 inside the OAK-D Pro W | 100 Hz, noisy |
+| LiDAR | none | none (removed; `aero_sense_navigation/obstacle_field.py` is ready if one is added) |
 
 Sources: [Luxonis OAK-D Pro W](https://docs.luxonis.com/hardware/products/OAK-D%20Pro%20W),
 [FLIR Lepton 3.5](https://oem.flir.com/products/lepton/?model=500-0771-01).
