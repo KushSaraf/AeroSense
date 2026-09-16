@@ -8,13 +8,13 @@ repo; re-run the commands to reproduce them.
 ```bash
 source /opt/ros/humble/setup.bash && source ~/uav_ws/install/setup.bash
 colcon build --base-paths src && source install/setup.bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests src -q     # 163 passed
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest legacy/prototype/tests src -q    # 160 passed
 cd frontend && npx tsc -b && npm run build                           # type-check and build
 ```
 
 | Test folder | Tests | Covers |
 |---|---|---|
-| `tests/` | 32 | the single-process prototype: projection, risk, A*, store-and-forward |
+| `legacy/prototype/tests` | 32 | the single-process prototype: projection, risk, A*, store-and-forward |
 | `src/aero_sense_bridge/test` | 29 | ROS → dashboard JSON, alerts and reports derived only from real data and scoped to their mission, NaN handling, link freshness, spawned-process environment |
 | `src/aero_sense_bringup/test` | 21 | world files, model paths, stopping every simulation process |
 | `src/aero_sense_description/test` | 10 | the drone model and its sensor payload |

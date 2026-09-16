@@ -30,7 +30,7 @@ done
 source /opt/ros/humble/setup.bash
 source "$UAV_WS/install/setup.bash"
 export GZ_VERSION=harmonic
-export GZ_SIM_RESOURCE_PATH="$ROOT/src/aero_sense_description/models:$UAV_WS/src:$UAV_WS/src/ardupilot_gazebo/models:$UAV_WS/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH:-}"
+export GZ_SIM_RESOURCE_PATH="$ROOT/sim/models:$UAV_WS/src:$UAV_WS/src/ardupilot_gazebo/models:$UAV_WS/src/ardupilot_gazebo/worlds:${GZ_SIM_RESOURCE_PATH:-}"
 export GZ_SIM_SYSTEM_PLUGIN_PATH="$UAV_WS/install/ardupilot_gazebo/lib:$UAV_WS/build/ardupilot_gazebo:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
 export PATH="$PATH:$UAV_WS/src/ardupilot/Tools/autotest"
 
@@ -47,7 +47,7 @@ reap_stale() {
       kill -KILL "$p" 2>/dev/null || true
     fi
   done
-  pkill -KILL -f "$ROOT/src/aero_sense_gazebo/(worlds/prototype_disaster\.sdf|config/prototype_bridge\.yaml)" 2>/dev/null || true
+  pkill -KILL -f "$ROOT/sim/(worlds/prototype_disaster\.sdf|prototype_bridge\.yaml)" 2>/dev/null || true
   sleep 1
 }
 reap_stale
@@ -80,7 +80,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-GZ_ARGS=(-r -v2 "$ROOT/src/aero_sense_gazebo/worlds/prototype_disaster.sdf")
+GZ_ARGS=(-r -v2 "$ROOT/sim/worlds/prototype_disaster.sdf")
 [[ $HEADLESS == 1 ]] && GZ_ARGS=(-s --headless-rendering "${GZ_ARGS[@]}")
 start gazebo gz sim "${GZ_ARGS[@]}"
 echo -n "Waiting for Gazebo"
@@ -106,7 +106,7 @@ gz topic -l | grep -q /thermal/image || { echo "Gazebo did not start; see $LOG_D
 # 50 Hz ATTITUDE / 20 Hz position, which the frame-to-pose interpolation depends on.
 start sitl env DISPLAY= sim_vehicle.py -v ArduCopter -f gazebo-iris --model JSON -N -w \
   --use-dir="$LOG_DIR/sitl" --out "127.0.0.1:$MAV_PORT" --mavproxy-args="--daemon --streamrate=-1"
-start bridge ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$ROOT/src/aero_sense_gazebo/config/prototype_bridge.yaml"
+start bridge ros2 run ros_gz_bridge parameter_bridge --ros-args -p config_file:="$ROOT/sim/prototype_bridge.yaml"
 echo "SITL + bridge started (logs in $LOG_DIR). MAVLink for the mission: udp:$MAV_PORT"
 
 if [[ $RUN_MISSION == 1 ]]; then

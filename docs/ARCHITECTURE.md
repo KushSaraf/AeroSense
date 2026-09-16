@@ -52,7 +52,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 |---|---|---|---|
 | `aero_sense_interfaces` | ament_cmake | 1 | all msgs/srvs |
 | `aero_sense_bringup` | ament_python | 1 → | launch files, `config/*.yaml`, `system_check` |
-| `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → drone SDF, bridge config, sensor TFs; prototype drone |
+| `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → drone SDF, bridge config, sensor TFs |
 | `aero_sense_gazebo` | ament_python | 2, 4, 13–16 | world, sector models, bridge config |
 | `aero_sense_perception` | ament_python | 6 | thermal detector, geolocation, tracker; RGB/YOLO and hazard polygons later |
 | `aero_sense_localization` | ament_python | 7, 17 | GPS monitor, VIO, source arbitration |
@@ -68,7 +68,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 | `aero_sense_bridge` | ament_python | 22 | FastAPI/WebSocket, JSON contracts |
 
 A package is created in the phase that first needs it — no empty skeletons. The earlier
-single-process prototype in `aerosense/` is migrated into these packages phase by phase
+single-process prototype (now in `legacy/prototype/`) is migrated into these packages phase by phase
 (its geo, risk, A*, world-model, store-and-forward and flight code is reused) and removed
 once superseded.
 

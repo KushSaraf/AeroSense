@@ -202,6 +202,6 @@
       <uri>https://fuel.gazebosim.org/1.0/OpenRobotics/models/Rescue Randy Sitting</uri>
     </include>
 
-    <!-- No drone here: run_sim.sh spawns the prototype's, simulation.launch.py its rendered one. -->
+    <!-- No drone here: run_sim.sh spawns the prototype drone. -->
   </world>
 </sdf>

@@ -1,59 +1,61 @@
 # Aero Sense — search-and-rescue drone simulation
 
-**Website: https://kushsaraf.github.io/AeroSense_SIH26/** — the command dashboard playing back a
-real recorded flight of the earthquake sector: the drone's track, its thermal and RGB camera,
-every casualty it confirmed with its triage, the obstacle-avoidance and mission events, and the
-printable report. The simulation itself (Gazebo, ArduPilot SITL, ROS 2) cannot run on a web host,
-so the site says on every page that it is a replay; run `tools/dashboard.sh` to fly one live.
-Re-record it with `python3 tools/record_replay.py` while the dashboard is running.
+An autonomous search-and-rescue drone for Smart India Hackathon 2026. It flies a Gazebo disaster
+zone (earthquake + flood sectors) under ArduPilot SITL, finds casualties with thermal perception,
+triages them, routes around obstacles, and reports everything to a live command-centre dashboard.
+
+**Website: https://kushsaraf.github.io/AeroSense_SIH26/** — the dashboard playing back a real
+recorded flight of the earthquake sector (track, thermal and RGB camera, confirmed casualties with
+triage, obstacle-avoidance events, printable report). The simulation itself cannot run on a web
+host, so every page says it is a replay; run `tools/dashboard.sh` to fly one live.
 
 Tests, flight results, the triage scorecard and screenshots: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
-## Screenshots
+## What's where
 
-From the recorded flight on the website. More, with the test and flight results, in
-[docs/VERIFICATION.md](docs/VERIFICATION.md).
+```
+sih_2026/
+├── src/              ROS 2 packages — the drone system (one folder per package, below)
+├── frontend/         React dashboard (live, or replay on the website) — see frontend/README.md
+├── tools/            launch scripts and helper tools (start here to run anything)
+├── docs/             ARCHITECTURE.md (design), VERIFICATION.md (test + flight results), images/
+├── legacy/prototype/ the first single-process version, superseded by src/ — kept for reference
+├── .github/          GitHub Pages workflow that publishes the replay website
+└── reference/        third-party Gazebo model repos (not in git; see "Reference assets")
+```
 
-| | |
+Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs).
+
+### ROS 2 packages (`src/`)
+
+| Package | What it does |
 |---|---|
-| ![Live dashboard](docs/images/site-dashboard.png) | ![Live map](docs/images/site-map.png) |
-| **Live dashboard** 3:20 into the flight: drone telemetry, its camera, casualties with triage, measured coverage, mission events | **Live map**: both sectors on satellite imagery, the drone and the triaged casualties |
-| ![Mission report](docs/images/site-reports.png) | ![Mission command](docs/images/site-mission-command.png) |
-| **Mission report**: printable A4, every figure from recorded mission data | **Mission command**: the earthquake and flood sectors, start either from here |
-| ![Alert center](docs/images/site-alerts.png) | ![Drone thermal camera beside the radio mast](docs/images/drone-thermal_0158.jpg) |
-| **Alert center**: raised only by real detections and mission events | **The drone's thermal camera**: a warm body beside the radio mast the route goes round |
-| ![Drone RGB camera over the collapsed terraces](docs/images/drone-rgb_0039.jpg) | ![Drone thermal camera over the collapsed terraces](docs/images/drone-thermal_0039.jpg) |
-| **RGB camera**: the first casualty, in the lane between collapsed terraces | **Thermal (LWIR)**, the same moment |
+| `aero_sense_interfaces` | custom messages and services (victims, alerts, mission status, …) |
+| `aero_sense_bringup` | launch files (`full_system`, `simulation`, `visualization`), `system_check`, `stop_sim` |
+| `aero_sense_description` | drone model + sensor payload, rendered from `config/sensors.yaml` |
+| `aero_sense_gazebo` | the disaster world and its models (rubble, terrain, flood water, roads) |
+| `aero_sense_mission` | mission manager, autopilot adapter (MAVLink), search pattern, airspace |
+| `aero_sense_perception` | thermal victim detection, tracking, geolocation, triage, structure map |
+| `aero_sense_navigation` | obstacle field for detours around structures |
+| `aero_sense_scenario_manager` | casualty placement (`config/victims.yaml`) and ground truth |
+| `aero_sense_visualization` | RViz config and markers |
+| `aero_sense_bridge` | HTTP bridge from ROS to the dashboard (:8000), process supervisor |
 
-Autonomous SAR drone in a Gazebo disaster zone, flown by ArduPilot SITL, with the onboard
-AI stack (detection, thermal fusion, mapping, risk engine, safe-route planning,
-store-and-forward comms) and a live command-centre dashboard.
+### Tools (`tools/`)
 
-```
-Gazebo Harmonic ──(rgbd + thermal)──> ros_gz_bridge ──ROS 2──> aerosense (companion computer)
-      ▲                                                            │  YOLO11n + ByteTrack, LWIR,
-      │ FDM (JSON)                                                 │  SegFormer-B0, 2.5-D map,
-ArduPilot SITL (EKF3) <──────────── MAVLink (GUIDED) ──────────────┤  risk engine, A* routes
-                                                                   ▼
-                                           store-and-forward downlink ──> dashboard :8080
-```
+| Script | Use |
+|---|---|
+| `dashboard.sh` | start everything: bridge + frontend + simulation (`--stop` to stop) |
+| `demo.sh` | simulation + RViz + a scored search, no dashboard |
+| `search_evaluation.py` | fly a search and score it against ground truth |
+| `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
+| `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
+| `make_terrain.py` | regenerate the landslide sector's terrain mesh |
 
-## ROS 2 workspace
+## Running it
 
-The system is being rebuilt as ROS 2 packages under `src/` (see `docs/ARCHITECTURE.md`). Landed
-so far: interfaces and `system_check`; Gazebo + ArduPilot SITL flown from ROS; the sensor payload
-(RGB, depth, LWIR, LiDAR, IMU, barometer) with quality profiles; the disaster world — dense
-earthquake blocks, a flooded village and a landslide ridge; casualties with real body heat;
-thermal perception that finds them; and the RViz view.
-
-The single-process prototype below still works (`./run_sim.sh`) until its pieces are migrated
-into the packages.
-
-## Running the full system
-
-One command, in tmux. Each first destroys everything a previous run left behind (the tmux
-session, Gazebo, SITL, MAVProxy, the ROS nodes, RViz, the bridge on :8000, the frontend on
-:5173), so nothing stale holds a port or publishes old topics:
+Needs ROS 2 Humble, Gazebo Harmonic and `~/uav_ws` (ArduPilot SITL, `ardupilot_gazebo`, `ros_gz`),
+plus Node for the dashboard.
 
 ```bash
 tools/dashboard.sh        # web dashboard: bridge + frontend + simulation, browser opens on it
@@ -62,8 +64,10 @@ tools/dashboard.sh --stop # stop everything (either script)
 tmux attach -t aerosense  # see the logs
 ```
 
-From the dashboard, Mission Command starts the earthquake or flood sector, and the live
-dashboard's GAZEBO, RVIZ and RESTART SIM buttons act on the running simulation.
+Each script first kills anything a previous run left behind (tmux session, Gazebo, SITL, MAVProxy,
+ROS nodes, RViz, the bridge on :8000, the frontend on :5173). From the dashboard, Mission Command
+starts the earthquake or flood sector, and the GAZEBO, RVIZ and RESTART SIM buttons act on the
+running simulation.
 
 By hand:
 
@@ -93,8 +97,15 @@ ros2 run aero_sense_bringup system_check
 ros2 run aero_sense_bringup stop_sim     # stop everything, including what outlives Ctrl-C
 ```
 
-Only one simulation can run at a time: SITL needs port 5760, and a second launch now fails with
+Only one simulation can run at a time: SITL needs port 5760, and a second launch fails with
 that message instead of quietly starting a world whose drone no autopilot flies.
+
+### Tests
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest src -q
+cd frontend && npm run build                                  # type-check and build
+```
 
 ### What RViz shows
 
@@ -103,6 +114,21 @@ the drone's axes and TF tree, **red spheres for casualties the drone found** (la
 priority and confidence), **green translucent spheres for ground truth** (evaluation only —
 switch the layer off to watch the search honestly), the LiDAR cloud, and the RGB and thermal
 camera streams. The view starts over the earthquake sector; the base is to the south.
+
+## Screenshots
+
+From the recorded flight on the website.
+
+| | |
+|---|---|
+| ![Live dashboard](docs/images/site-dashboard.png) | ![Live map](docs/images/site-map.png) |
+| **Live dashboard** 3:20 into the flight: drone telemetry, its camera, casualties with triage, measured coverage, mission events | **Live map**: both sectors on satellite imagery, the drone and the triaged casualties |
+| ![Mission report](docs/images/site-reports.png) | ![Mission command](docs/images/site-mission-command.png) |
+| **Mission report**: printable A4, every figure from recorded mission data | **Mission command**: the earthquake and flood sectors, start either from here |
+| ![Alert center](docs/images/site-alerts.png) | ![Drone thermal camera beside the radio mast](docs/images/drone-thermal_0158.jpg) |
+| **Alert center**: raised only by real detections and mission events | **The drone's thermal camera**: a warm body beside the radio mast the route goes round |
+| ![Drone RGB camera over the collapsed terraces](docs/images/drone-rgb_0039.jpg) | ![Drone thermal camera over the collapsed terraces](docs/images/drone-thermal_0039.jpg) |
+| **RGB camera**: the first casualty, in the lane between collapsed terraces | **Thermal (LWIR)**, the same moment |
 
 ## Reference assets
 
@@ -139,102 +165,9 @@ Consulted while designing the scenarios, not loaded by the world:
 bare filename, so each model's `materials/textures` goes on `GZ_SIM_RESOURCE_PATH`
 (`aero_sense_bringup/worlds.py`).
 
-## Quick start (prototype)
-
-Needs the existing `~/uav_ws` (ArduPilot SITL, `ardupilot_gazebo`, `ros_gz`) and ROS 2 Humble.
-
-```bash
-pip install --user -r requirements.txt       # first run also downloads YOLO11n + SegFormer-B0
-./run_sim.sh                                 # Gazebo GUI + SITL + bridge + mission
-# open http://127.0.0.1:8080
-```
-
-Options: `./run_sim.sh --headless` (no Gazebo GUI), `--no-mission` (sim only), and mission args
-after `--`, e.g. `./run_sim.sh -- --outage 30:60 --outage 100:120` or `-- --no-outage`.
-Logs go to `logs/`. Ctrl-C stops everything.
-
-## The mission
-
-1. Pre-flight: wait for camera streams and EKF/pre-arm, arm, take off to 15 m.
-2. Lawnmower search of a 50 × 48 m box (5 lanes, 12 m apart) at 4 m/s.
-3. Every frame: detect people (YOLO11n + ByteTrack) and fuse with LWIR body heat; find fire
-   (hot) and flood (SegFormer water ∪ LWIR-cold); geo-locate via depth + pose; update the map.
-4. Every 3 s: rank each confirmed survivor LOW→CRITICAL and plan a safe ground route from base.
-5. A scripted comm blackout (default T+45–85 s) — the drone keeps searching, queues its
-   reports on board and flushes them in order when the link returns. The dashboard's
-   **Simulate comm loss** button does the same on demand.
-6. Depth-based avoidance: a 25 m mast stands on lane 3, above search altitude; the drone
-   stops, climbs over it and descends again.
-7. RTL and land.
-
-## Spec → simulation
-
-| Spec component | Here | Notes |
-|---|---|---|
-| RGB + stereo depth | Gazebo `rgbd_camera` 640×480 | 55° forward-down |
-| LWIR thermal | Gazebo `thermal` camera, radiometric L16 | people ~310 K, fire 520–550 K, water 285 K |
-| IMU/GPS + EKF fusion | ArduPilot SITL EKF3 | real autopilot firmware |
-| PX4 flight controller | **ArduPilot** (what `~/uav_ws` has) | same MAVLink interface |
-| YOLO11-N | ultralytics `yolo11n.pt`, class person | real model |
-| ByteTrack | ultralytics built-in tracker | real |
-| SegFormer-B0 | `nvidia/segformer-b0-finetuned-ade-512-512` water classes | runs, but labels flat untextured sim ground as "sky"; LWIR-cold cue carries flood in sim |
-| Depth Anything V2-S | not run | sim gives metric depth; drop-in for RGB-only hardware |
-| ORB-SLAM3 / VIO | not run | pose comes from EKF3 (GPS); see gaps |
-| RTAB-Map 3-D map | 2.5-D height grid (1 m cells) from depth | enough for routing + avoidance |
-| A* / RRT* | A* (8-connected, fire clearance, flood cost) | RRT* not needed on a grid |
-| Risk engine | `aerosense/risk.py` | P(survivor) × (base + hazard + inaccessibility) |
-| ROS 2 + MAVLink | ROS 2 for sensors, pymavlink for flight | |
-| Store-and-forward | `aerosense/comms.py` | in-process link model |
-| Dashboard | Flask + canvas, `/api/state`, MJPEG feed | |
-
-## Scenario ground truth (local NED metres, origin = launch)
-
-| | N | E | Context |
-|---|---|---|---|
-| S1 Rescue Randy | 47 | -10 | standing in flood water |
-| S2 Rescue Randy (sitting) | 33 | 8 | 3.5 m from fire |
-| S3 Standing person | 15 | -18 | open ground, no heat-signature model |
-| S4 Walking person | 42 | 14 | beside collapsed building |
-| S5 Rescue Randy (sitting) | 24 | 20 | open ground |
-
-## Code map
-
-| File | Role |
-|---|---|
-| `aerosense/mission.py` | entry point + main loop (sense → control → report) |
-| `aerosense/perception.py` | YOLO11n/ByteTrack, thermal fusion, SegFormer, annotated feed |
-| `aerosense/world_model.py` | height map, hazard evidence grids, survivor registry |
-| `aerosense/risk.py` | risk scoring and levels |
-| `aerosense/planner.py` | cost grid + A* safe routes |
-| `aerosense/comms.py` | store-and-forward link |
-| `aerosense/flight.py` | ArduCopter GUIDED client (pymavlink) |
-| `aerosense/sensors.py` | ROS 2 camera subscriber (no cv_bridge — NumPy 2) |
-| `aerosense/geo.py` | pixel + depth → NED |
-| `aerosense/dashboard.py`, `static/index.html` | command centre |
-| `src/aero_sense_gazebo/worlds/prototype_disaster.sdf`, `src/aero_sense_description/models/aerosense_drone_prototype` | Gazebo world + drone (run_sim.sh spawns it) |
-
-## Tests
-
-```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest tests -q
-```
-
-Covers projection, risk, A*, store-and-forward, world model, mission logic (lawnmower,
-avoidance) and the dashboard API. The perception/flight path is verified against the live sim.
-
 ## Firmware notes
 
 `~/uav_ws` builds **ArduCopter 4.8.0-dev**, which renamed the waypoint parameters to SI
 units: `WP_SPD` (m/s), `WP_ACC` (m/s²), `RTL_ALT_M` (m) — the old `WPNAV_SPEED`,
-`WPNAV_ACCEL`, `RTL_ALT` no longer exist. `Flight.set_param` waits for the autopilot's
-echo and raises if a name is unknown, because ArduPilot otherwise drops it silently.
-
-## Known gaps
-
-- **GPS-denied flight** is not simulated yet. Path: ArduPilot optical-flow/visual-odometry
-  sources (`EK3_SRC*`) or ORB-SLAM3 feeding `VISION_POSITION_ESTIMATE`, switched on GPS loss.
-- Frames are projected with the pose interpolated at their capture time: frame stamps are
-  Gazebo sim time, MAVLink stamps are SITL boot time, and the (constant, lockstep) offset
-  is estimated online from `/clock`. On real hardware this is camera–IMU hardware sync.
-  Hovering level, mapped ground heights are within ±0.2 m out to the 30 m map range.
-- SegFormer needs realistic textures (or a flood-trained checkpoint) to contribute in sim.
+`WPNAV_ACCEL`, `RTL_ALT` no longer exist. ArduPilot drops unknown parameter names silently, so
+the autopilot adapter waits for each parameter's echo and raises if a name is unknown.

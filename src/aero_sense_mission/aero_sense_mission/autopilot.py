@@ -2,7 +2,7 @@
 
 PX4 swap point: code above this module sees positions, attitudes and commands, never MAVLink
 dialect details. Written for ArduCopter 4.8 (SI parameter names; see set_param).
-Descends from the prototype's aerosense/flight.py, which is frozen until Phase 6 removes it.
+Descends from the prototype's legacy/prototype/aerosense/flight.py.
 
 One reader thread drains the socket and publishes an immutable VehicleState; every wait
 polls that snapshot, so no message is consumed twice. Attitude and position are also kept

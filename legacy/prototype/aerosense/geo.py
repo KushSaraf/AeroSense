@@ -10,7 +10,7 @@ import math
 import numpy as np
 
 #: Downward tilt of the RGBD + thermal payload. Must match the sensor pitch in
-#: src/aero_sense_description/models/aerosense_drone_prototype/model.sdf.
+#: sim/models/aerosense_drone_prototype/model.sdf.
 CAMERA_TILT_RAD = math.radians(55.0)
 
 
