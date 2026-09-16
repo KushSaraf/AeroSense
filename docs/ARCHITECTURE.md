@@ -52,7 +52,7 @@ Gazebo Harmonic (disaster world, 5 sectors)
 |---|---|---|---|
 | `aero_sense_interfaces` | ament_cmake | 1 | all msgs/srvs |
 | `aero_sense_bringup` | ament_python | 1 → | launch files, `config/*.yaml`, `system_check` |
-| `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → drone SDF, bridge config, sensor TFs |
+| `aero_sense_description` | ament_python | 2, 3 | `config/sensors.yaml` + `render.py` → hexacopter SDF, bridge config, sensor TFs; `config/hexa.parm` SITL frame |
 | `aero_sense_gazebo` | ament_python | 2, 4, 13–16 | world, sector models, bridge config |
 | `aero_sense_perception` | ament_python | 6 | thermal detector, geolocation, tracker; RGB/YOLO and hazard polygons later |
 | `aero_sense_localization` | ament_python | 7, 17 | GPS monitor, VIO, source arbitration |
@@ -120,7 +120,7 @@ on the medium profile (RTF 1.0, headless, RTX 2050):
 | IMU (companion) | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
 | Barometer | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
 
-The flight IMU inside the iris model stays noise-free: ArduPilot SITL consumes it and adds
+The flight IMU inside the hexacopter model stays noise-free: ArduPilot SITL consumes it and adds
 its own sensor model. GPS is the autopilot's (`SIM_GPS1_*`), so GPS denial acts on what the
 EKF actually uses.
 

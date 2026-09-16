@@ -1,9 +1,18 @@
-# Aero Sense sensor payload. This one table drives the Gazebo model (templates/drone.sdf.jinja),
+# Aero Sense hexacopter and its sensor payload. This one table drives the Gazebo model (templates/drone.sdf.jinja),
 # the ros_gz_bridge config and the sensor TF frames (aero_sense_description/render.py), so a
 # sensor's Gazebo topic, ROS topic and frame cannot drift apart.
 #
 # Quality profiles trade resolution and rate for simulation speed; noise is a property of the
 # sensor, so it is the same in every profile. Select with `quality:=low|medium|high`.
+
+airframe:
+  # Bespoke Hexa-X. Built only from ArduPilot's own Gazebo parts (ArduPilotPlugin, the iris
+  # rotor's LiftDrag blades and prop mesh); motor order in render.HEXA_X, SITL frame in hexa.parm.
+  # Swap these for the real components' figures when the build is specified.
+  arm_m: 0.30                 # hub centre to motor axis; adjacent rotors are arm_m apart (props 0.2 m)
+  body_mass_kg: 2.2           # frame + battery + electronics; rotors, flight IMU and payload add ~0.35
+  body_inertia: [0.02, 0.02, 0.04]   # ixx, iyy, izz (kg m^2) about base_link
+  motor_max_rad_s: 838        # rotor speed at full throttle (the iris motor: ~8000 rpm)
 
 mount:                        # payload_link in the airframe (FLU, metres)
   xyz: [0.12, 0.0, -0.03]

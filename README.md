@@ -32,7 +32,7 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 |---|---|
 | `aero_sense_interfaces` | custom messages and services (victims, alerts, mission status, …) |
 | `aero_sense_bringup` | launch files (`full_system`, `simulation`, `visualization`), `system_check`, `stop_sim` |
-| `aero_sense_description` | drone model + sensor payload, rendered from `config/sensors.yaml` |
+| `aero_sense_description` | the bespoke Hexa-X hexacopter + sensor payload, rendered from `config/sensors.yaml` |
 | `aero_sense_gazebo` | the disaster world and its models (rubble, terrain, flood water, roads) |
 | `aero_sense_mission` | mission manager, autopilot adapter (MAVLink), search pattern, airspace |
 | `aero_sense_perception` | thermal victim detection, tracking, geolocation, triage, structure map |
@@ -40,6 +40,21 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 | `aero_sense_scenario_manager` | casualty placement (`config/victims.yaml`) and ground truth |
 | `aero_sense_visualization` | RViz config and markers |
 | `aero_sense_bridge` | HTTP bridge from ROS to the dashboard (:8000), process supervisor |
+
+### The drone
+
+A bespoke **Hexa-X hexacopter** (not a commercial airframe), built only from ArduPilot's own
+Gazebo parts: `ArduPilotPlugin`, the iris rotor's blade aerodynamics and prop mesh, and ArduCopter's
+Hexa-X motor mixer (`FRAME_CLASS 2`, `FRAME_TYPE 1`). Everything is generated from one table,
+`src/aero_sense_description/config/sensors.yaml`:
+
+- `airframe:` arm length, body mass and inertia, max motor speed. Replace these with the real
+  components' figures.
+- `mount:` and the sensor sections: the payload (RGB, depth, LWIR thermal, LiDAR, IMU, barometer).
+  Sensors sit on their own `payload_link`, separate from the flight model, so adding one does not
+  touch how the drone flies.
+
+The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
 
 ### Tools (`tools/`)
 

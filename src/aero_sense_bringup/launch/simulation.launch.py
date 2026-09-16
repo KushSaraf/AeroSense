@@ -107,7 +107,8 @@ def _launch(context, *args, **kwargs):
     model, bridge_config, cfg = render.generate(GENERATED_DIR / drone_name, quality, drone_name, frame_prefix)
     env = _gazebo_env()
     sitl_share = Path(get_package_share_directory("ardupilot_sitl")) / "config" / "default_params"
-    defaults = ",".join(str(sitl_share / f) for f in ("copter.parm", "gazebo-iris.parm"))
+    defaults = ",".join((str(sitl_share / "copter.parm"),
+                         str(Path(get_package_share_directory("aero_sense_description")) / "config" / "hexa.parm")))
     SITL_DIR.mkdir(parents=True, exist_ok=True)
 
     gz_server = ExecuteProcess(cmd=["gz", "sim", "-r", "-s", "-v2", str(world)],

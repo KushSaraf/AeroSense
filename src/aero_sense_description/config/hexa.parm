@@ -1,0 +1,4 @@
+# ArduCopter frame for the Aero Sense hexacopter, loaded after copter.parm (simulation.launch.py).
+# Hexa X: motor order and spin in aero_sense_description/render.py HEXA_X.
+FRAME_CLASS 2
+FRAME_TYPE 1

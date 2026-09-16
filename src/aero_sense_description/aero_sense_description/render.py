@@ -1,4 +1,4 @@
-"""Render the Aero Sense drone model, its ros_gz_bridge config and sensor TFs from config/sensors.yaml.
+"""Render the Aero Sense hexacopter model, its ros_gz_bridge config and sensor TFs from config/sensors.yaml.
 
 One table feeds all three, so a sensor's Gazebo topic, ROS topic and frame cannot drift apart.
 Used by aero_sense_bringup/launch/simulation.launch.py; `generate()` writes the files it spawns.
@@ -16,6 +16,13 @@ CAMERAS = ("rgb", "depth", "thermal")
 #: Camera body frame (x forward, z up) -> optical frame (z forward, x right, y down).
 OPTICAL_RPY = (-math.pi / 2, 0.0, -math.pi / 2)
 FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "lidar_link", "imu_link", "baro_link")
+#: ArduPilot Hexa-X (FRAME_CLASS 2, FRAME_TYPE 1), in motor order: (bearing deg clockwise from
+#: forward, spin seen from above). Copied from AP_MotorsMatrix::setup_hexa_matrix; the model's
+#: rotor_<i>_joint is ArduPilot's motor i+1, so this order must not change.
+HEXA_X = ((90, "cw"), (-90, "ccw"), (-30, "cw"), (150, "ccw"), (30, "ccw"), (-150, "cw"))
+#: Landing legs sit between the arms.
+GEAR_BEARINGS_DEG = (60, 120, -120, -60)
+GEAR_RADIUS_M = 0.16
 
 def share() -> Path:
     return Path(get_package_share_directory(PACKAGE))
@@ -42,11 +49,24 @@ def gz_topics(name: str) -> dict:
     return topics
 
 
+def rotors(arm_m: float) -> list:
+    """Rotor hubs in base_link (FLU): name, xy, yaw of the arm, spin and ArduPilot motor number."""
+    out = []
+    for i, (bearing, spin) in enumerate(HEXA_X):
+        a = math.radians(bearing)
+        out.append({"name": f"rotor_{i}", "motor": i + 1, "spin": spin, "arm_yaw": -a,
+                    "xy": (arm_m * math.cos(a), -arm_m * math.sin(a))})
+    return out
+
+
 def model_sdf(cfg: dict, name: str, frame_prefix: str = "") -> str:
     env = jinja2.Environment(loader=jinja2.FileSystemLoader(str(share() / "templates")),
                              undefined=jinja2.StrictUndefined, trim_blocks=True, lstrip_blocks=True)
     return env.get_template("drone.sdf.jinja").render(
-        cfg=cfg, name=name, frames=frames(frame_prefix), topics=gz_topics(name))
+        cfg=cfg, name=name, frames=frames(frame_prefix), topics=gz_topics(name),
+        rotors=rotors(cfg["airframe"]["arm_m"]),
+        legs=[(GEAR_RADIUS_M * math.cos(math.radians(b)), -GEAR_RADIUS_M * math.sin(math.radians(b)))
+              for b in GEAR_BEARINGS_DEG])
 
 
 def _gz_to_ros(ros: str, gz: str, ros_type: str, gz_type: str) -> dict:

@@ -188,3 +188,16 @@ def test_stop_sim_excludes_our_own_process_tree():
     from aero_sense_bringup import stop_sim
     assert 12 not in stop_sim.simulation_pids(PROCESS_SAMPLE, exclude={12})
     assert os.getpid() in stop_sim.own_process_tree()
+
+
+def test_spawn_height_is_the_drone_standing_on_its_gear():
+    """A spawn above the feet drops the drone; below, it is shot out of the ground."""
+    from aero_sense_description import render
+    model = ET.fromstring(render.model_sdf(render.load("low"), "hexa")).find("model")
+    feet = []
+    for collision in model.find("link[@name='base_link']").findall("collision"):
+        cylinder = collision.find("geometry/cylinder")
+        if cylinder is not None:
+            z = float(collision.findtext("pose").split()[2])
+            feet.append(z - float(cylinder.findtext("length")) / 2)
+    assert feet and math.isclose(-min(feet), worlds.GEAR_HEIGHT_M, abs_tol=1e-6)

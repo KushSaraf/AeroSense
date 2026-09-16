@@ -1,4 +1,5 @@
 """Phase 3 checks: the rendered drone model, bridge config and TFs agree with each other."""
+import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -11,9 +12,13 @@ SENSORS = {"rgb": "camera", "depth": "depth_camera", "thermal": "thermal", "lida
            "imu": "imu", "baro": "air_pressure"}
 
 
+def payload_sensors(sdf):
+    """The payload's sensors; the airframe's flight IMU belongs to SITL, not to this table."""
+    return ET.fromstring(sdf).find("model/link[@name='payload_link']").iter("sensor")
+
+
 def sensors_of(quality, name="aero_sense_drone"):
-    root = ET.fromstring(render.model_sdf(render.load(quality), name))
-    return {s.get("name"): s for s in root.iter("sensor")}
+    return {s.get("name"): s for s in payload_sensors(render.model_sdf(render.load(quality), name))}
 
 
 @pytest.mark.parametrize("quality", render.QUALITIES)
@@ -59,8 +64,7 @@ def test_frames_match_between_model_and_tf():
     cfg = render.load("low")
     sensors = sensors_of("low")
     tf_children = {child for _, child, _, _ in render.static_transforms(cfg, "drone_01/")}
-    rendered = {s.find("gz_frame_id").text for s in
-                ET.fromstring(render.model_sdf(cfg, "x", "drone_01/")).iter("sensor")}
+    rendered = {s.find("gz_frame_id").text for s in payload_sensors(render.model_sdf(cfg, "x", "drone_01/"))}
     assert rendered <= tf_children
     assert sensors["rgb"].find("gz_frame_id").text == "camera_optical"
 
@@ -93,3 +97,30 @@ def test_generate_writes_model_and_bridge(tmp_path):
     model, bridge, cfg = render.generate(tmp_path / "gen", "low", "aero_sense_drone")
     assert ET.parse(model).getroot().find("model").get("name") == "aero_sense_drone"
     assert "aero_sense/lidar/points" in bridge.read_text() and cfg["quality"] == "low"
+
+
+def test_hexa_x_matches_ardupilot_motor_order():
+    """rotor_<i> is ArduPilot Hexa-X motor i+1: right place, spin sign and alternating directions,
+    or SITL's mixer drives the wrong rotors and the drone flips on takeoff."""
+    cfg = render.load("low")
+    root = ET.fromstring(render.model_sdf(cfg, "hexa"))
+    model = root.find("model")
+    controls = model.find("plugin[@name='ArduPilotPlugin']").findall("control")
+    assert len(controls) == 6 and len(model.findall("joint[@type='revolute']")) == 7   # + flight IMU
+    arm = cfg["airframe"]["arm_m"]
+    for i, control in enumerate(controls):
+        name = f"rotor_{i}"
+        bearing, spin = render.HEXA_X[i]
+        x, y, _ = (float(v) for v in model.find(f"link[@name='{name}']/pose").text.split()[:3])
+        assert math.isclose(math.degrees(math.atan2(-y, x)), bearing, abs_tol=1e-6)   # clockwise from forward
+        assert math.isclose(math.hypot(x, y), arm)
+        assert control.findtext("jointName") == f"{name}_joint"
+        assert (float(control.findtext("multiplier")) > 0) == (spin == "ccw")
+    by_bearing = [spin for _, spin in sorted(render.HEXA_X)]
+    assert all(a != b for a, b in zip(by_bearing, by_bearing[1:] + by_bearing[:1]))
+
+
+def test_sitl_frame_is_hexa_x():
+    params = dict(line.split() for line in (render.share() / "config" / "hexa.parm").read_text().splitlines()
+                  if line.strip() and not line.startswith("#"))
+    assert params == {"FRAME_CLASS": "2", "FRAME_TYPE": "1"}

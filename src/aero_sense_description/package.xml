@@ -3,7 +3,7 @@
 <package format="3">
   <name>aero_sense_description</name>
   <version>0.1.0</version>
-  <description>Aero Sense airframe: ArduPilot iris with the RGB-D / LWIR sensor payload (Gazebo SDF).</description>
+  <description>Aero Sense airframe: ArduPilot Hexa-X hexacopter with the RGB-D / LWIR sensor payload (Gazebo SDF).</description>
   <maintainer email="codenexusky@gmail.com">kushsaraf</maintainer>
   <license>TODO</license>
 

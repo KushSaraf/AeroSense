@@ -9,7 +9,7 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 
 SPAWN_FRAME = "drone_spawn"
-#: base_link height of the iris standing on its landing gear.
+#: base_link height of the hexacopter standing on its landing gear (the legs in drone.sdf.jinja).
 GEAR_HEIGHT_M = 0.195
 #: GitHub asset repos used in place (gitignored, not vendored). See README "Reference assets".
 REFERENCE_DIR = Path(os.environ.get("AERO_SENSE_REFERENCE", Path.home() / "sih_2026" / "reference"))
