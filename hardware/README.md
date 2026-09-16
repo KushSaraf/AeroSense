@@ -56,7 +56,7 @@ not needed (they remain in FLIR's download).
 
 1. **Motors and propellers: generic for now.** The sim flies on ArduPilot's iris motor and 10"
    prop model. When real ones are bought, their KV, prop size and thrust replace it (400–450 KV
-   on 6S usually swings 15–17" props, which would also need longer arms than today's 0.30 m).
+   on 6S usually swings 15–17" props; the frame's 567 mm arms leave room for up to ~22").
 2. **Frame mass and inertia.** The frame's geometry is in the sim; its mass is not. Weigh it (or
    give the materials) to set `body_mass_kg` and `body_inertia`.
 3. **Mass budget.** Battery, RB5, OAK-D, motors and frame together set `airframe.body_mass_kg`

@@ -176,17 +176,15 @@ full_system.launch.py
 replay.launch.py              rosbag2 play + RViz
 ```
 
-## World structure (one world, five sectors, ~400 × 300 m)
+## World structure (one world, ~440 × 250 m)
 
 ```
             N
- ┌──────────────────────────────┐   y +200
- │ S4 LANDSLIDE (heightmap)      │
- ├───────────────┬──────────────┤   y +100
- │ S1 EARTHQUAKE │ S2 FLOOD      │
- ├───────────────┼──────────────┤   y 0     ◄ command base at (0, -110)
- │ S3 FIRE       │ S5 CHEMICAL   │
- └───────────────┴──────────────┘   y -100
+ ┌───────────────┬──────────────┐   y +100
+ │ S1 EARTHQUAKE │ S2 FLOOD      │   built
+ ├───────────────┼──────────────┤   y 0
+ │ (S3 fire)     │ (S5 chemical) │   planned, not built
+ └───────────────┴──────────────┘   y -100  ◄ command base at (0, -110)
    x -200          0            x +200
 ```
 

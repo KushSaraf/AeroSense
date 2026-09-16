@@ -63,8 +63,9 @@ class MissionManager(Node):
         self.declare_parameter("search_altitude_m", 30.0)
         self.declare_parameter("inspect_altitude_m", 14.0)
         self.declare_parameter("leg_spacing_m", 25.0)
-        self.declare_parameter("camera_tilt_rad", 0.9599)
-        self.declare_parameter("camera_hfov_rad", 1.2)
+        # the fitted thermal camera (simulation.launch.py passes the sensor table's values)
+        self.declare_parameter("camera_tilt_rad", 1.5708)       # straight down
+        self.declare_parameter("camera_hfov_rad", 0.9948)       # FLIR Lepton 3.5, 57 deg
         self.declare_parameter("coverage_cell_m", 5.0)
         self.declare_parameter("inspect_dwell_s", 6.0)
         #: Every confirmed casualty is inspected once; below this confidence it is inspected again,

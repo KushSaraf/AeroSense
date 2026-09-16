@@ -1,5 +1,5 @@
 """RViz view of the search: the drone, what it found, the scenario's ground truth, and the
-camera and LiDAR streams.
+camera streams.
 
     ros2 launch aero_sense_bringup visualization.launch.py
 

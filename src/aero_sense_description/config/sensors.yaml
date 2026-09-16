@@ -46,8 +46,8 @@ airframe:
   plate_inner_z_m: -0.040     # frame CAD: top face of the bottom plate (floor of the bay)
   plate_top_z_m: 0.050        # frame CAD: top face of the top plate
   body_mass_kg: 2.2           # not yet the real build's: weigh it, or add up datasheet masses
-  # ixx, iyy scaled from the flown 0.30 m-arm design by the arm length, so attitude response per
-  # rotor torque stays where ArduPilot's default gains fly it.
+  # ixx, iyy scaled from the first flown design (0.30 m arms) by the arm length, so attitude response
+  # per rotor torque stays where ArduPilot's default gains fly it.
   body_inertia: [0.038, 0.038, 0.05]
   motor_max_rad_s: 838        # generic motor at full throttle (the iris motor: ~8000 rpm)
 
