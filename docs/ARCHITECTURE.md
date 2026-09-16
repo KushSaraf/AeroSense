@@ -75,7 +75,7 @@ once superseded.
 ## Frames
 
 `map` (ENU, origin = command base, the world origin) → `odom` → `base_link` →
-`camera_link` → `camera_optical` (RGB, depth and thermal share one mount, tilt and optical centre);
+`camera_link` → `camera_optical` (RGB, depth and thermal share one mount, pointing straight down, and one optical centre);
 `base_link` → `imu_link`, `baro_link`. Sensor frames are static TFs rendered from
 the same table as the model (below); a namespaced drone prefixes them (`drone_01/base_link`).
 Lat/lon come from the world's `spherical_coordinates` (WGS84) through one conversion module.
@@ -115,7 +115,7 @@ Medium profile (RTF 1.0, headless, RTX 2050):
 
 | Sensor | Real part | Simulated (medium) | Measured rate | Noise (configured → measured) |
 |---|---|---|---|---|
-| RGB | OAK-D Pro W IMX378, 95° | 1024×768, 95° | 9.5 Hz / 10 | σ 0.007 of full scale |
+| RGB | OAK-D Pro W OV9782, 127° | 960×600, 127° | 9.0 Hz / 10 | σ 0.007 of full scale |
 | Depth | OAK-D Pro W OV9282 stereo, 127°, 0.7–12 m | 1280×800, 127°, 0.7–12 m | 4.5 Hz / 5 | σ 0.02 m (measured 0.018 m at the earlier 68.8° FOV) |
 | Thermal (LWIR) | FLIR Lepton 3.5, 160×120, 57°, 8.6 Hz | 160×120 mono16, 57° | 8.4 Hz / 8.6 | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
 | IMU | OAK-D Pro W BNO086 | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |

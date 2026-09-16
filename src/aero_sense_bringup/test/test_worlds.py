@@ -190,7 +190,7 @@ def test_stop_sim_excludes_our_own_process_tree():
     assert os.getpid() in stop_sim.own_process_tree()
 
 
-def test_spawn_height_is_the_drone_standing_on_its_belly():
+def test_spawn_height_is_the_drone_standing_on_its_gear():
     """A spawn above its lowest point drops the drone; below, it is shot out of the ground."""
     from aero_sense_description import render
     model = ET.fromstring(render.model_sdf(render.load("low"), "hexa")).find("model")

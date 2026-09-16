@@ -49,14 +49,14 @@ Gazebo parts: `ArduPilotPlugin`, the iris rotor's blade aerodynamics and prop me
 Hexa-X motor mixer (`FRAME_CLASS 2`, `FRAME_TYPE 1`). Everything is generated from one table,
 `src/aero_sense_description/config/sensors.yaml`:
 
-- `airframe:` arm length, body size and mass, inertia, max motor speed, battery envelope. Replace
-  these with the real components' figures.
+- `airframe:` arm length, body size and mass, inertia, max motor speed, the battery slung under
+  the body, and the landing gear. Replace these with the real components' figures.
 - `mount:` and the sensor sections: the payload (RGB, depth, LWIR thermal, IMU, barometer), each with the real part's field of view.
   Sensors sit on their own `payload_link`, separate from the flight model, so adding one does not
   touch how the drone flies.
 
 The cameras on the model are the real ones, meshed from their manufacturers' CAD: a Luxonis
-OAK-D Pro W and a FLIR Lepton 3.5. [hardware/README.md](hardware/README.md) lists every part, what
+OAK-D Pro W and a FLIR Lepton 3.5, pointing straight down under the 6S 10000 mAh battery. [hardware/README.md](hardware/README.md) lists every part, what
 is still to be chosen, and how to turn a new STEP file into a mesh (`tools/step_to_mesh.py`).
 The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
 
@@ -71,6 +71,7 @@ The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilo
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
 | `make_terrain.py` | regenerate the landslide sector's terrain mesh |
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |
+| `make_battery_mesh.py` | the labelled battery box, until the pack's CAD exists |
 
 ## Running it
 

@@ -15,18 +15,25 @@ airframe:
   arm_m: 0.30                 # hub centre to motor axis; adjacent rotors are arm_m apart (props 0.2 m)
   body_radius_m: 0.11
   body_height_m: 0.08         # the drone lands on the body's underside
-  battery_size_m: [0.155, 0.048, 0.052]   # placeholder envelope (6S 5000 mAh class) until the pack is chosen
+  # 6S 10000 mAh LiPo, slung under the body (meshes/battery.glb, tools/make_battery_mesh.py).
+  # Typical size for the class until the exact pack is chosen.
+  battery_size_m: [0.200, 0.077, 0.063]
+  camera_bracket_m: 0.005     # plate between the battery and the cameras
+  landing_gear:               # legs hang from the underside of the four diagonal arms
+    arm_radius_m: 0.17        # along the arm from the hub
+    height_m: 0.20            # arm underside to foot: clears the downward cameras (worlds.GEAR_HEIGHT_M)
   body_mass_kg: 2.2           # frame + battery + electronics; rotors, flight IMU and payload add ~0.35
   body_inertia: [0.02, 0.02, 0.04]   # ixx, iyy, izz (kg m^2) about base_link
   motor_max_rad_s: 838        # rotor speed at full throttle (the iris motor: ~8000 rpm)
 
-mount:                        # payload_link in the airframe (FLU, metres)
-  xyz: [0.12, 0.0, -0.03]
-  camera_pitch_rad: 0.9599    # 55 deg down; RGB, depth and thermal share the tilt and optical centre
+mount:                        # payload_link in the airframe (FLU, metres): the cameras' front face
+  # Under the battery: body underside -0.04, battery 0.063, bracket 0.005, OAK-D 0.023 deep.
+  xyz: [0.0, 0.0, -0.131]
+  camera_pitch_rad: 1.5708    # straight down; RGB, depth and thermal share the tilt and optical centre
   thermal_mesh_offset_y_m: 0.058   # Lepton mesh to the OAK-D's left (visual only, see drone.sdf.jinja)
 
-rgb:                          # OAK-D Pro W colour camera, IMX378
-  hfov_rad: 1.6581            # 95 deg
+rgb:                          # OAK-D Pro W colour camera, OV9782 global shutter (1280x800)
+  hfov_rad: 2.2166            # 127 deg
   clip_m: [0.3, 300.0]
   noise_stddev: 0.007         # fraction of full scale per channel
 depth:                        # OAK-D Pro W stereo pair, OV9282, 75 mm baseline
@@ -57,13 +64,13 @@ baro:                         # flight controller's barometer
   rate_hz: 10
   noise_stddev: 5.0           # Pa (~0.4 m)
 
-profiles:                     # OAK-D resolution and rate only (4:3 colour, 16:10 stereo, as the sensors)
+profiles:                     # OAK-D resolution and rate only (both sensors 16:10, 1280x800 native)
   low:
-    rgb:     {width: 640,  height: 480, rate_hz: 5}
+    rgb:     {width: 640,  height: 400, rate_hz: 5}
     depth:   {width: 640,  height: 400, rate_hz: 5}
   medium:
-    rgb:     {width: 1024, height: 768, rate_hz: 10}
+    rgb:     {width: 960,  height: 600, rate_hz: 10}
     depth:   {width: 1280, height: 800, rate_hz: 5}
   high:
-    rgb:     {width: 1600, height: 1200, rate_hz: 15}
+    rgb:     {width: 1280, height: 800, rate_hz: 15}
     depth:   {width: 1280, height: 800, rate_hz: 10}

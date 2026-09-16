@@ -148,7 +148,10 @@ def _launch(context, *args, **kwargs):
                                    "camera_frame": f"{frame_prefix}camera_optical"}])
     mission = Node(package="aero_sense_mission", executable="mission_manager",
                    namespace=namespace, output="screen",
-                   parameters=[{"search_altitude_m": 30.0, "leg_spacing_m": 25.0}])
+                   # coverage and inspection stand-off follow the thermal camera actually fitted
+                   parameters=[{"search_altitude_m": 30.0, "leg_spacing_m": 25.0,
+                                "camera_tilt_rad": cfg["mount"]["camera_pitch_rad"],
+                                "camera_hfov_rad": cfg["thermal"]["hfov_rad"]}])
     actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission,
                *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):

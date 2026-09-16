@@ -21,8 +21,6 @@
         <mass>{{ af.body_mass_kg }}</mass>
         <inertia><ixx>{{ af.body_inertia[0] }}</ixx><iyy>{{ af.body_inertia[1] }}</iyy><izz>{{ af.body_inertia[2] }}</izz></inertia>
       </inertial>
-      <!-- The drone stands on its belly: the body's underside is the landing surface, and
-           aero_sense_bringup/worlds.py GEAR_HEIGHT_M is its half-height (tested there). -->
       <collision name="body_collision">
         <geometry><cylinder><radius>{{ af.body_radius_m }}</radius><length>{{ af.body_height_m }}</length></cylinder></geometry>
         <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
@@ -31,12 +29,37 @@
         <geometry><cylinder><radius>{{ af.body_radius_m }}</radius><length>{{ af.body_height_m }}</length></cylinder></geometry>
         <material><diffuse>0.92 0.92 0.94 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
       </visual>
-      <!-- Battery strapped on top. Placeholder envelope from sensors.yaml until the pack's CAD exists. -->
+      <!-- Battery slung under the body, then the camera bracket; the cameras hang below it. -->
+{% set battery_z = -(af.body_height_m / 2) - af.battery_size_m[2] / 2 %}
       <visual name="battery">
-        <pose>0 0 {{ af.body_height_m / 2 + af.battery_size_m[2] / 2 }} 0 0 0</pose>
-        <geometry><box><size>{{ af.battery_size_m | join(' ') }}</size></box></geometry>
-        <material><diffuse>0.06 0.06 0.07 1</diffuse><specular>0.3 0.3 0.3 1</specular></material>
+        <pose>0 0 {{ battery_z }} 0 0 0</pose>
+        <geometry><mesh><uri>file://{{ meshes }}/battery.glb</uri></mesh></geometry>
       </visual>
+      <visual name="camera_bracket">
+        <pose>{{ cfg.mount.xyz[0] }} {{ cfg.mount.thermal_mesh_offset_y_m / 2 }} {{ -(af.body_height_m / 2) - af.battery_size_m[2] - af.camera_bracket_m / 2 }} 0 0 0</pose>
+        <geometry><box><size>0.045 {{ 0.11 + cfg.mount.thermal_mesh_offset_y_m }} {{ af.camera_bracket_m }}</size></box></geometry>
+        <material><diffuse>0.15 0.15 0.16 1</diffuse></material>
+      </visual>
+      <!-- Landing gear: a leg from the underside of each diagonal arm down to the ground, long
+           enough that the downward cameras clear it. aero_sense_bringup/worlds.py GEAR_HEIGHT_M
+           is the feet's depth below base_link (tested there). -->
+{% for x, y in legs %}
+      <collision name="leg_{{ loop.index0 }}_collision">
+        <pose>{{ x }} {{ y }} {{ -af.landing_gear.height_m / 2 }} 0 0 0</pose>
+        <geometry><cylinder><radius>0.008</radius><length>{{ af.landing_gear.height_m }}</length></cylinder></geometry>
+        <surface><friction><ode><mu>1.0</mu><mu2>1.0</mu2></ode></friction></surface>
+      </collision>
+      <visual name="leg_{{ loop.index0 }}">
+        <pose>{{ x }} {{ y }} {{ -af.landing_gear.height_m / 2 }} 0 0 0</pose>
+        <geometry><cylinder><radius>0.008</radius><length>{{ af.landing_gear.height_m }}</length></cylinder></geometry>
+        <material><diffuse>0.12 0.12 0.13 1</diffuse></material>
+      </visual>
+      <visual name="foot_{{ loop.index0 }}">
+        <pose>{{ x }} {{ y }} {{ -af.landing_gear.height_m + 0.005 }} 0 0 0</pose>
+        <geometry><cylinder><radius>0.018</radius><length>0.01</length></cylinder></geometry>
+        <material><diffuse>0.05 0.05 0.05 1</diffuse></material>
+      </visual>
+{% endfor %}
 {% for r in rotors %}
       <visual name="arm_{{ loop.index0 }}">
         <pose>{{ r.xy[0] / 2 }} {{ r.xy[1] / 2 }} 0.01 0 0 {{ r.arm_yaw }}</pose>

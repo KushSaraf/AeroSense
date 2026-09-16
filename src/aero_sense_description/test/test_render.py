@@ -127,13 +127,36 @@ def test_sitl_frame_is_hexa_x():
 
 @pytest.mark.parametrize("quality", render.QUALITIES)
 def test_cameras_are_the_real_parts(quality):
-    """Lepton 3.5: 160x120 at 57 deg whatever the quality; OAK-D Pro W: 95 deg colour, 127 deg
-    stereo at 16:10. A profile may shrink the OAK-D's frames, never change what it can see."""
+    """Lepton 3.5: 160x120 at 57 deg whatever the quality; OAK-D Pro W: 127 deg OV9782 colour and
+    OV9282 stereo, both 16:10. A profile may shrink the OAK-D's frames, never change what it sees."""
     sensors = sensors_of(quality)
     hfov = {n: math.degrees(float(sensors[n].findtext("camera/horizontal_fov"))) for n in ("rgb", "depth", "thermal")}
-    assert [round(hfov[n]) for n in ("thermal", "rgb", "depth")] == [57, 95, 127]
+    assert [round(hfov[n]) for n in ("thermal", "rgb", "depth")] == [57, 127, 127]
     thermal = sensors["thermal"].find("camera/image")
     assert (thermal.findtext("width"), thermal.findtext("height")) == ("160", "120")
     rgb, depth = sensors["rgb"].find("camera/image"), sensors["depth"].find("camera/image")
-    assert int(rgb.findtext("width")) * 3 == int(rgb.findtext("height")) * 4
+    assert int(rgb.findtext("width")) * 10 == int(rgb.findtext("height")) * 16
     assert int(depth.findtext("width")) * 10 == int(depth.findtext("height")) * 16
+
+
+def test_legs_hang_from_arms_and_clear_the_cameras():
+    """Each leg starts at an arm's underside on its centreline (not floating beside the body),
+    and its foot is below the downward cameras, so the drone never lands on them."""
+    cfg = render.load("low")
+    model = ET.fromstring(render.model_sdf(cfg, "hexa")).find("model")
+    base = model.find("link[@name='base_link']")
+    arms = {}
+    for arm in base.findall("visual"):
+        if arm.get("name").startswith("arm_"):
+            x, y, z, _, _, yaw = (float(v) for v in arm.findtext("pose").split())
+            arms[round(math.degrees(yaw)) % 360] = z - float(arm.findtext("geometry/box/size").split()[2]) / 2
+    gear = cfg["airframe"]["landing_gear"]
+    legs = [c for c in base.findall("collision") if c.get("name").startswith("leg_")]
+    assert len(legs) == 4
+    for leg in legs:
+        x, y, z = (float(v) for v in leg.findtext("pose").split()[:3])
+        length = float(leg.findtext("geometry/cylinder/length"))
+        bearing = round(math.degrees(math.atan2(y, x))) % 360
+        assert bearing in arms and math.isclose(math.hypot(x, y), gear["arm_radius_m"])
+        assert math.isclose(z + length / 2, arms[bearing], abs_tol=1e-9)        # touches the arm
+        assert z - length / 2 < cfg["mount"]["xyz"][2] - 0.02                  # foot below the cameras
