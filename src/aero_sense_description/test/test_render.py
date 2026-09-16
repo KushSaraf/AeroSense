@@ -139,24 +139,18 @@ def test_cameras_are_the_real_parts(quality):
     assert int(depth.findtext("width")) * 10 == int(depth.findtext("height")) * 16
 
 
-def test_legs_hang_from_arms_and_clear_the_cameras():
-    """Each leg starts at an arm's underside on its centreline (not floating beside the body),
-    and its foot is below the downward cameras, so the drone never lands on them."""
+def test_cameras_hang_clear_of_the_ground_and_under_the_battery():
+    """The downward cameras sit below the battery and above the skids, so the drone never lands
+    on them; the rotors sit on the frame's motor mounts."""
     cfg = render.load("low")
+    af = cfg["airframe"]
+    camera_z = cfg["mount"]["xyz"][2]
+    battery_bottom = -af["plate_stack_m"][2] / 2 - af["battery_size_m"][2] - af["camera_bracket_m"]
+    oak_depth_m = 0.0231
+    assert math.isclose(camera_z, battery_bottom - oak_depth_m, abs_tol=1e-3)
+    skid_bottom = af["skids"]["z_m"] - af["skids"]["radius_m"]
+    assert camera_z - 0.3 > skid_bottom            # ground outside the cameras' near clip at rest
     model = ET.fromstring(render.model_sdf(cfg, "hexa")).find("model")
-    base = model.find("link[@name='base_link']")
-    arms = {}
-    for arm in base.findall("visual"):
-        if arm.get("name").startswith("arm_"):
-            x, y, z, _, _, yaw = (float(v) for v in arm.findtext("pose").split())
-            arms[round(math.degrees(yaw)) % 360] = z - float(arm.findtext("geometry/box/size").split()[2]) / 2
-    gear = cfg["airframe"]["landing_gear"]
-    legs = [c for c in base.findall("collision") if c.get("name").startswith("leg_")]
-    assert len(legs) == 4
-    for leg in legs:
-        x, y, z = (float(v) for v in leg.findtext("pose").split()[:3])
-        length = float(leg.findtext("geometry/cylinder/length"))
-        bearing = round(math.degrees(math.atan2(y, x))) % 360
-        assert bearing in arms and math.isclose(math.hypot(x, y), gear["arm_radius_m"])
-        assert math.isclose(z + length / 2, arms[bearing], abs_tol=1e-9)        # touches the arm
-        assert z - length / 2 < cfg["mount"]["xyz"][2] - 0.02                  # foot below the cameras
+    for i in range(6):
+        z = float(model.find(f"link[@name='rotor_{i}']/pose").text.split()[2])
+        assert z > af["motor_mount_top_m"]

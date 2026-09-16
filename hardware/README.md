@@ -6,12 +6,15 @@ and a labelled placeholder until then.
 
 ```
 hardware/
-└── cad/                                      manufacturer STEP files, as downloaded (not in git: see below)
+├── images/                                   the frame as designed (CAD screenshots)
+└── cad/                                      STEP files (not in git: see below)
+    ├── hexacopter_frame/                     the team's frame: final assembly + parts/ (plates, arms,
+    │                                         motor mounts, landing gear)
     ├── oak_d_pro_w/OAK-D-PRO-W.step          Luxonis enclosure assembly
     └── flir_lepton_3_5/Lepton-3.5_socket-10502821001_57deg.step
 ```
 
-The STEP files are large and under their vendors' terms, so git ignores `hardware/cad/`; the
+The STEP files are large (and the camera ones under their vendors' terms), so git ignores `hardware/cad/`; the
 meshes made from them (`src/aero_sense_description/meshes/`) are committed. To regenerate a mesh,
 download the CAD into the path above: OAK-D Pro W from the
 [Luxonis product page](https://docs.luxonis.com/hardware/products/OAK-D%20Pro%20W) (CAD / STEP),
@@ -19,8 +22,8 @@ Lepton 3.5 "IDD CAD data" from [FLIR](https://oem.flir.com/products/lepton/?mode
 
 ## Parts list
 
-CAD is kept for the major parts only, the ones that give the drone its shape: frame, battery,
-landing gear and the two cameras. Motors and propellers stay generic until they are bought.
+CAD is kept for the major parts only: the frame (with its landing gear) and the two cameras. The
+battery is a labelled box; motors and propellers stay generic until they are bought.
 
 | Part | Chosen | CAD | In the sim |
 |---|---|---|---|
@@ -30,10 +33,10 @@ landing gear and the two cameras. Motors and propellers stay generic until they 
 | Thermal camera | **FLIR Lepton 3.5** (500-0771-01, 160 × 120, radiometric) in Molex socket 105028-2001 | ✅ `cad/flir_lepton_3_5` | mesh `flir_lepton_3_5.glb`, beside the OAK-D |
 | ESCs (×6) | **Readytosky BLHeli 45A, 2–6S** | not needed | not drawn |
 | Motors (×6) | generic (not bought yet; T-Motor 400–450 KV class planned) | not needed | generic: ArduPilot iris motor model |
-| Battery | **6S 10000 mAh LiPo** | ❌ wanted | black box labelled "6S 10000mAh", 200 × 77 × 63 mm, slung under the body |
+| Battery | **6S 10000 mAh LiPo** | not needed (box) | black box labelled "6S 10000mAh", 200 × 77 × 63 mm, under the bottom plate |
 | Propellers | generic (not bought yet) | not needed | generic: iris 10" props |
-| Frame (centre plates, arms) | — | ❌ wanted | white puck + arms, 0.30 m arm length |
-| Landing gear | — | ❌ wanted | four 200 mm legs hanging from the diagonal arms |
+| Frame (plates, arms, motor mounts) | **team design** (`cad/hexacopter_frame`) | ✅ | mesh `hexacopter_frame.glb`: motors 567 mm from the centre |
+| Landing gear | part of the frame (skids, 583 mm below the plates' mid-plane) | ✅ | in the frame mesh; lands on the skids |
 | GNSS module | — | not needed | SITL GPS, not drawn |
 | Lepton carrier board | — | not needed | not drawn |
 | Camera bracket | — | not needed | dark plate between battery and cameras |
@@ -53,7 +56,8 @@ not needed (they remain in FLIR's download).
 1. **Motors and propellers: generic for now.** The sim flies on ArduPilot's iris motor and 10"
    prop model. When real ones are bought, their KV, prop size and thrust replace it (400–450 KV
    on 6S usually swings 15–17" props, which would also need longer arms than today's 0.30 m).
-2. **Frame** sized for those props: centre plates and arms. Sets `arm_m`, mass and inertia.
+2. **Frame mass and inertia.** The frame's geometry is in the sim; its mass is not. Weigh it (or
+   give the materials) to set `body_mass_kg` and `body_inertia`.
 3. **Mass budget.** Battery, RB5, OAK-D, motors and frame together set `airframe.body_mass_kg`
    and inertia; the sim still uses 2.2 kg until the parts are weighed or their datasheet masses
    are added up.
@@ -62,9 +66,7 @@ not needed (they remain in FLIR's download).
    or a USB board such as PureThermal.
 6. **Power:** a power module rated for 6S to feed the Pixhawk and measure the pack, and a 5 V
    supply for the RB5 and cameras.
-7. **Landing gear** (the sim's legs are simple cylinders), **telemetry radio** and **RC receiver**.
-8. **CAD for the major parts only:** frame, battery and landing gear, to
-   replace the sim's simple shapes and the battery box (`tools/step_to_mesh.py` converts them).
+7. **Telemetry radio** and **RC receiver**.
 
 ## Real sensor specs, as simulated
 
@@ -92,6 +94,14 @@ For parts with CAD: Gazebo loads triangle meshes, not STEP. After replacing a ST
 
 ```bash
 pip install cadquery-ocp trimesh          # only this tool needs them
+python3 tools/step_to_mesh.py "hardware/cad/hexacopter_frame/hexacopter Final assembly.STEP" \
+    src/aero_sense_description/meshes/hexacopter_frame.glb --y-up --origin-mm 0 50 0 \
+    --drop "socket head" --drop "hex nut" \
+    --colour "bottom plate=0.07,0.07,0.08" --colour "topplate2=0.07,0.07,0.08" \
+    --colour "Arm main=0.09,0.09,0.1" --colour "arm connector=0.72,0.72,0.74" \
+    --colour "motor mount=0.72,0.72,0.74" --colour "landing vertical=0.8,0.8,0.82" \
+    --colour "landing horizontal=0.8,0.8,0.82" --colour "landing handle=0.06,0.06,0.06" \
+    --colour "landing split=0.06,0.06,0.06" --colour "landing damper=0.03,0.03,0.03"
 python3 tools/step_to_mesh.py hardware/cad/oak_d_pro_w/OAK-D-PRO-W.step \
     src/aero_sense_description/meshes/oak_d_pro_w.glb \
     --colour 606=0.16,0.16,0.18 --colour D-PRO-W-GLASS=0.03,0.03,0.05 \
@@ -101,6 +111,11 @@ python3 tools/step_to_mesh.py hardware/cad/flir_lepton_3_5/Lepton-3.5_socket-105
     src/aero_sense_description/meshes/flir_lepton_3_5.glb \
     --drop NAUO5 --colour NAUO2=0.7,0.7,0.72 --colour NAUO3=0.08,0.08,0.08
 ```
+
+The frame is drawn Y up with Z forward, so `--y-up` turns it to the drone's axes and
+`--origin-mm 0 50 0` (midway between the plates) becomes base_link; its 144 screws and nuts are
+dropped. If the frame changes, re-measure `airframe.arm_m`, `motor_mount_top_m`, `plate_stack_m`
+and `skids` from it (and `worlds.GEAR_HEIGHT_M`).
 
 `--drop` leaves out a part by name and `--colour` colours parts the CAD left uncoloured. The mesh's
 origin is the centre of the part's front face, looking along +X, so it lines up with its sensor.

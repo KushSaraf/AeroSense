@@ -9,26 +9,31 @@
 # Select with `quality:=low|medium|high`.
 
 airframe:
-  # Bespoke Hexa-X. Built only from ArduPilot's own Gazebo parts (ArduPilotPlugin, the iris
-  # rotor's LiftDrag blades and prop mesh); motor order in render.HEXA_X, SITL frame in hexa.parm.
-  # Swap these for the real components' figures when the build is specified.
-  arm_m: 0.30                 # hub centre to motor axis; adjacent rotors are arm_m apart (props 0.2 m)
-  body_radius_m: 0.11
-  body_height_m: 0.08         # the drone lands on the body's underside
-  # 6S 10000 mAh LiPo, slung under the body (meshes/battery.glb, tools/make_battery_mesh.py).
+  # Bespoke Hexa-X on the team's own frame (hardware/cad/hexacopter_frame, meshed into
+  # meshes/hexacopter_frame.glb with base_link midway between its plates). Flight physics are
+  # ArduPilot's own Gazebo parts (ArduPilotPlugin, the iris rotor's LiftDrag blades and prop mesh:
+  # generic until motors and props are bought); motor order in render.HEXA_X, SITL frame in hexa.parm.
+  arm_m: 0.567                # frame CAD: hub centre to motor mount
+  motor_mount_top_m: 0.0236   # frame CAD: top of the motor mounts above base_link
+  plate_stack_m: [0.402, 0.435, 0.100]   # frame CAD: centre plates, top to bottom (collision)
+  skids:                      # frame CAD: the landing gear's two tubes with their end caps
+    y_m: 0.1969               # either side of the centre line
+    z_m: -0.5669              # tube axis below base_link
+    radius_m: 0.0156          # end-cap radius: what touches the ground (worlds.GEAR_HEIGHT_M)
+    length_m: 0.531
+  # 6S 10000 mAh LiPo under the bottom plate (meshes/battery.glb, tools/make_battery_mesh.py).
   # Typical size for the class until the exact pack is chosen.
   battery_size_m: [0.200, 0.077, 0.063]
   camera_bracket_m: 0.005     # plate between the battery and the cameras
-  landing_gear:               # legs hang from the underside of the four diagonal arms
-    arm_radius_m: 0.17        # along the arm from the hub
-    height_m: 0.20            # arm underside to foot: clears the downward cameras (worlds.GEAR_HEIGHT_M)
-  body_mass_kg: 2.2           # frame + battery + electronics; rotors, flight IMU and payload add ~0.35
-  body_inertia: [0.02, 0.02, 0.04]   # ixx, iyy, izz (kg m^2) about base_link
-  motor_max_rad_s: 838        # rotor speed at full throttle (the iris motor: ~8000 rpm)
+  body_mass_kg: 2.2           # not yet the real build's: weigh it, or add up datasheet masses
+  # ixx, iyy scaled from the flown 0.30 m-arm design by the arm length, so attitude response per
+  # rotor torque stays where ArduPilot's default gains fly it.
+  body_inertia: [0.038, 0.038, 0.05]
+  motor_max_rad_s: 838        # generic motor at full throttle (the iris motor: ~8000 rpm)
 
 mount:                        # payload_link in the airframe (FLU, metres): the cameras' front face
-  # Under the battery: body underside -0.04, battery 0.063, bracket 0.005, OAK-D 0.023 deep.
-  xyz: [0.0, 0.0, -0.131]
+  # Under the battery: bottom plate -0.05, battery 0.063, bracket 0.005, OAK-D 0.023 deep.
+  xyz: [0.0, 0.0, -0.141]
   camera_pitch_rad: 1.5708    # straight down; RGB, depth and thermal share the tilt and optical centre
   thermal_mesh_offset_y_m: 0.058   # Lepton mesh to the OAK-D's left (visual only, see drone.sdf.jinja)
 

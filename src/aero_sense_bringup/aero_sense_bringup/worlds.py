@@ -9,8 +9,8 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 
 SPAWN_FRAME = "drone_spawn"
-#: base_link height of the hexacopter standing on its landing gear (airframe landing_gear.height_m).
-GEAR_HEIGHT_M = 0.20
+#: base_link height of the hexacopter standing on its skids (frame CAD; airframe skids in sensors.yaml).
+GEAR_HEIGHT_M = 0.5825
 #: GitHub asset repos used in place (gitignored, not vendored). See README "Reference assets".
 REFERENCE_DIR = Path(os.environ.get("AERO_SENSE_REFERENCE", Path.home() / "sih_2026" / "reference"))
 REFERENCE_MODEL_DIRS = ("tdf_gazebo-main/models", "gazebo_models_worlds_collection-master/models",

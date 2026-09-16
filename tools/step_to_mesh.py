@@ -2,13 +2,19 @@
 """Turn a component's STEP (exact CAD) into a GLB mesh Gazebo can load.
 
 Gazebo only reads triangle meshes (STL, OBJ, DAE, glTF/GLB), so a STEP has to be tessellated
-once. The output is in metres, one sub-mesh per colour, and re-oriented from the CAD's optical
-convention (Z = viewing direction, X = right, Y = down) to the drone's body convention
-(X forward, Y left, Z up) with the origin at the centre of the front face, so a camera mesh sits
-exactly where its sensor frame is.
+once. The output is in metres, one sub-mesh per colour, in the drone's body convention
+(X forward, Y left, Z up). Two CAD conventions come in:
+
+  camera (default)  Z = viewing direction, X = right, Y = down; the origin becomes the centre of
+                    the front face, so a camera mesh sits exactly where its sensor frame is.
+  --y-up            an airframe drawn Y up with Z forward (SolidWorks' default); the origin is
+                    --origin-mm, the CAD point that becomes base_link.
 
     python3 tools/step_to_mesh.py hardware/cad/oak_d_pro_w/OAK-D-PRO-W.step \
         src/aero_sense_description/meshes/oak_d_pro_w.glb --colour 609=0.02,0.02,0.02
+
+    python3 tools/step_to_mesh.py "hardware/cad/hexacopter_frame/hexacopter Final assembly.STEP" \
+        src/aero_sense_description/meshes/hexacopter_frame.glb --y-up --origin-mm 0 50 0
 
     --drop NAME    leave out parts whose name starts with NAME (e.g. an IDD field-of-view cone)
     --colour N=RGB colour for parts whose name starts with N (CAD files often carry none)
@@ -42,6 +48,8 @@ ANGULAR_DEFLECTION_RAD = 0.6
 DEFAULT_RGB = (0.25, 0.25, 0.27)
 #: CAD optical frame (x right, y down, z forward) -> body frame (x forward, y left, z up).
 OPTICAL_TO_BODY = np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]], dtype=float)
+#: CAD Y-up, Z-forward frame (x right... as drawn) -> body frame: x = cad z, y = cad x, z = cad y.
+Y_UP_TO_BODY = np.array([[0, 0, 1], [1, 0, 0], [0, 1, 0]], dtype=float)
 
 
 def load(step: Path):
@@ -116,7 +124,8 @@ def triangles(shape) -> tuple:
     return np.array(vertices, dtype=float).reshape(-1, 3), np.array(faces, dtype=np.int64).reshape(-1, 3)
 
 
-def convert(step: Path, out: Path, drop: list, overrides: dict) -> None:
+def convert(step: Path, out: Path, drop: list, overrides: dict, origin_mm=None) -> None:
+    """origin_mm None: camera convention, origin at the front face. Otherwise Y-up airframe."""
     doc, shapes, colours = load(step)
     roots = TDF_LabelSequence()
     shapes.GetFreeShapes(roots)
@@ -133,19 +142,22 @@ def convert(step: Path, out: Path, drop: list, overrides: dict) -> None:
     if not by_colour:
         raise SystemExit("nothing left to export")
     lo, hi = trimesh.util.concatenate([m for meshes in by_colour.values() for m in meshes]).bounds
-    front_centre = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, hi[2]])
+    if origin_mm is None:
+        origin, rotation = np.array([(lo[0] + hi[0]) / 2, (lo[1] + hi[1]) / 2, hi[2]]), OPTICAL_TO_BODY
+    else:
+        origin, rotation = np.array(origin_mm, dtype=float), Y_UP_TO_BODY
     scene = trimesh.Scene()
     for rgb, meshes in by_colour.items():
         mesh = trimesh.util.concatenate(meshes)
-        mesh.vertices = (mesh.vertices - front_centre) @ OPTICAL_TO_BODY.T * MM_TO_M
+        mesh.vertices = (mesh.vertices - origin) @ rotation.T * MM_TO_M
         mesh.visual = trimesh.visual.TextureVisuals(material=trimesh.visual.material.PBRMaterial(
             baseColorFactor=[*[int(255 * c) for c in rgb], 255], metallicFactor=0.2, roughnessFactor=0.6))
         scene.add_geometry(mesh, geom_name="rgb_" + "_".join(f"{c:.2f}" for c in rgb))
     out.parent.mkdir(parents=True, exist_ok=True)
     scene.export(out)
-    size = hi - lo
-    print(f"{out}: {sum(len(g.faces) for g in scene.geometry.values())} triangles, {len(scene.geometry)} colours, "
-          f"{size[2]:.1f} deep x {size[0]:.1f} wide x {size[1]:.1f} tall (mm)")
+    lo_b, hi_b = trimesh.util.concatenate(list(scene.geometry.values())).bounds
+    print(f"{out}: {sum(len(g.faces) for g in scene.geometry.values())} triangles, {len(scene.geometry)} colours; "
+          f"body frame x {lo_b[0]:.3f}..{hi_b[0]:.3f}  y {lo_b[1]:.3f}..{hi_b[1]:.3f}  z {lo_b[2]:.3f}..{hi_b[2]:.3f} m")
 
 
 def main():
@@ -154,12 +166,16 @@ def main():
     parser.add_argument("out", type=Path)
     parser.add_argument("--drop", action="append", default=[])
     parser.add_argument("--colour", action="append", default=[])
+    parser.add_argument("--y-up", action="store_true", help="airframe drawn Y up, Z forward")
+    parser.add_argument("--origin-mm", type=float, nargs=3, help="with --y-up: CAD point that becomes base_link")
     args = parser.parse_args()
     overrides = {}
     for spec in args.colour:
         prefix, rgb = spec.split("=")
         overrides[prefix] = tuple(float(c) for c in rgb.split(","))
-    convert(args.step, args.out, args.drop, overrides)
+    if args.y_up != (args.origin_mm is not None):
+        parser.error("--y-up and --origin-mm go together")
+    convert(args.step, args.out, args.drop, overrides, args.origin_mm)
 
 
 if __name__ == "__main__":

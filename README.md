@@ -55,8 +55,9 @@ Hexa-X motor mixer (`FRAME_CLASS 2`, `FRAME_TYPE 1`). Everything is generated fr
   Sensors sit on their own `payload_link`, separate from the flight model, so adding one does not
   touch how the drone flies.
 
-The cameras on the model are the real ones, meshed from their manufacturers' CAD: a Luxonis
-OAK-D Pro W and a FLIR Lepton 3.5, pointing straight down under the 6S 10000 mAh battery. [hardware/README.md](hardware/README.md) lists every part, what
+The frame is the team's own design, meshed from its CAD (arms, motor mounts and skid landing
+gear), and the cameras are the real ones from their manufacturers' CAD: a Luxonis OAK-D Pro W and
+a FLIR Lepton 3.5, pointing straight down under the 6S 10000 mAh battery. [hardware/README.md](hardware/README.md) lists every part, what
 is still to be chosen, and how to turn a new STEP file into a mesh (`tools/step_to_mesh.py`).
 The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
 

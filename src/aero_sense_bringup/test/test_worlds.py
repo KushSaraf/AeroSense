@@ -194,10 +194,14 @@ def test_spawn_height_is_the_drone_standing_on_its_gear():
     """A spawn above its lowest point drops the drone; below, it is shot out of the ground."""
     from aero_sense_description import render
     model = ET.fromstring(render.model_sdf(render.load("low"), "hexa")).find("model")
-    feet = []
+    lowest = []
     for collision in model.find("link[@name='base_link']").findall("collision"):
-        cylinder = collision.find("geometry/cylinder")
-        if cylinder is not None:
-            z = float((collision.findtext("pose") or "0 0 0").split()[2])
-            feet.append(z - float(cylinder.findtext("length")) / 2)
-    assert feet and math.isclose(-min(feet), worlds.GEAR_HEIGHT_M, abs_tol=1e-6)
+        x, y, z, roll, pitch, yaw = (float(v) for v in (collision.findtext("pose") or "0 0 0 0 0 0").split())
+        cylinder, box = collision.find("geometry/cylinder"), collision.find("geometry/box")
+        if cylinder is not None:        # upright, or lying along x (pitched 90 deg)
+            upright = math.isclose(pitch, 0.0)
+            reach = float(cylinder.findtext("length")) / 2 if upright else float(cylinder.findtext("radius"))
+        else:
+            reach = float(box.findtext("size").split()[2]) / 2
+        lowest.append(z - reach)
+    assert math.isclose(-min(lowest), worlds.GEAR_HEIGHT_M, abs_tol=1e-4)
