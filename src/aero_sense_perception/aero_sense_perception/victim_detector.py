@@ -163,6 +163,8 @@ class VictimDetector(Node):
             latitude=lat, longitude=lon, confidence=float(confidence),
             evidence=f"THERMAL {peak_k:.1f} K",
             thermal_strength=float(min(1.0, max(0.0, (peak_k - self._ambient_k) / 17.0))),
+            # measured: the peak LWIR reading; not yet estimated: movement, visibility, vital state
+            surface_temperature_k=float(peak_k), movement="unknown", visibility="unknown", vital_state="unknown",
             priority=assessment.priority,
             triage=TriageScore(
                 score=float(assessment.score), priority=assessment.priority,

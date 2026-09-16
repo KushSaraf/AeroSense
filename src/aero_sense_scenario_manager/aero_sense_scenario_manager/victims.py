@@ -1,5 +1,5 @@
-"""Victims for the Aero Sense scenarios: the table, the SDF Gazebo spawns for each one, and the
-local -> geodetic conversion.
+"""Victims for the Aero Sense scenarios: the table, the SDF Gazebo spawns for each one (built in
+victim_models.py), and the local -> geodetic conversion.
 
 Used by aero_sense_bringup/launch/simulation.launch.py (spawning) and by the ground_truth node.
 Ground truth is a simulation aid: it is published on its own topic for evaluation, and perception
@@ -11,17 +11,16 @@ from pathlib import Path
 import yaml
 from ament_index_python.packages import get_package_share_directory
 
+from . import victim_models
+
 PACKAGE = "aero_sense_scenario_manager"
-#: Rescue manikin from the DARPA SubT assets; its link sits this far below the model origin so
-#: the body rests on the ground (as in the original survivor model).
-VICTIM_MESH = "model://survivor/meshes/rescue_randy.dae"
-MESH_GROUND_OFFSET_M = -0.623996
 #: WGS84 equatorial radius. The world spans a few hundred metres, where a flat-Earth step is
 #: accurate to well under a metre.
 EARTH_RADIUS_M = 6378137.0
 STATES = ("lying", "seated", "prone", "trapped", "deceased")
 PRIORITIES = ("P1", "P2", "P3")
-OCCLUSIONS = ("none", "partial", "heavy")
+VISIBILITIES = ("full", "partial", "buried")
+MOTIONS = ("none", *victim_models.MOTIONS)
 #: Ambient is 293 K; a live casualty reads 12-17 K warmer, a deceased one barely at all.
 MIN_TEMP_K, MAX_TEMP_K = 290.0, 312.0
 
@@ -39,8 +38,22 @@ def load(path: Path = None) -> list:
     for v in victims:
         if v["state"] not in STATES:
             raise ValueError(f"{v['id']}: state {v['state']!r} not one of {STATES}")
-        if v["occlusion"] not in OCCLUSIONS:
-            raise ValueError(f"{v['id']}: occlusion {v['occlusion']!r} not one of {OCCLUSIONS}")
+        if v["visibility"] not in VISIBILITIES:
+            raise ValueError(f"{v['id']}: visibility {v['visibility']!r} not one of {VISIBILITIES}")
+        motion = v.get("motion", "none")
+        if motion not in MOTIONS:
+            raise ValueError(f"{v['id']}: motion {motion!r} not one of {MOTIONS}")
+        if motion != "none" and not is_alive(v):
+            raise ValueError(f"{v['id']}: motion {motion!r} on a deceased casualty")
+        if motion != "none" and v["visibility"] == "buried":
+            raise ValueError(f"{v['id']}: motion {motion!r} on a buried casualty nobody could see move")
+        exposed = v.get("exposed")
+        if exposed is not None and (v["visibility"] != "partial" or exposed not in victim_models.EXPOSED_PARTS):
+            raise ValueError(f"{v['id']}: exposed {exposed!r} needs visibility partial and one of {victim_models.EXPOSED_PARTS}")
+        if motion == "crawling" and v["visibility"] != "full":
+            raise ValueError(f"{v['id']}: crawling needs a free body (visibility full)")
+        if motion == "waving" and exposed == "feet":
+            raise ValueError(f"{v['id']}: waving needs a free arm, but only the feet are exposed")
         if v["expected_priority"] not in PRIORITIES:
             raise ValueError(f"{v['id']}: expected_priority {v['expected_priority']!r} not one of {PRIORITIES}")
         if not MIN_TEMP_K <= v["temperature_k"] <= MAX_TEMP_K:
@@ -53,24 +66,14 @@ def model_name(victim: dict) -> str:
     return f"victim_{victim['id']}"
 
 
+def is_alive(victim: dict) -> bool:
+    return victim["state"] != "deceased"
+
+
 def victim_sdf(victim: dict) -> str:
-    """A static, body-warm manikin. The thermal plugin is what makes LWIR search meaningful:
-    without it the body reads at ambient like everything else."""
-    return f"""<?xml version="1.0"?>
-<sdf version="1.9">
-  <model name="{model_name(victim)}">
-    <static>true</static>
-    <link name="link">
-      <pose>0 0 {MESH_GROUND_OFFSET_M} 0 0 0</pose>
-      <visual name="visual">
-        <geometry><mesh><uri>{VICTIM_MESH}</uri></mesh></geometry>
-        <plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">
-          <temperature>{victim['temperature_k']}</temperature>
-        </plugin>
-      </visual>
-    </link>
-  </model>
-</sdf>"""
+    """The manikin, its rubble cover and its moving joints (victim_models). Every body carries a
+    Thermal plugin: without one it reads at ambient and LWIR search would be a lie."""
+    return victim_models.model_sdf(model_name(victim), victim)
 
 
 def spawn_pose(victim: dict) -> tuple:

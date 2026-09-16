@@ -27,5 +27,6 @@ setup(
     license="TODO",
     entry_points={"console_scripts": [
         f"victim_ground_truth = {PACKAGE}.ground_truth:main",
+        f"victim_motion = {PACKAGE}.victim_motion:main",
     ]},
 )

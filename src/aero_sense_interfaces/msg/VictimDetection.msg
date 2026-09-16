@@ -14,8 +14,11 @@ float32 thermal_confidence
 string evidence                  # MULTI-SENSOR CONFIRMED | THERMAL ONLY | RGB ONLY
 
 float32 thermal_strength         # 0..1
-string movement                  # static | walking | waving | unknown
+string movement                  # static | walking | waving | crawling | unknown
 string pose_state                # lying | sitting | standing | unknown
+string visibility                # full | partial | buried | unknown (how much of the body a camera can see)
+string vital_state               # alive | deceased | unknown
+float32 surface_temperature_k    # what LWIR reads at the casualty: skin, or the warmed surface over a buried one; 0 if unknown
 float32 hazard_proximity         # 0..1
 float32 accessibility            # 0..1
 uint32 observations              # frames this track was seen in

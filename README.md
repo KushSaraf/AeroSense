@@ -63,6 +63,22 @@ as labelled boxes at their published sizes, wired up. [hardware/README.md](hardw
 is still to be chosen, and how to turn a new STEP file into a mesh (`tools/step_to_mesh.py`).
 The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
 
+### Casualties
+
+`src/aero_sense_scenario_manager/config/victims.yaml` lists 22 casualties, each built from its entry
+(`victim_models.py`):
+
+- **Visibility:** `full` in the open; `partial` with legs under a rubble heap, or only the `feet`
+  showing, or only a `hand` (out of a rubble mound, or above flood water with the body under it);
+  `buried` under a mound, where a living casualty leaves only a faint warm patch on the surface.
+- **Alive or dead:** the deceased read near ambient temperature and never move; some of the living
+  move (`waving` arm, `crawling` body), driven by the `victim_motion` node.
+- **Priority** follows stated rules (tested): trapped and alive first (P1), the deceased last (P3).
+
+Ground truth (`/aero_sense/ground_truth/victims`) carries all of this for evaluation, and
+`tools/record_thermal_dataset.py` saves labelled thermal and RGB frames for building detection,
+vital-sign and triage algorithms. Perception never reads either.
+
 ### Tools (`tools/`)
 
 | Script | Use |
@@ -71,6 +87,7 @@ The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilo
 | `demo.sh` | simulation + RViz + a scored search, no dashboard |
 | `search_evaluation.py` | fly a search and score it against ground truth |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
+| `record_thermal_dataset.py` | save labelled thermal (16-bit, 0.01 K) + RGB frames for developing algorithms |
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |
 | `make_label_box.py` | labelled boxes for parts without CAD (battery, flight controller, RB5, ESCs) |

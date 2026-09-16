@@ -17,8 +17,11 @@ shutdown, which SITL needs (it ignores SIGTERM).
 import os
 from pathlib import Path
 
+import yaml
+
 from aero_sense_bringup import worlds
 from aero_sense_description import render
+from aero_sense_scenario_manager import victim_models
 from aero_sense_scenario_manager import victims as victim_table
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
 from launch import LaunchDescription
@@ -86,6 +89,19 @@ def _victim_actions(world, gz_world: str) -> list:
     actions.append(Node(
         package="aero_sense_scenario_manager", executable="victim_ground_truth", output="screen",
         parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon}]))
+    # moving casualties: victim_motion publishes joint setpoints, the bridge carries them to Gazebo
+    motion_topics = [t for v in victim_table.load() for t in victim_models.motion_topics(v).values()]
+    if motion_topics:
+        bridge_file = GENERATED_DIR / "victim_motion_bridge.yaml"
+        bridge_file.parent.mkdir(parents=True, exist_ok=True)
+        bridge_file.write_text(yaml.safe_dump([
+            {"ros_topic_name": t, "gz_topic_name": t, "ros_type_name": "std_msgs/msg/Float64",
+             "gz_type_name": "gz.msgs.Double", "direction": "ROS_TO_GZ"} for t in motion_topics]))
+        actions += [
+            Node(package="ros_gz_bridge", executable="parameter_bridge", name="victim_motion_bridge",
+                 parameters=[{"config_file": str(bridge_file)}], output="log"),
+            Node(package="aero_sense_scenario_manager", executable="victim_motion", output="screen",
+                 parameters=[{"use_sim_time": True}])]
     return actions
 
 

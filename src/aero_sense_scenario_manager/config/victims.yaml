@@ -9,7 +9,20 @@
 #               searcher can expect, not the detection itself)
 # temperature_k LWIR skin temperature. Ambient is 293 K, so a live casualty stands out by 12-17 K;
 #               a deceased one barely at all.
-# occlusion:    none | partial | heavy - how much rubble/structure hides the body from above.
+# visibility:   full | partial | buried - how much of the body any camera can see. partial and
+#               buried spawn rubble over the body (victim_models.py); a buried casualty shows only
+#               as a faint warm patch on the mound (alive) or not at all (deceased). A casualty
+#               beside or inside a structure is `partial` because the walls hide part of it.
+# exposed:      upper_body | feet | hand (optional, partial only) - which part of a partial casualty
+#               shows: legs under a heap, only the feet, or only an arm and hand (out of a rubble
+#               mound, or out of flood water when z < 0 puts the body under the surface).
+# motion:       none | waving | crawling (optional, default none) - living, visible casualties only;
+#               what separates alive from dead when heat alone cannot.
+#
+# Priority (expected_priority), the rules the priority-based search is scored on (tested):
+#   P1  alive and cannot get out: buried, pinned with only a hand or feet showing, or in water
+#   P2  alive, injured, partly able: seated/lying in the open or beside structures, crawling
+#   P3  deceased (and the least urgent of the living, where a scenario has one)
 # expected_priority: what a correct triage engine should conclude (Phase 10 scores itself on this).
 #
 # Positions sit beside structures, never inside their meshes: a victim placed under a collapsed
@@ -25,7 +38,7 @@ victims:
     y: 21.5
     yaw_deg: 20
     temperature_k: 309.0
-    occlusion: partial
+    visibility: partial
     expected_priority: P2
     note: in a 4 m lane between terraces, visible only from near-vertical
 
@@ -35,7 +48,7 @@ victims:
     y: 21.5
     yaw_deg: -60
     temperature_k: 308.0
-    occlusion: partial
+    visibility: partial
     expected_priority: P1
     note: pinned in the lane where the terrace came down
 
@@ -45,7 +58,7 @@ victims:
     y: 31.0
     yaw_deg: 0
     temperature_k: 307.5
-    occlusion: partial
+    visibility: partial
     expected_priority: P2
     note: sitting in the cross-lane, upper body exposed
 
@@ -55,7 +68,7 @@ victims:
     y: 25.0
     yaw_deg: 100
     temperature_k: 308.0
-    occlusion: partial
+    visibility: partial
     expected_priority: P1
     note: against the west wall of the collapsed industrial hall, in its shadow
 
@@ -65,7 +78,7 @@ victims:
     y: 40.0
     yaw_deg: 200
     temperature_k: 306.0
-    occlusion: none
+    visibility: full
     expected_priority: P2
     note: open ground by the water tower, cooling (unconscious)
 
@@ -75,7 +88,7 @@ victims:
     y: 75.0
     yaw_deg: 45
     temperature_k: 309.5
-    occlusion: partial
+    visibility: partial
     expected_priority: P2
     note: against the east wall of the fire station, conscious
 
@@ -85,7 +98,7 @@ victims:
     y: 88.0
     yaw_deg: 170
     temperature_k: 307.0
-    occlusion: heavy
+    visibility: partial
     expected_priority: P1
     note: at the north-east corner of the police station, visible only from a steep angle
 
@@ -95,9 +108,10 @@ victims:
     y: 66.0
     yaw_deg: 300
     temperature_k: 310.0
-    occlusion: none
+    visibility: full
+    motion: waving
     expected_priority: P1
-    note: open ground near the radio mast, moving (waving)
+    note: open ground near the radio mast, waving at the drone
 
   - id: V09
     state: deceased
@@ -105,7 +119,7 @@ victims:
     y: 40.0
     yaw_deg: 90
     temperature_k: 295.0
-    occlusion: none
+    visibility: full
     expected_priority: P3
     note: no useful thermal contrast; only RGB shape betrays this one
 
@@ -120,7 +134,7 @@ victims:
     z: 0.25
     yaw_deg: 40
     temperature_k: 306.0
-    occlusion: none
+    visibility: full
     expected_priority: P1
     note: in the water between the flooded houses, cooling fast
 
@@ -131,7 +145,7 @@ victims:
     z: 0.25
     yaw_deg: 150
     temperature_k: 305.0
-    occlusion: partial
+    visibility: partial
     expected_priority: P1
     note: hypothermic on debris, barely above the water
 
@@ -142,7 +156,7 @@ victims:
     z: 0.25
     yaw_deg: 250
     temperature_k: 308.0
-    occlusion: none
+    visibility: full
     expected_priority: P2
     note: clinging to wreckage in open water
 
@@ -157,7 +171,7 @@ victims:
     y: 13.0
     yaw_deg: 35
     temperature_k: 308.0
-    occlusion: heavy
+    visibility: partial
     inside_structure: true
     expected_priority: P1
     note: inside the second terrace, under the collapsed roof
@@ -168,7 +182,7 @@ victims:
     y: 37.0
     yaw_deg: -70
     temperature_k: 307.0
-    occlusion: heavy
+    visibility: partial
     inside_structure: true
     expected_priority: P1
     note: inside the market-block house, visible only where the roof has gone
@@ -179,7 +193,88 @@ victims:
     y: 63.0
     yaw_deg: 120
     temperature_k: 309.0
-    occlusion: heavy
+    visibility: partial
     inside_structure: true
     expected_priority: P2
     note: sheltering inside the north terrace, conscious
+
+  # --- Visibility and vital-sign cases for algorithm development: buried (alive and dead),
+  # partly under rubble and waving, and crawling in the open. They lie on the S1 streets
+  # (y 47-53), where the rubble fell, clear of every structure.
+  - id: V16
+    state: trapped
+    x: -116.0
+    y: 50.0
+    yaw_deg: 10
+    temperature_k: 308.0
+    visibility: buried
+    expected_priority: P1
+    note: buried under a rubble mound in the street; only a faint warm patch shows in LWIR
+
+  - id: V17
+    state: deceased
+    x: -70.0
+    y: 50.0
+    yaw_deg: 75
+    temperature_k: 294.0
+    visibility: buried
+    expected_priority: P3
+    note: buried and cold; nothing reaches the surface for any camera
+
+  - id: V18
+    state: trapped
+    x: -175.0
+    y: 50.0
+    yaw_deg: -30
+    temperature_k: 308.5
+    visibility: partial
+    motion: waving
+    expected_priority: P1
+    note: legs pinned under a rubble heap, upper body free, waving
+
+  - id: V19
+    state: prone
+    x: -40.0
+    y: 50.0
+    yaw_deg: 90
+    temperature_k: 309.0
+    visibility: full
+    motion: crawling
+    expected_priority: P2
+    note: crawling along the street towards the avenue
+
+  # --- Only one part of the body shows: what a searcher actually sees in a flood or a collapse.
+  - id: V20
+    state: trapped
+    x: 125.0
+    y: 35.0
+    z: -0.45
+    yaw_deg: 0
+    temperature_k: 306.0
+    visibility: partial
+    exposed: hand
+    motion: waving
+    expected_priority: P1
+    note: under the flood water; only an arm breaks the surface, waving
+
+  - id: V21
+    state: trapped
+    x: -95.0
+    y: 50.0
+    yaw_deg: 30
+    temperature_k: 307.5
+    visibility: partial
+    exposed: hand
+    expected_priority: P1
+    note: under a collapsed-wall mound; one palm and forearm stick out of its flank
+
+  - id: V22
+    state: trapped
+    x: -135.0
+    y: 50.0
+    yaw_deg: -80
+    temperature_k: 308.0
+    visibility: partial
+    exposed: feet
+    expected_priority: P1
+    note: buried head-first under rubble; only the feet show

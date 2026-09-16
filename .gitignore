@@ -13,3 +13,5 @@ reference/
 # Manufacturer STEP files (large, vendor-licensed): download links in hardware/README.md.
 # Their meshes, made by tools/step_to_mesh.py, are committed.
 hardware/cad/
+# Recorded datasets (tools/record_thermal_dataset.py): large, regenerate from the simulation.
+datasets/

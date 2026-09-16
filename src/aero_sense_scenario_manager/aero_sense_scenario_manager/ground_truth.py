@@ -11,6 +11,7 @@ from rclpy.qos import DurabilityPolicy, QoSProfile
 
 from aero_sense_interfaces.msg import VictimArray, VictimDetection
 
+from . import victim_models
 from . import victims as victim_table
 
 TOPIC = "aero_sense/ground_truth/victims"
@@ -43,7 +44,10 @@ class VictimGroundTruth(Node):
             msg.victims.append(VictimDetection(
                 victim_id=v["id"], position=Point(x=float(v["x"]), y=float(v["y"]), z=0.0),
                 latitude=lat, longitude=lon, confidence=1.0, evidence="GROUND TRUTH",
-                priority=v["expected_priority"]))
+                priority=v["expected_priority"], pose_state=v["state"],
+                movement="static" if v.get("motion", "none") == "none" else v["motion"],
+                visibility=v["visibility"], vital_state="alive" if victim_table.is_alive(v) else "deceased",
+                surface_temperature_k=victim_models.surface_temperature_k(v)))
         return msg
 
     def _publish(self):
