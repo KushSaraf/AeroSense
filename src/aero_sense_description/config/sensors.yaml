@@ -34,11 +34,14 @@ airframe:
   #   Pixhawk 6C Mini 54.3x39x17.5 mm (Holybro, Model A); Qualcomm RB5 dev kit 85x54 mm
   #   (Thundercomm, 96Boards), 20 mm tall with SoM and heatsink (estimate); Readytosky 45A ESC
   #   28.5x13 mm, ~6 mm in heat-shrink. The FC and RB5 sit on the bottom plate in the bay between
-  #   the plates, under the top plate's opening; an ESC is tied under each arm.
+  #   the plates, under the top plate's opening, the FC stacked on the PDB; an ESC is tied under each arm.
   avionics:
     flight_controller: {mesh: flight_controller.glb, size_m: [0.0543, 0.039, 0.0175], xy_m: [0.035, 0.0]}
     companion_computer: {mesh: companion_computer.glb, size_m: [0.085, 0.054, 0.020], xy_m: [-0.062, 0.0]}
     esc: {mesh: esc.glb, size_m: [0.0285, 0.013, 0.006], arm_radius_m: 0.30}
+    # power distribution board under the FC (the usual stack): battery lead in, one lead out to
+    # each ESC; the FC stands on standoffs above it (generic 36 mm board)
+    pdb: {mesh: pdb.glb, size_m: [0.036, 0.036, 0.004], standoff_m: 0.008}
     # Holybro M10 GPS puck 50 mm x 14.4 mm on its folding mast with the 140 mm carbon rod, at the
     # back of the top plate between the rear arms: clear of the props and the cameras.
     gps: {puck_diameter_m: 0.050, puck_height_m: 0.0144, mast_m: 0.140, base_m: [0.026, 0.026, 0.015], xy_m: [-0.155, 0.0]}
@@ -50,6 +53,10 @@ airframe:
   # per rotor torque stays where ArduPilot's default gains fly it.
   body_inertia: [0.038, 0.038, 0.05]
   motor_max_rad_s: 838        # generic motor at full throttle (the iris motor: ~8000 rpm)
+  # How the generic motors and props look. The size class a 400-450 KV 6S motor swings (5008-class
+  # outrunner, 17" prop); thrust is still the iris rotor model above, only the visual is scaled.
+  motor_look: {diameter_m: 0.056, height_m: 0.032}
+  prop_visual_scale: 1.65     # the iris 10" prop mesh drawn at ~17"
 
 mount:                        # payload_link in the airframe (FLU, metres): the cameras' front face
   # Under the camera tray: bottom plate -0.05, battery 0.063, clearance 0.002, tray 0.004,

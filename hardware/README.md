@@ -41,6 +41,7 @@ battery is a labelled box; motors and propellers stay generic until they are bou
 | GNSS module | Holybro M10-class GPS puck on a folding mast (to confirm) | not needed | white φ50 × 14.4 mm puck with LED ring on a 140 mm mast at the back of the top plate |
 | Lepton carrier board | — | not needed | green board between the camera tray and the Lepton |
 | Camera mount | — | not needed | tray below the battery, hung from the bottom plate by two side plates |
+| Power distribution board | — | not needed | red 36 mm board "PDB" under the FC (stacked on standoffs): battery lead in, six ESC leads out |
 | Power module, telemetry radio, RC receiver | — | not needed | not drawn |
 
 You wrote the OAK-D's sensor as "OV9728"; the OAK-D Pro W's colour options are the IMX378 and
@@ -100,6 +101,7 @@ python3 tools/make_label_box.py $M/flight_controller.glb --size 0.0543 0.039 0.0
 python3 tools/make_label_box.py $M/companion_computer.glb --size 0.085 0.054 0.020 \
     --label "Qualcomm RB5" --body 0.05 0.25 0.12
 python3 tools/make_label_box.py $M/esc.glb --size 0.0285 0.013 0.006 --label "ESC 45A" --body 0.1 0.2 0.6
+python3 tools/make_label_box.py $M/pdb.glb --size 0.036 0.036 0.004 --label "PDB" --body 0.55 0.1 0.1
 python3 tools/make_label_box.py $M/gps_label.glb --size 0.030 0.030 0.0015 --label "GPS" \
     --body 0.95 0.95 0.95 --text 0.1 0.1 0.12
 ```

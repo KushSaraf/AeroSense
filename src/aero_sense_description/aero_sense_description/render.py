@@ -87,12 +87,16 @@ def layout(cfg: dict) -> dict:
     hanger_y = half_tray_y + cm["hanger_thickness_m"] / 2
     lepton_y = cfg["mount"]["thermal_mesh_offset_y_m"]
     carrier = cm["lepton_carrier_m"]
-    fc, cc, esc = av["flight_controller"], av["companion_computer"], av["esc"]
-    fc_z, cc_z = floor + fc["size_m"][2] / 2, floor + cc["size_m"][2] / 2
+    fc, cc, esc, pdb = av["flight_controller"], av["companion_computer"], av["esc"], av["pdb"]
+    pdb_xy = fc["xy_m"]                                   # the FC stacks on the PDB
+    pdb_top = floor + pdb["size_m"][2]
+    fc_z = pdb_top + pdb["standoff_m"] + fc["size_m"][2] / 2
+    cc_z = floor + cc["size_m"][2] / 2
 
     meshes = [{"name": "battery", "mesh": "battery.glb", "xyz": (0.0, 0.0, plate_bottom - bz / 2), "yaw": 0.0},
               {"name": "flight_controller", "mesh": fc["mesh"], "xyz": (*fc["xy_m"], fc_z), "yaw": 0.0},
-              {"name": "companion_computer", "mesh": cc["mesh"], "xyz": (*cc["xy_m"], cc_z), "yaw": 0.0}]
+              {"name": "companion_computer", "mesh": cc["mesh"], "xyz": (*cc["xy_m"], cc_z), "yaw": 0.0},
+              {"name": "pdb", "mesh": pdb["mesh"], "xyz": (*pdb_xy, floor + pdb["size_m"][2] / 2), "yaw": 0.0}]
     boxes = [{"name": "camera_tray", "size": cm["tray_size_m"], "xyz": (0.0, 0.0, (tray_top + tray_bottom) / 2),
               "rgba": "0.12 0.12 0.13 1"},
              {"name": "lepton_carrier", "size": carrier, "xyz": (0.0, lepton_y, tray_bottom - carrier[2] / 2),
@@ -110,6 +114,11 @@ def layout(cfg: dict) -> dict:
                           "xyz": (x, sign * (by / 2 + 0.001), plate_bottom - bz / 2 - 0.001)})
 
     wires = []
+    half_pdb = pdb["size_m"][0] / 2 - 0.004
+    for i, (sx, sy) in enumerate(((1, 1), (1, -1), (-1, 1), (-1, -1))):      # FC standoffs on the PDB corners
+        wires += _wire(f"fc_standoff_{i}", [(pdb_xy[0] + sx * half_pdb, pdb_xy[1] + sy * half_pdb, pdb_top),
+                                            (pdb_xy[0] + sx * half_pdb, pdb_xy[1] + sy * half_pdb, pdb_top + pdb["standoff_m"])],
+                       0.0018, "0.75 0.76 0.78 1")
     for r in rotors(af["arm_m"]):
         ux, uy = (c / af["arm_m"] for c in r["xy"])
         at = lambda radius, z: (ux * radius, uy * radius, z)
@@ -117,15 +126,17 @@ def layout(cfg: dict) -> dict:
         half_esc = esc["size_m"][0] / 2
         meshes.append({"name": f"esc_{r['motor']}", "mesh": esc["mesh"], "xyz": at(esc["arm_radius_m"], esc_z),
                        "yaw": r["arm_yaw"]})
-        wires += _wire(f"esc_{r['motor']}_power", [at(0.10, floor + 0.004), at(esc["arm_radius_m"] - half_esc, arm_under - 0.0015)],
-                       0.0015, RED)
+        # PDB, along the bay floor to the arm root, up under the arm, along it to the ESC
+        edge = (pdb_xy[0] + ux * pdb["size_m"][0] / 2, pdb_xy[1] + uy * pdb["size_m"][1] / 2, floor + 0.0015)
+        wires += _wire(f"esc_{r['motor']}_power", [edge, at(0.13, floor + 0.0015), at(0.20, arm_under - 0.0015),
+                                                   at(esc["arm_radius_m"] - half_esc, arm_under - 0.0015)], 0.0015, RED)
         wires += _wire(f"motor_{r['motor']}_phase", [at(esc["arm_radius_m"] + half_esc, arm_under - 0.0015),
                                                      at(af["arm_m"] - 0.03, arm_under - 0.0015)], 0.0015, BLACK)
     fc_rear = fc["xy_m"][0] - fc["size_m"][0] / 2
     cc_front = cc["xy_m"][0] + cc["size_m"][0] / 2
     wires += _wire("fc_to_rb5", [(fc_rear, 0.01, fc_z), (cc_front, 0.01, cc_z)], 0.0012, GREY)
     wires += _wire("battery_lead", [(bx / 2, 0.0, plate_bottom - bz / 2), (bx / 2 + 0.03, 0.0, plate_bottom - bz / 2),
-                                    (bx / 2 + 0.03, 0.0, floor + 0.004), (0.10, 0.0, floor + 0.004)], 0.002, RED)
+                                    (bx / 2 + 0.03, 0.0, floor + 0.002), (pdb_xy[0] + pdb["size_m"][0] / 2, 0.0, floor + 0.002)], 0.002, RED)
     cable_x = cc["xy_m"][0] + 0.04
     for name, sign, end_y, rgba in (("rb5_to_oak_usb", -1, -0.03, BLUE), ("rb5_to_lepton", 1, lepton_y, YELLOW)):
         outside = sign * (hanger_y + 0.004)
@@ -144,7 +155,11 @@ def layout(cfg: dict) -> dict:
                    gps["puck_diameter_m"] / 2 + 0.0008, "0.15 0.45 1.0 1")
     meshes.append({"name": "gps_label", "mesh": "gps_label.glb", "yaw": 0.0,
                    "xyz": (gx, gy, mast_top + gps["puck_height_m"] + 0.00075)})
-    wires += _wire("gps_to_fc", [(gx, gy + 0.008, base_top - 0.002), (gx + 0.02, gy + 0.008, af["plate_top_z_m"]),
+    # along the top plate to the opening, down beside the RB5, along the bay floor to the FC
+    down_x, down_y = cc["xy_m"][0] - cc["size_m"][0] / 2 - 0.006, cc["size_m"][1] / 2 + 0.012
+    on_plate = af["plate_top_z_m"] + 0.0012
+    wires += _wire("gps_to_fc", [(gx + gps["base_m"][0] / 2, gy + 0.008, on_plate), (down_x, down_y, on_plate),
+                                 (down_x, down_y, floor + 0.0012), (fc["xy_m"][0] - fc["size_m"][0] / 2, down_y, floor + 0.0012),
                                  (fc["xy_m"][0] - fc["size_m"][0] / 2, 0.012, fc_z)], 0.0012, GREY)
     return {"meshes": meshes, "boxes": boxes, "wires": wires, "tray_bottom": tray_bottom}
 

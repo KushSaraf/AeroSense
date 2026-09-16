@@ -61,12 +61,28 @@
         <material><diffuse>{{ w.rgba }}</diffuse></material>
       </visual>
 {% endfor %}
-      <!-- Generic motors on the frame's motor mounts. -->
+      <!-- Generic outrunner motors on the frame's motor mounts: stator base, bell, silver band. -->
+{% set ml = af.motor_look %}
 {% for r in rotors %}
-      <visual name="motor_{{ loop.index0 }}">
-        <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + 0.0175 }} 0 0 0</pose>
-        <geometry><cylinder><radius>0.022</radius><length>0.035</length></cylinder></geometry>
-        <material><diffuse>0.08 0.08 0.1 1</diffuse><specular>0.5 0.5 0.5 1</specular></material>
+      <visual name="motor_{{ loop.index0 }}_stator">
+        <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + 0.004 }} 0 0 0</pose>
+        <geometry><cylinder><radius>{{ ml.diameter_m * 0.42 }}</radius><length>0.008</length></cylinder></geometry>
+        <material><diffuse>0.22 0.22 0.24 1</diffuse><specular>0.6 0.6 0.6 1</specular></material>
+      </visual>
+      <visual name="motor_{{ loop.index0 }}_bell">
+        <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + 0.008 + (ml.height_m - 0.008) / 2 }} 0 0 0</pose>
+        <geometry><cylinder><radius>{{ ml.diameter_m / 2 }}</radius><length>{{ ml.height_m - 0.008 }}</length></cylinder></geometry>
+        <material><diffuse>0.04 0.04 0.05 1</diffuse><specular>0.5 0.5 0.5 1</specular></material>
+      </visual>
+      <visual name="motor_{{ loop.index0 }}_band">
+        <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + ml.height_m - 0.005 }} 0 0 0</pose>
+        <geometry><cylinder><radius>{{ ml.diameter_m / 2 + 0.0005 }}</radius><length>0.004</length></cylinder></geometry>
+        <material><diffuse>0.75 0.76 0.78 1</diffuse><specular>1 1 1 1</specular></material>
+      </visual>
+      <visual name="motor_{{ loop.index0 }}_adapter">
+        <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + ml.height_m + 0.005 }} 0 0 0</pose>
+        <geometry><cylinder><radius>0.009</radius><length>0.010</length></cylinder></geometry>
+        <material><diffuse>0.7 0.71 0.73 1</diffuse><specular>1 1 1 1</specular></material>
       </visual>
 {% endfor %}
     </link>
@@ -96,7 +112,7 @@
 {% for r in rotors %}
 {% set fwd = 1 if r.spin == "ccw" else -1 %}
     <link name="{{ r.name }}">
-      <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + 0.04 }} 0 0 0</pose>
+      <pose>{{ r.xy[0] }} {{ r.xy[1] }} {{ af.motor_mount_top_m + af.motor_look.height_m + 0.006 }} 0 0 0</pose>
       <inertial>
         <mass>0.025</mass>
         <inertia><ixx>9.75e-06</ixx><iyy>0.000166704</iyy><izz>0.000167604</izz></inertia>
@@ -107,7 +123,10 @@
       <!-- motor {{ r.motor }}, {{ r.spin }} -->
       <visual name="prop">
         <geometry>
-          <mesh><uri>package://ardupilot_gazebo/models/iris_with_standoffs/meshes/iris_prop_{{ r.spin }}.dae</uri></mesh>
+          <mesh>
+            <uri>package://ardupilot_gazebo/models/iris_with_standoffs/meshes/iris_prop_{{ r.spin }}.dae</uri>
+            <scale>{{ af.prop_visual_scale }} {{ af.prop_visual_scale }} 1</scale>
+          </mesh>
         </geometry>
         <material><ambient>0.05 0.05 0.05 1</ambient><diffuse>0.05 0.05 0.05 1</diffuse></material>
       </visual>
