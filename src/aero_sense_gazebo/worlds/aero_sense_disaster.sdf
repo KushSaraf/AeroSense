@@ -20,8 +20,6 @@
     10 m water tower. The masts and the hall stand above the 15-20 m search altitude, and the
     lanes are narrow enough that casualties in them are only visible from steep angles.
     No trees: the tdf oak/pine alpha-cutout leaves render as black blobs in Harmonic.
-  S4 landslide (x -100..100, y 100..300): a heightmap ridge rising 25 m with the slide scar cut
-    into it; the plain the city stands on stays flat.
   S2 flood (x 0..200, y 0..100): a village under 0.6 m of standing water, laid over the ground
     so buildings and vehicles are submerged to that depth. Casualties are in the water, which is
     colder than the ground in LWIR, not warmer.
@@ -206,10 +204,5 @@
     <!-- laid over the sector last: everything above is already in place beneath it -->
     <include><name>flood_water</name><pose>0 0 0.6 0 0 0</pose><uri>model://aero_sense_flood_water</uri></include>
 
-    <!-- ============ S4 LANDSLIDE ============ -->
-    <!-- Real relief: a 200 x 200 m ridge rising 25 m north of the city, its failure scar gouged
-         down the face. Its south edge is at zero height, so it meets the flat ground the rest of
-         the world stands on and nothing in S1/S2 has to move. -->
-    <include><name>landslide_ridge</name><pose>0 200 0 0 0 0</pose><uri>model://aero_sense_terrain</uri></include>
   </world>
 </sdf>
