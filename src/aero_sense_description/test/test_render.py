@@ -127,13 +127,13 @@ def test_sitl_frame_is_hexa_x():
 
 @pytest.mark.parametrize("quality", render.QUALITIES)
 def test_cameras_are_the_real_parts(quality):
-    """Lepton 3.5: 160x120 at 57 deg whatever the quality; OAK-D Pro W: 127 deg OV9782 colour and
+    """Thermal core: 256x192 at 57 deg whatever the quality; OAK-D Pro W: 127 deg OV9782 colour and
     OV9282 stereo, both 16:10. A profile may shrink the OAK-D's frames, never change what it sees."""
     sensors = sensors_of(quality)
     hfov = {n: math.degrees(float(sensors[n].findtext("camera/horizontal_fov"))) for n in ("rgb", "depth", "thermal")}
     assert [round(hfov[n]) for n in ("thermal", "rgb", "depth")] == [57, 127, 127]
     thermal = sensors["thermal"].find("camera/image")
-    assert (thermal.findtext("width"), thermal.findtext("height")) == ("160", "120")
+    assert (thermal.findtext("width"), thermal.findtext("height")) == ("256", "192")
     rgb, depth = sensors["rgb"].find("camera/image"), sensors["depth"].find("camera/image")
     assert int(rgb.findtext("width")) * 10 == int(rgb.findtext("height")) * 16
     assert int(depth.findtext("width")) * 10 == int(depth.findtext("height")) * 16

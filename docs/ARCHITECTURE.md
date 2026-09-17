@@ -108,8 +108,8 @@ publishes `/drone_01/aero_sense/…`; the single-drone default namespace is empt
 `aero_sense_description/config/sensors.yaml` is the single source for the payload:
 `render.py` turns it into the drone SDF, the ros_gz_bridge config and the static TFs, and
 `simulation.launch.py quality:=low|medium|high` picks the OAK-D's resolution/rate profile.
-Every camera has the real part's field of view (hardware/README.md); the Lepton 3.5 renders at its
-native 160×120 in every profile. There is no LiDAR: none is part of the build, and no node read
+Every camera has the real part's field of view (hardware/README.md); the thermal camera renders at
+256×192 in every profile (the Lepton 3.5's field of view at a 256×192 core's resolution; the part is not chosen yet). There is no LiDAR: none is part of the build, and no node read
 the simulated one (`aero_sense_navigation/obstacle_field.py` is ready for one if it is added).
 Medium profile (RTF 1.0, headless, RTX 2050):
 
@@ -117,7 +117,7 @@ Medium profile (RTF 1.0, headless, RTX 2050):
 |---|---|---|---|---|
 | RGB | OAK-D Pro W OV9782, 127° | 960×600, 127° | 9.0 Hz / 10 | σ 0.007 of full scale |
 | Depth | OAK-D Pro W OV9282 stereo, 127°, 0.7–12 m | 1280×800, 127°, 0.7–12 m | 4.5 Hz / 5 | σ 0.02 m (measured 0.018 m at the earlier 68.8° FOV) |
-| Thermal (LWIR) | FLIR Lepton 3.5, 160×120, 57°, 8.6 Hz | 160×120 mono16, 57° | 8.4 Hz / 8.6 | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
+| Thermal (LWIR) | 256×192 core, not yet chosen (was FLIR Lepton 3.5, 160×120, 57°, 8.6 Hz) | 256×192 mono16, 57° | 8.4 Hz / 8.6 (measured at 160×120) | none — gz-sensors 8 segfaults on thermal `<noise>`; real quantisation is ~2.6 K, not the 0.01 K count scale |
 | IMU | OAK-D Pro W BNO086 | — | 97 Hz / 100 | gyro σ 0.0009 → 0.00091 rad/s, accel σ 0.017 → 0.0168 m/s² |
 | Barometer | flight controller | — | 9.7 Hz / 10 | σ 5 Pa → 5.2 Pa |
 

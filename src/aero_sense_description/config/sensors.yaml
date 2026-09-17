@@ -73,10 +73,13 @@ depth:                        # OAK-D Pro W stereo pair, OV9282, 75 mm baseline
   hfov_rad: 2.2166            # 127 deg
   clip_m: [0.7, 12.0]         # Luxonis' ideal depth range: nothing reads at search altitude
   noise_stddev: 0.02          # metres
-thermal:                      # FLIR Lepton 3.5: fixed 160x120, so not part of the quality profiles
-  hfov_rad: 0.9948            # 57 deg
-  width: 160
-  height: 120
+thermal:                      # LWIR core at 256x192 (fixed, so not part of the quality profiles)
+  hfov_rad: 0.9948            # 57 deg, as the Lepton 3.5 this replaced
+  # 256x192, as 12 um uncooled cores (InfiRay Tiny1-C class) ship; the Lepton 3.5 is 160x120.
+  # The exact part is not chosen yet: its lens, rate and range replace the Lepton figures here.
+  # The model keeps the Lepton 3.5 mesh (flir_lepton_3_5.glb) until the new part's CAD arrives.
+  width: 256
+  height: 192
   rate_hz: 8.6
   clip_m: [0.3, 150.0]
   # The real Lepton reads -10 to 400 C (low gain). The sim keeps 600 K: L16 counts x resolution_k

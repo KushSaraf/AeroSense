@@ -9,8 +9,8 @@ Suspect, Weigh) gets a closer look before the drone moves on:
                       buildings around it allow, and hover there looking
     Prove             a casualty confirmed there is the lead proven; nothing confirmed rules it out
 
-The descent is what makes the difference: at 10 m the Lepton resolves ~7 cm a pixel instead of
-~20, so a two-pixel hand becomes a hand. Pure geometry and bookkeeping here, so it is testable
+The descent is what makes the difference: at 10 m the 256x192 thermal camera resolves ~4 cm a
+pixel instead of ~13 from 30 m, so a two-pixel hand becomes a hand. Pure geometry and bookkeeping here, so it is testable
 without a simulation; mission_manager does the flying.
 """
 import math
