@@ -61,7 +61,9 @@ class MissionManager(Node):
     def __init__(self):
         super().__init__("mission_manager")
         self.declare_parameter("search_altitude_m", 30.0)
-        self.declare_parameter("inspect_altitude_m", 14.0)
+        # over the society's rooftops: G+3 blocks and their tanks reach 16.4 m, and the planner keeps
+        # 5 m above anything it overflies. At 22 m the Lepton still resolves ~15 cm per pixel.
+        self.declare_parameter("inspect_altitude_m", 22.0)
         self.declare_parameter("leg_spacing_m", 25.0)
         # the fitted thermal camera (simulation.launch.py passes the sensor table's values)
         self.declare_parameter("camera_tilt_rad", 1.5708)       # straight down

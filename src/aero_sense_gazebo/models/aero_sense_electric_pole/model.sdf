@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<!-- Indian street electric pole: a 9 m tapered PCC (concrete) pole with an angle-iron cross-arm and
+     three porcelain insulators. Placed along the roads by tools/layout_world.py, some leaning after
+     the earthquake. Ambient temperature in LWIR. Collision is the pole shaft only. -->
+<sdf version="1.9">
+  <model name="aero_sense_electric_pole">
+    <static>true</static>
+    <link name="link">
+      <collision name="collision">
+        <pose>0 0 4.5 0 0 0</pose>
+        <geometry><box><size>0.22 0.22 9</size></box></geometry>
+      </collision>
+      <visual name="pole">
+        <pose>0 0 4.5 0 0 0</pose>
+        <geometry><box><size>0.2 0.22 9</size></box></geometry>
+        <material><ambient>0.66 0.65 0.62 1</ambient><diffuse>0.66 0.65 0.62 1</diffuse></material>
+      </visual>
+      <visual name="cross_arm">
+        <pose>0 0 8.5 0 0 0</pose>
+        <geometry><box><size>0.08 1.8 0.08</size></box></geometry>
+        <material><ambient>0.3 0.3 0.32 1</ambient><diffuse>0.3 0.3 0.32 1</diffuse></material>
+      </visual>
+      <visual name="insulator_left">
+        <pose>0 -0.8 8.64 0 0 0</pose>
+        <geometry><cylinder><radius>0.05</radius><length>0.2</length></cylinder></geometry>
+        <material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.85 0.85 0.82 1</diffuse></material>
+      </visual>
+      <visual name="insulator_middle">
+        <pose>0 0 9.1 0 0 0</pose>
+        <geometry><cylinder><radius>0.05</radius><length>0.2</length></cylinder></geometry>
+        <material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.85 0.85 0.82 1</diffuse></material>
+      </visual>
+      <visual name="insulator_right">
+        <pose>0 0.8 8.64 0 0 0</pose>
+        <geometry><cylinder><radius>0.05</radius><length>0.2</length></cylinder></geometry>
+        <material><ambient>0.85 0.85 0.82 1</ambient><diffuse>0.85 0.85 0.82 1</diffuse></material>
+      </visual>
+    </link>
+  </model>
+</sdf>

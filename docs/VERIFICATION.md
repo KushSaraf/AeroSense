@@ -8,7 +8,7 @@ repo; re-run the commands to reproduce them.
 ```bash
 source /opt/ros/humble/setup.bash && source ~/uav_ws/install/setup.bash
 colcon build --base-paths src && source install/setup.bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest legacy/prototype/tests src -q    # 160 passed
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest legacy/prototype/tests src -q    # 182 passed
 cd frontend && npx tsc -b && npm run build                           # type-check and build
 ```
 
@@ -16,16 +16,31 @@ cd frontend && npx tsc -b && npm run build                           # type-chec
 |---|---|---|
 | `legacy/prototype/tests` | 32 | the single-process prototype: projection, risk, A*, store-and-forward |
 | `src/aero_sense_bridge/test` | 29 | ROS → dashboard JSON, alerts and reports derived only from real data and scoped to their mission, NaN handling, link freshness, spawned-process environment |
-| `src/aero_sense_bringup/test` | 21 | world files, model paths, stopping every simulation process |
-| `src/aero_sense_description/test` | 10 | the drone model and its sensor payload |
+| `src/aero_sense_bringup/test` | 20 | world files, model paths, stopping every simulation process |
+| `src/aero_sense_description/test` | 17 | the drone model and its sensor payload |
 | `src/aero_sense_mission/test` | 22 | search pattern, measured coverage, obstacle detours round tall structures |
 | `src/aero_sense_navigation/test` | 8 | LiDAR corridor obstacle detection (library, for a future LiDAR; no simulated one) |
-| `src/aero_sense_perception/test` | 27 | thermal detection, geolocation, tracking, triage, structure map |
-| `src/aero_sense_scenario_manager/test` | 10 | the casualty table and its ground truth |
+| `src/aero_sense_perception/test` | 28 | thermal detection, geolocation, tracking, triage, structure map (read from the generated buildings) |
+| `src/aero_sense_scenario_manager/test` | 22 | the casualty table and its ground truth |
 | `src/aero_sense_visualization/test` | 4 | RViz markers |
-| **Total** | **163** | all passing |
+| **Total** | **182** | all passing |
 
 ## Flight tests
+
+### The Indian society world (2026-09-17)
+
+`tools/search_evaluation.py` flown over each sector of the generated society (seed 23: 96
+buildings, winding roads and galis), 30 m altitude, 25 m leg spacing, fresh simulation for each.
+
+| Sector | Found | Position error | False positives | Missed, and why |
+|---|---|---|---|---|
+| Earthquake (`--x-range -180 -20 --y-range 15 90`) | 13 of its 18 | 0.2 m | 0 | V09 dead at ambient; V16, V17 buried (the warm patch is below the detector's threshold); V21 a hand out of rubble and V22 only feet, too few pixels from 30 m |
+| Flood (`--x-range 20 180 --y-range 20 80`) | 3 of its 4 | 0.1 m | 0 | V20, only a waving hand above the water |
+
+The three casualties trapped inside collapses (V13-V15) are found through the crack in the pancaked
+slabs, where the old wooden house meshes hid them completely.
+
+### Earlier flights (Iris quadrotor, grid world)
 
 Each flown end to end in Gazebo with ArduPilot SITL, started from the dashboard's API.
 

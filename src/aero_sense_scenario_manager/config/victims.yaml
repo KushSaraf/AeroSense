@@ -204,7 +204,7 @@ victims:
   - id: V16
     state: trapped
     x: -116.0
-    y: 50.0
+    y: 52.5
     yaw_deg: 10
     temperature_k: 308.0
     visibility: buried
@@ -214,7 +214,7 @@ victims:
   - id: V17
     state: deceased
     x: -70.0
-    y: 50.0
+    y: 46.0
     yaw_deg: 75
     temperature_k: 294.0
     visibility: buried
@@ -271,7 +271,7 @@ victims:
   - id: V22
     state: trapped
     x: -135.0
-    y: 50.0
+    y: 47.0
     yaw_deg: -80
     temperature_k: 308.0
     visibility: partial

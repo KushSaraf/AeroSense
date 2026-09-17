@@ -34,7 +34,7 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 | `aero_sense_interfaces` | custom messages and services (victims, alerts, mission status, …) |
 | `aero_sense_bringup` | launch files (`full_system`, `simulation`, `visualization`), `system_check`, `stop_sim` |
 | `aero_sense_description` | the bespoke Hexa-X hexacopter + sensor payload, rendered from `config/sensors.yaml` |
-| `aero_sense_gazebo` | the disaster world: earthquake and flood sectors, command base, signs and zone names, search areas outlined in yellow |
+| `aero_sense_gazebo` | the disaster world: an Indian residential society split into earthquake and flood sectors, command base, signs and zone names, search areas outlined in yellow |
 | `aero_sense_mission` | mission manager, autopilot adapter (MAVLink), search pattern, airspace |
 | `aero_sense_perception` | thermal victim detection, tracking, geolocation, triage, structure map |
 | `aero_sense_navigation` | obstacle field for detours around structures |
@@ -62,6 +62,16 @@ The Pixhawk 6C Mini and Qualcomm RB5 sit in the bay between the plates and an ES
 as labelled boxes at their published sizes, wired up. [hardware/README.md](hardware/README.md) lists every part, what
 is still to be chosen, and how to turn a new STEP file into a mesh (`tools/step_to_mesh.py`).
 The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilot's mixer.
+
+### The world
+
+The earthquake and flood sectors are one Indian residential society, and nothing in it is on a grid
+or straight. Winding asphalt roads and narrow concrete galis run through dense pastel RCC row
+houses, shops and G+3 apartment blocks with black Sintex tanks on their roofs, all facing the
+street. In the earthquake sector many buildings are pancaked or slumped with rubble and dust
+spilling into the lanes, and electric poles lean. The flood sector's village stands in water that
+stops at a ragged, muddy shoreline. `tools/make_buildings.py` makes the buildings,
+`tools/layout_world.py` lays everything out around the casualties, and both can be re-run.
 
 ### Casualties
 
@@ -91,6 +101,8 @@ vital-sign and triage algorithms. Perception never reads either.
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |
 | `make_label_box.py` | labelled boxes for parts without CAD (battery, flight controller, RB5, ESCs) |
+| `make_buildings.py` | the society's buildings: RCC houses, row houses, apartment blocks and collapses |
+| `layout_world.py` | lay out roads, galis, buildings, poles, vehicles and the flood around the casualties |
 
 ## Running it
 
@@ -188,8 +200,8 @@ Or point `AERO_SENSE_REFERENCE` at another directory holding them.
 
 | Directory in `reference/` | Source | License | Used for |
 |---|---|---|---|
-| `tdf_gazebo-main` | [rsanchezmo/tdf_gazebo](https://github.com/rsanchezmo/tdf_gazebo) | MIT | collapsed houses, industrial hall, fire and police stations, vehicles, trees, radio mast, water tower |
-| `gazebo_models_worlds_collection-master` | [leonhartyao/gazebo_models_worlds_collection](https://github.com/leonhartyao/gazebo_models_worlds_collection) | GPL-3.0 | debris meshes and broken brick walls (wrapped in `aero_sense_gazebo/models` with PBR materials) |
+| `tdf_gazebo-main` | [rsanchezmo/tdf_gazebo](https://github.com/rsanchezmo/tdf_gazebo) | MIT | industrial hall, fire and police stations, vehicles, radio mast, water tower |
+| `gazebo_models_worlds_collection-master` | [leonhartyao/gazebo_models_worlds_collection](https://github.com/leonhartyao/gazebo_models_worlds_collection) | GPL-3.0 | the grass of the farmland around the society |
 | `Autonomous-robot-for-fire-detection-main` | [kyriakosar/Autonomous-robot-for-fire-detection](https://github.com/kyriakosar/Autonomous-robot-for-fire-detection) | none stated | `suv` textures used by the tdf bus |
 | `darpa_subt_worlds-main` | [LTU-RAI/darpa_subt_worlds](https://github.com/LTU-RAI/darpa_subt_worlds) | MIT | jersey barriers |
 

@@ -76,30 +76,29 @@ def test_missing_spawn_frame_is_reported(tmp_path):
         worlds.spawn_pose(world)
 
 
-#: Footprint half-extents (metres, model x/y before its yaw) of the structures a casualty must
-#: not be buried in. Flat rubble decals are omitted: a victim may lie on those.
+#: Footprint half-extents (metres, model x/y before its yaw) of the reference models a casualty must
+#: not be buried in. Generated buildings and poles carry their own footprint as a collision box.
 STRUCTURE_HALF_EXTENTS_M = {
-    "collapsed_house": (8.0, 6.5), "collapsed_industrial": (11.6, 10.0),
-    "collapsed_fire_station": (14.0, 9.2), "collapsed_police_station": (9.8, 11.1),
-    "radio_tower": (5.9, 6.7), "water_tower": (1.4, 1.4), "bus": (1.4, 6.3),
-    "pickup": (1.25, 2.85), "hatchback": (1.05, 2.0), "jersey_barrier": (2.05, 0.4),
-    "aero_sense_broken_wall": (0.15, 4.0),
+    "collapsed_industrial": (11.6, 10.0), "collapsed_fire_station": (14.0, 9.2),
+    "collapsed_police_station": (9.8, 11.1), "radio_tower": (5.9, 6.7), "water_tower": (1.4, 1.4),
+    "bus": (1.4, 6.3), "pickup": (1.25, 2.85), "hatchback": (1.05, 2.0), "jersey_barrier": (2.05, 0.4),
 }
 VICTIM_CLEARANCE_M = 1.0
 
 
 def _structures(world):
     """(name, x, y, yaw, half_x, half_y) for every structure a body could be buried in."""
+    from aero_sense_perception import structure_map
+    models = world.parent.parent / "models"
     for include in ET.parse(world).getroot().iter("include"):
-        extents = STRUCTURE_HALF_EXTENTS_M.get(include.findtext("uri", "")[len("model://"):])
-        if extents is None:
-            continue
-        pose = include.find("pose")
-        values = [float(v) for v in pose.text.split()]
-        yaw = values[5]
-        if pose.get("degrees") == "true":
-            yaw = math.radians(yaw)
-        yield include.findtext("name"), values[0], values[1], yaw, *extents
+        uri = include.findtext("uri", "")[len("model://"):]
+        x, y, yaw = structure_map.include_pose(include)
+        if (models / uri / "model.sdf").is_file() and uri.startswith(("aero_sense_building_", "aero_sense_electric_pole")):
+            cx, cy, half_x, half_y, _ = structure_map.model_footprint(models / uri / "model.sdf")
+            yield (include.findtext("name"), x + cx * math.cos(yaw) - cy * math.sin(yaw),
+                   y + cx * math.sin(yaw) + cy * math.cos(yaw), yaw, half_x, half_y)
+        elif uri in STRUCTURE_HALF_EXTENTS_M:
+            yield (include.findtext("name"), x, y, yaw, *STRUCTURE_HALF_EXTENTS_M[uri])
 
 
 def test_no_victim_is_buried_in_a_structure():

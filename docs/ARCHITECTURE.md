@@ -193,11 +193,19 @@ World file: `aero_sense_gazebo/worlds/aero_sense_disaster.sdf`. So that someone 
 names painted large on the ground (legible from the Gazebo overview), a COMMAND BASE board and
 lettering at the pad, and each mission's search area outlined in yellow (tested against
 `mission_manager.SCENARIO_AREAS`); `aero_sense_surroundings` runs fields to the horizon. All of it
-is outside the search areas or at ambient temperature, below the thermal detector's threshold. Roads connect every sector
-through the central intersection. Ground and roads are tiled-UV OBJ quads
-(`aero_sense_ground`, `aero_sense_roads`) with reference textures (tdf dirt; DARPA SubT
-Asphalt01 albedo/normal/roughness) and LWIR temperatures: asphalt 301 K, pad 300 K,
-soil 298 K, everything else ambient 293 K. gz quantises heat sources to ~2.6 K steps
+is outside the search areas or at ambient temperature, below the thermal detector's threshold.
+The society is generated, not hand placed. `tools/make_buildings.py` writes the building models
+(`aero_sense_building_*`: RCC row houses, houses, G+3 apartment blocks, pancaked and slumped
+collapses, each with a collision box covering its whole footprint), and `tools/layout_world.py`
+writes everything between the GENERATED markers in the world plus the road, ground and flood
+meshes. Roads and galis are Catmull-Rom curves whose control points include the casualties lying
+in them. Buildings go up along both sides of each street, facing it, then fill in behind. No
+building covers a casualty except the three trapped inside a collapse on purpose, and the layout
+leaves the hand-placed landmarks alone. `structure_map` reads the generated footprints and heights
+from the models, and the 16.4 m G+3 blocks set the 22 m inspection altitude. Ground, roads, galis,
+dust and mud are OBJ meshes with LWIR temperatures: asphalt 301 K, concrete galis 300 K, pad
+300 K, earth and dust 298 K, dirt tracks 297 K, mud 294 K, flood water 291 K, everything else
+ambient 293 K. gz quantises heat sources to ~2.6 K steps
 (256 x the thermal `resolution`, and the range must still cover 550 K fire), so surfaces are
 kept more than one step below the 306-310 K of a body. Drones spawn on the command-base pad (`<frame
 name="drone_spawn">`, read by `aero_sense_bringup/worlds.py`). SITL's home is the world's
@@ -206,27 +214,27 @@ Gazebo world frame (verified: ROS pose (0.00, −109.99) vs Gazebo (0.00, −110
 
 **S4 landslide:** removed. The world is the earthquake (S1) and flood (S2) sectors on a flat plain.
 
-**S2 flood:** a village standing in 0.6 m of water. The flood surface is a transparent quad
-laid over the sector, so the buildings and vehicles beneath it are submerged by construction
+**S2 flood:** a village standing in 0.6 m of water with a ragged shoreline and a wet mud fringe.
+The flood surface is a transparent mesh laid over the sector, so the buildings and vehicles beneath it are submerged by construction
 rather than by separate "flooded" models. It reads 291 K in LWIR — *colder* than the 298 K
 ground — so a casualty in the water stands out by contrast the opposite way round from one on
 dry land, and the same detector finds them without a special case. Verified: all three flood
 casualties found, 0.5-1.1 m error. That error is larger than S1's 0.2 m because they float
 0.6 m above the ground plane the projection assumes, which is the cue to use depth for range.
 
-**S1 earthquake (Phase 4):** four blocks around streets x = −100 and y = 50 — collapsed
-houses ×4, collapsed industrial (24 m), fire and police stations, rubble spreads, broken brick
-walls, crashed bus/pickups/hatchbacks, trees, a police cordon of jersey barriers, and two tall
-obstacles above the search altitude: a 44 m radio mast at (−40, 60) and a 10 m water tower.
+**S1 earthquake:** the society's older half, with dense row houses along crooked galis, pancaked
+and slumped collapses spilling rubble into the lanes, leaning electric poles and crashed vehicles,
+plus the hand-placed tdf landmarks: collapsed industrial hall (24 m), fire and police stations,
+a police cordon of jersey barriers, and two tall obstacles above the search altitude, a 44 m
+radio mast at (−40, 60) and a 10 m water tower.
 
 Assets come from `reference/` (gitignored, used in place; see README "Reference assets"):
 tdf_gazebo, the Gazebo model collection, the fire-detection repo and DARPA SubT. Their meshes
 name textures by bare filename, so each model's `materials/textures` is on
-`GZ_SIM_RESOURCE_PATH`. Harmonic ignores Classic OGRE-script materials; the collection's
-debris meshes are wrapped in `aero_sense_gazebo/models` with plain colours, because an SDF
-albedo map on those meshes aborts the gz 8 thermal camera (see the regression test in
-`aero_sense_description/test/test_render.py`) and their malformed submeshes crash DART's mesh
-collider (so the wrappers are visual-only, all under 0.4 m).
+`GZ_SIM_RESOURCE_PATH`. Harmonic ignores Classic OGRE-script materials, and an SDF albedo map on a malformed reference
+mesh aborts the gz 8 thermal camera (see the regression test in
+`aero_sense_description/test/test_render.py`), so the generated meshes use plain colours or
+clean OBJs.
 
 ## Dependencies
 
