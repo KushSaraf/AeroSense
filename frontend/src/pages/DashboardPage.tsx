@@ -1,11 +1,13 @@
 import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, RotateCcw, Thermometer, Video } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
+import { LINK_COLOUR, NetworkBanner, NetworkSwitch, NoNetworkZones } from '../components/NetworkStatus'
 import StatusPill from '../components/StatusPill'
 import { API_URL, cameraSrc, simulationControl } from '../services/apiServices'
 import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
-import type { Victim } from '../types'
+import { useWorld } from '../hooks/useWorld'
+import type { LinkStatus, Victim } from '../types'
 import 'leaflet/dist/leaflet.css'
 
 const DASHBOARD_TRACK_LIMIT = 400
@@ -34,7 +36,7 @@ const RESTART_POLL_MS = 4000
  * simulation already running; restart tears it down and brings up a fresh one, which is the way
  * out of a crashed drone or a wedged autopilot without leaving the dashboard.
  */
-function SimulationControls() {
+function SimulationControls({ link }: { link: LinkStatus | null }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState<{ text: string; tone: 'warn' | 'ok' } | null>(null)
 
@@ -85,6 +87,7 @@ function SimulationControls() {
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap justify-end gap-2">
+        <NetworkSwitch link={link} />
         {([['gazebo', 'GAZEBO', Boxes], ['rviz', 'RVIZ', Layers3]] as const).map(([kind, label, Icon]) => (
           <button key={kind} type="button" onClick={() => void open(kind)} disabled={busy !== null}
                   title={`Open ${label} on the running simulation`}
@@ -168,7 +171,8 @@ function VictimRow({ victim }: { victim: Victim }) {
 }
 
 function DashboardPage() {
-  const { mission, drone, victims, source, loading } = useMission()
+  const { mission, drone, victims, link, source, loading } = useMission()
+  const { data: world } = useWorld()
   const track = useFlightTrack(drone?.latitude, drone?.longitude, mission?.id, mission?.elapsedSeconds,
                                DASHBOARD_TRACK_LIMIT)
 
@@ -202,7 +206,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <SimulationControls />
+            <SimulationControls link={link} />
             <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
             <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
               ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
@@ -211,6 +215,7 @@ function DashboardPage() {
             </div>
           </div>
         </header>
+        <NetworkBanner link={link} />
 
         <div className="dashboard-layout">
           <Panel title="Drone 1" icon={<Radio size={15} />}
@@ -224,6 +229,7 @@ function DashboardPage() {
                 ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
                 ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
                 ['GPS', drone?.gps ?? '—'],
+                ['Network', link?.state ?? '—'],
                 ['Mode', drone?.mode ?? '—'],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3"><span>{label}</span><strong className="text-white">{value}</strong></div>
@@ -236,6 +242,7 @@ function DashboardPage() {
             <div className="relative h-[440px] overflow-hidden rounded-md border border-white/15">
               <MapContainer center={centre} zoom={17} style={{ height: '100%', width: '100%' }}>
                 <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <NoNetworkZones zones={world?.noNetworkZones} />
                 {victims.map((victim) => (
                   <CircleMarker
                     key={victim.id}
@@ -249,8 +256,8 @@ function DashboardPage() {
                 {track.length > 1 && <Polyline positions={track} pathOptions={{ color: '#42d7c7', weight: 3 }} />}
                 {drone?.latitude != null && drone?.longitude != null && (
                   <CircleMarker center={[drone.latitude, drone.longitude]} radius={8}
-                                pathOptions={{ color: '#42d7c7', fillColor: '#42d7c7', fillOpacity: 1 }}>
-                    <Popup>{drone.id} · {drone.altitude.toFixed(0)} m</Popup>
+                                pathOptions={{ color: '#ffffff', fillColor: LINK_COLOUR[link?.state ?? 'UNKNOWN'], fillOpacity: 1, weight: 2 }}>
+                    <Popup>{drone.id} · {drone.altitude.toFixed(0)} m · network {link?.state ?? 'unknown'}</Popup>
                   </CircleMarker>
                 )}
               </MapContainer>
@@ -267,7 +274,10 @@ function DashboardPage() {
                       <AlertTriangle size={15} />
                     </div>
                     <div>
-                      <div className="text-[10px] text-white/55">{event.time}</div>
+                      <div className="text-[10px] text-white/55">
+                        {event.time}
+                        {event.heldS ? <span className="ml-2 text-amber-300">held on board {event.heldS} s</span> : null}
+                      </div>
                       <p className="mt-1 text-[10px] leading-4 text-white/80">{event.text}</p>
                     </div>
                   </div>

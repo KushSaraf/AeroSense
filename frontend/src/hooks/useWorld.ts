@@ -18,6 +18,8 @@ export interface WorldInfo {
   origin: LatLon & { elevation: number }
   metresPerDegree: { latitude: number; longitude: number }
   sectors: WorldSector[]
+  /** Where the drone has no network; absent in older recordings. */
+  noNetworkZones?: WorldSector[]
 }
 
 const WORLD_POLL_MS = 60000

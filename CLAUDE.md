@@ -44,6 +44,19 @@ python3 tools/layout_world.py                                  # roads, galis, b
 - `tools/flood_valley.py` holds the terrain height field. The water level is 0.6 m
   (`victim_models.WATER_SURFACE_Z_M`), and the bank decides where the waterline shows.
 
+## Network (comms_link)
+
+Everything the dashboard shows leaves the drone through `aero_sense_mission/comms_link.py`, which
+relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the downlink.
+
+- **Dead zones:** `comms.NO_NETWORK_ZONES`. The red outline in `aero_sense_zone_signs` must match
+  them (tested). Inside a zone the link is OFFLINE, within 10 m of one it is DEGRADED (no video).
+- **Offline:** the drone keeps searching. Telemetry and the casualty list keep only the newest,
+  events queue in order, frames are dropped. On reconnect casualties go first.
+- **By hand:** `/aero_sense/sim/network` (SetBool), or `POST /api/simulation/network {"up": false}`.
+  The bridge refuses drone commands while it hears nothing.
+- **Markers:** RViz `/aero_sense/visualization/network`; the dashboard maps draw the zones red.
+
 ## SWOOP (Suspect, Weigh, Observe Overhead, Prove)
 
 Any lead at least 5 % likely to be a person gets a descent to verify it before the search moves on.

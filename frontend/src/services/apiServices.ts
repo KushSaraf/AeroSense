@@ -138,6 +138,9 @@ export const simulationControl = {
   restart: (options: SimulationOptions = {}) =>
     post<SimulationStatus>('/api/simulation/restart', options, 60000),
   /** Open Gazebo or RViz onto the simulation that is already running. */
+  /** Cut or restore the drone's network: a simulator control, so it works while the drone is unreachable. */
+  setNetwork: (up: boolean) =>
+    post<{ success: boolean; message: string }>('/api/simulation/network', { up }, 15000),
   openViewer: (kind: 'gazebo' | 'rviz') =>
     post<{ opened: boolean; reason?: string }>(`/api/simulation/view/${kind}`, undefined, 15000),
 }

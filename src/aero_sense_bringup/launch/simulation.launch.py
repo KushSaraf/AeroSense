@@ -169,7 +169,10 @@ def _launch(context, *args, **kwargs):
                    parameters=[{"search_altitude_m": 30.0, "leg_spacing_m": 25.0,
                                 "camera_tilt_rad": cfg["mount"]["camera_pitch_rad"],
                                 "camera_hfov_rad": cfg["thermal"]["hfov_rad"]}])
-    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission,
+    # the only way reports leave the drone: the dashboard hears nothing inside a dead zone
+    comms_link = Node(package="aero_sense_mission", executable="comms_link", namespace=namespace,
+                      output="screen")
+    actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission, comms_link,
                *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))

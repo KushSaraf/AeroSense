@@ -96,6 +96,15 @@ SWOOP makes sure the drone doesn't fly past it:
    climbs back and resumes the search where it left off (`aero_sense_mission/swoop.py`, state
    `VERIFYING`).
 
+### Network: with and without it
+
+The drone reports to the ground only over its downlink (`comms_link`), so losing the network is
+real for the dashboard. The north-east blocks of the earthquake sector have no coverage, outlined
+in red in Gazebo, RViz and on the dashboard maps, and **CUT NETWORK** on the dashboard drops it
+anywhere. Without a network the drone keeps searching and holds its reports; the ground sees only
+silence and cannot command it. On reconnect it sends casualties first, then the events it held,
+each marked with how long it waited on board.
+
 ### Casualties
 
 `src/aero_sense_scenario_manager/config/victims.yaml` lists 22 casualties, each built from its entry

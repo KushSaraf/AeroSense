@@ -217,6 +217,17 @@ def test_search_area_outlines_match_the_missions():
         assert (x, y) == ([area.min_x, area.max_x], [area.min_y, area.max_y]), scenario
 
 
+def test_no_network_outlines_match_the_dead_zones():
+    """The red outlines people see are where the drone's network really drops."""
+    from aero_sense_mission.comms import NO_NETWORK_ZONES
+    sdf = Path(get_package_share_directory("aero_sense_gazebo")) / "models" / "aero_sense_zone_signs" / "model.sdf"
+    visuals = {v.get("name"): v for v in ET.parse(sdf).getroot().iter("visual")}
+    for name, area in NO_NETWORK_ZONES.items():
+        x = [float(visuals[f"no_network_{name}_{side}"].findtext("pose").split()[0]) for side in ("west", "east")]
+        y = [float(visuals[f"no_network_{name}_{side}"].findtext("pose").split()[1]) for side in ("south", "north")]
+        assert (x, y) == ([area.min_x, area.max_x], [area.min_y, area.max_y]), name
+
+
 def test_the_earthquake_left_no_building_intact():
     """Every building in the earthquake sector is damaged or collapsed: an intact society there
     looked like a town nothing had happened to."""

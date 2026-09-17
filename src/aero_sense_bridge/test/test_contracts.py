@@ -288,3 +288,32 @@ def test_the_mission_view_carries_only_its_own_events():
     events = contracts.mission_json(status, log)["events"]
 
     assert events == [{"time": "15:19:48", "text": "PRE_FLIGHT: mission started"}]
+
+
+def test_the_ground_infers_an_outage_from_silence_and_does_not_know_what_is_held():
+    from aero_sense_interfaces.msg import CommunicationStatus
+    heard = CommunicationStatus(state="DEGRADED", link_quality=0.4, queued_p1=2)
+    assert contracts.link_json(None, 0.0)["state"] == "UNKNOWN"
+    live = contracts.link_json(heard, 0.5)
+    assert live["state"] == "DEGRADED" and live["queued"]["P1"] == 2
+    gone = contracts.link_json(heard, 42.4)
+    assert gone == {"state": "OFFLINE", "quality": 0.0, "silentSeconds": 42, "queued": None}
+
+
+def test_a_held_event_keeps_the_time_it_happened():
+    event = contracts.downlink_event('{"time": "12:03:04", "text": "casualty V-007 confirmed", "heldS": 42}')
+    assert event == {"time": "12:03:04", "text": "casualty V-007 confirmed", "heldS": 42}
+    assert contracts.downlink_event("plain text")["text"] == "plain text"
+
+
+def test_network_events_raise_system_alerts():
+    events = [{"time": "12:00:00", "text": "network lost (no coverage here): carrying on with the mission offline"},
+              {"time": "12:01:00", "text": "network restored after 60 s: sending 1 P1 and 4 held events"}]
+    titles = {alert["title"] for alert in contracts.alerts_json([], events)}
+    assert titles == {"Network lost", "Network restored"}
+
+
+def test_world_json_places_the_dead_zones_too():
+    world = contracts.world_json({}, {"north_east_blocks": _Area(-110.0, 50.0, -20.0, 92.0)})
+    zone = world["noNetworkZones"][0]
+    assert zone["id"] == "north_east_blocks" and len(zone["corners"]) == 4

@@ -235,6 +235,17 @@ fill the crooked galis, and poles lean. The hand-placed tdf landmarks add a coll
 hall (24 m), fire and police stations, a police cordon of jersey barriers, and two tall obstacles
 above the search altitude: a 44 m radio mast at (−40, 60) and a 10 m water tower.
 
+**Network:** `comms_link` is the only path off the drone: it relays onboard topics to
+`aero_sense/downlink/...`, and the dashboard bridge subscribes to nothing else.
+- **Link state:** OFFLINE inside a dead zone (`comms.NO_NETWORK_ZONES`, drawn red in Gazebo) or
+  when cut through `/aero_sense/sim/network`; DEGRADED within 10 m of a zone (video dropped);
+  CONNECTED elsewhere.
+- **Offline:** the mission carries on unchanged. The newest telemetry, casualty list and mission
+  state are kept, every event is queued with the time it happened, and camera frames are dropped.
+- **Reconnect:** a "network restored" event, then casualties, mission state and the held events in order.
+- **Ground side:** an outage is inferred from 3 s of silence, and what the drone holds stays
+  unknown until it reconnects; drone commands are refused meanwhile.
+
 **SWOOP (Suspect, Weigh, Observe Overhead, Prove):** `victim_detector` also publishes faint leads
 on `/aero_sense/perception/suspects`:
 - **Finding them:** a white top-hat keeps warm features smaller than 2.5 m and drops roads and roofs.

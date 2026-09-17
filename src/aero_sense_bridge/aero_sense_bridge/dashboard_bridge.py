@@ -6,6 +6,7 @@
   GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts
   WS   /ws             the same state pushed as it changes
   GET  /api/simulation           whether a simulation is running
+  POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
   POST /api/simulation/view/gazebo | rviz   open a window onto the running simulation
   POST /api/simulation/start     start one (Gazebo, drone, autopilot, perception)
   POST /api/simulation/stop      stop everything
@@ -14,6 +15,10 @@
 The bridge runs on its own rather than inside the simulation, so the dashboard can start a
 mission from a cold machine. It binds 127.0.0.1 by default: the control endpoints start
 processes on the host that serves them.
+
+Everything about the drone arrives over its downlink (`aero_sense/downlink/...`, relayed by the
+onboard comms_link), so inside a dead zone the bridge hears nothing and says the link is down,
+and commands to the drone are refused rather than pretending to be sent.
 
 Every number here comes from a ROS message produced by the running simulation. Nothing is
 generated to make the dashboard look busy: topics that do not exist yet (hazards, alerts) return
@@ -37,11 +42,13 @@ from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import BatteryState, Image, NavSatFix
 
 from std_msgs.msg import String
-from std_srvs.srv import Trigger
+from std_srvs.srv import SetBool, Trigger
 
-from aero_sense_interfaces.msg import Alert, DroneStatus, HazardArray, MissionStatus, VictimArray
+from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, HazardArray, MissionStatus,
+                                       VictimArray)
 from aero_sense_interfaces.srv import StartMission
 
+from aero_sense_mission.comms import NO_NETWORK_ZONES
 from aero_sense_mission.mission_manager import SCENARIO_AREAS
 
 from . import contracts, supervisor
@@ -55,6 +62,7 @@ TELEMETRY_SAMPLES = 120           # two minutes at 1 Hz
 TELEMETRY_PERIOD_S = 1.0
 PUSH_PERIOD_S = 0.5
 DEFAULT_PORT = 8000
+DOWNLINK = "aero_sense/downlink/"
 
 
 class DashboardBridge(Node):
@@ -64,6 +72,7 @@ class DashboardBridge(Node):
         self.declare_parameter("port", DEFAULT_PORT)
         self._status = self._pose = self._velocity = self._battery = self._fix = None
         self._status_at = None          # monotonic time of the last DroneStatus
+        self._comms = self._comms_at = None
         self._victims = self._hazards = None
         self._mission_state = None
         self._alerts = deque(maxlen=50)
@@ -76,32 +85,33 @@ class DashboardBridge(Node):
         self._armed_since = None
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
 
-        self.create_subscription(DroneStatus, "aero_sense/drone/status", self._on_status, 10)
-        self.create_subscription(PoseStamped, "aero_sense/drone/pose",
+        self.create_subscription(DroneStatus, DOWNLINK + "drone/status", self._on_status, 10)
+        self.create_subscription(PoseStamped, DOWNLINK + "drone/pose",
                                  lambda m: setattr(self, "_pose", m), 10)
-        self.create_subscription(TwistStamped, "aero_sense/drone/velocity",
+        self.create_subscription(TwistStamped, DOWNLINK + "drone/velocity",
                                  lambda m: setattr(self, "_velocity", m), 10)
-        self.create_subscription(BatteryState, "aero_sense/drone/battery",
+        self.create_subscription(BatteryState, DOWNLINK + "drone/battery",
                                  lambda m: setattr(self, "_battery", m), 10)
-        self.create_subscription(NavSatFix, "aero_sense/gps/fix",
+        self.create_subscription(NavSatFix, DOWNLINK + "gps/fix",
                                  lambda m: setattr(self, "_fix", m), 10)
-        self.create_subscription(VictimArray, "aero_sense/victims",
+        self.create_subscription(VictimArray, DOWNLINK + "victims",
                                  lambda m: setattr(self, "_victims", m), 10)
-        self.create_subscription(HazardArray, "aero_sense/hazards",
+        self.create_subscription(HazardArray, DOWNLINK + "hazards",
                                  lambda m: setattr(self, "_hazards", m), 10)
-        self.create_subscription(MissionStatus, "aero_sense/mission/state",
+        self.create_subscription(MissionStatus, DOWNLINK + "mission/state",
                                  lambda m: setattr(self, "_mission_state", m), latched)
-        self.create_subscription(Alert, "aero_sense/alerts", self._alerts.appendleft, 10)
-        self.create_subscription(String, "aero_sense/mission/events",
-                                 lambda m: self._events.append({"time": time.strftime("%H:%M:%S"),
-                                                                "text": m.data}), 50)
+        self.create_subscription(Alert, DOWNLINK + "alerts", self._alerts.appendleft, 10)
+        self.create_subscription(String, DOWNLINK + "mission/events",
+                                 lambda m: self._events.append(contracts.downlink_event(m.data)), 50)
+        self.create_subscription(CommunicationStatus, DOWNLINK + "communication/status", self._on_comms, 10)
+        self._network = self.create_client(SetBool, "aero_sense/sim/network")
         self._start_mission = self.create_client(StartMission, "aero_sense/mission/start")
         self._mission_commands = {name: self.create_client(Trigger, f"aero_sense/mission/{name}")
                                   for name in ("pause", "resume", "abort", "return_to_base")}
         for name in ("rgb", "thermal"):
-            self.create_subscription(Image, f"aero_sense/camera/{name}/image_raw",
+            self.create_subscription(Image, f"{DOWNLINK}camera/{name}/image_raw",
                                      lambda msg, which=name: self._on_frame(which, msg), 1)
-        self.create_subscription(VictimArray, "aero_sense/perception/detections",
+        self.create_subscription(VictimArray, DOWNLINK + "perception/detections",
                                  lambda m: self._raw_detections.append((time.time(), len(m.victims))), 5)
         self.create_timer(TELEMETRY_PERIOD_S, self._sample_telemetry)
 
@@ -119,6 +129,14 @@ class DashboardBridge(Node):
         self._status = msg
         self._status_at = time.monotonic()
 
+    def _on_comms(self, msg: CommunicationStatus):
+        self._comms = msg
+        self._comms_at = time.monotonic()
+
+    def link(self) -> dict:
+        silent = time.monotonic() - self._comms_at if self._comms_at is not None else 0.0
+        return contracts.link_json(self._comms, silent)
+
     def _flight_seconds(self) -> float:
         return time.time() - self._armed_since if self._armed_since else 0.0
 
@@ -132,7 +150,7 @@ class DashboardBridge(Node):
 
     def drone(self) -> dict:
         return contracts.drone_json(self._status, self._pose, self._velocity, self._battery,
-                                    self._flight_seconds(), self._fix)
+                                    self._flight_seconds(), self._fix, self.link()["state"])
 
     def victims(self) -> list:
         if self._victims is None:
@@ -198,20 +216,29 @@ class DashboardBridge(Node):
             request = Trigger.Request()
         if client is None:
             return {"success": False, "message": f"unknown command {command!r}"}
+        link = self.link()
+        if link["state"] == "OFFLINE" and supervisor.status().get("running"):
+            return {"success": False, "message": f"no network to the drone (silent for {link['silentSeconds']} s): "
+                                                 "command not sent; the drone carries on with its mission on its own"}
+        return self._call(client, request, "the mission manager is not running; start a simulation first",
+                          lambda result: {"missionId": result.mission_id} if command == "start" else {})
+
+    def set_network(self, up: bool) -> dict:
+        """Simulator control, not a drone command: it works while the drone is unreachable."""
+        return self._call(self._network, SetBool.Request(data=up),
+                          "the drone's comms link is not running; start a simulation first")
+
+    def _call(self, client, request, absent: str, extra=lambda result: {}) -> dict:
         if not client.wait_for_service(timeout_sec=5.0):
-            return {"success": False,
-                    "message": "the mission manager is not running; start a simulation first"}
+            return {"success": False, "message": absent}
         future = client.call_async(request)
         deadline = time.time() + 30.0
         while not future.done() and time.time() < deadline:
             time.sleep(0.05)
         result = future.result()
         if result is None:
-            return {"success": False, "message": "the mission manager did not answer"}
-        payload = {"success": bool(result.success), "message": result.message}
-        if command == "start":
-            payload["missionId"] = result.mission_id
-        return payload
+            return {"success": False, "message": "the simulation did not answer"}
+        return {"success": bool(result.success), "message": result.message, **extra(result)}
 
     def jpeg(self, camera: str):
         """The latest frame as JPEG, or None if that camera has not produced one yet."""
@@ -233,6 +260,7 @@ class DashboardBridge(Node):
         """Everything at once, so the dashboard can render a consistent frame."""
         return contracts.json_safe({
             "connected": contracts.link_fresh(self._status_at, time.monotonic()),
+            "link": self.link(),
             "drone": self.drone(),
             "mission": self.mission(),
             "victims": self.victims(),
@@ -292,6 +320,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
                                   rviz=bool(options.get("rviz", False)),
                                   cruise_speed=float(options.get("cruiseSpeed", 8.0)))
 
+    @app.post("/api/simulation/network")
+    def simulation_network(options: dict):
+        """Cut or restore the drone's network, anywhere, to show the drone working without it."""
+        return bridge.set_network(bool(options.get("up", True)))
+
     @app.post("/api/simulation/view/{kind}")
     def open_view(kind: str):
         """Open Gazebo or RViz onto the simulation that is already running."""
@@ -339,7 +372,7 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
         The origin is the world's own <spherical_coordinates>, which is also SITL's home, so a
         position in metres and a GPS fix describe the same point."""
-        return contracts.world_json(SCENARIO_AREAS)
+        return contracts.world_json(SCENARIO_AREAS, NO_NETWORK_ZONES)
 
     @app.get("/api/hazards")
     def hazards():

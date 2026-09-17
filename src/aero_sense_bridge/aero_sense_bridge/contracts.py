@@ -5,6 +5,7 @@ here comes from a real message; anything the system does not know yet is reporte
 rather than invented, because a dashboard that fills gaps with plausible numbers is worse than
 one that admits them.
 """
+import json
 import math
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +14,6 @@ from pathlib import Path
 #: 293 K background, and the detector's floor is ~11 K above it.
 STRONG_MARGIN_K, MEDIUM_MARGIN_K = 14.0, 9.0
 AMBIENT_K = 293.0
-LINK_ONLINE, LINK_OFFLINE = "5G STRONG", "OFFLINE"
 
 
 def _timestamp(stamp) -> str:
@@ -59,7 +59,8 @@ def victim_json(victim, stamp) -> dict:
     }
 
 
-def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None) -> dict:
+def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None,
+               link: str = "UNKNOWN") -> dict:
     speed = 0.0
     if velocity is not None:
         speed = math.dist((0.0, 0.0, 0.0), (velocity.twist.linear.x, velocity.twist.linear.y,
@@ -77,7 +78,7 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None)
         "battery": round(percent, 1) if percent is not None else None,
         "altitude": round(altitude, 2),
         "speed": round(speed, 2),
-        "link": LINK_ONLINE,                      # the comms model lands in a later phase
+        "link": link,                             # link_json's state: CONNECTED, DEGRADED, OFFLINE
         "gps": "3D FIX" if getattr(status, "gps_status", "") == "OK" else
                (getattr(status, "gps_status", "") or "UNKNOWN"),
         "latitude": fix.latitude if fix is not None else None,
@@ -101,6 +102,33 @@ def link_fresh(last_heard_s, now_s: float, stale_s: float = STATUS_STALE_S) -> b
     restart reported the new simulation ready four seconds in, while it was still starting.
     """
     return last_heard_s is not None and now_s - last_heard_s <= stale_s
+
+
+def link_json(status, silent_s) -> dict:
+    """The drone's link as the ground knows it.
+
+    `status` is the last CommunicationStatus heard over the downlink and `silent_s` how long ago
+    that was. While the drone is out of coverage the ground hears nothing at all, so an outage is
+    inferred from the silence: what the drone is holding is unknown until it reconnects.
+    """
+    if status is None:
+        return {"state": "UNKNOWN", "quality": None, "silentSeconds": None, "queued": None}
+    if silent_s > STATUS_STALE_S:
+        return {"state": "OFFLINE", "quality": 0.0, "silentSeconds": round(silent_s), "queued": None}
+    return {"state": status.state, "quality": round(float(status.link_quality), 2), "silentSeconds": 0,
+            "queued": {"P1": status.queued_p1, "P2": status.queued_p2, "P3": status.queued_p3}}
+
+
+def downlink_event(data: str) -> dict:
+    """A mission event as the drone sent it: stamped when it happened, and how long it was held
+    on board if the link was down. Plain text (an older sender) is taken as it is."""
+    try:
+        event = json.loads(data)
+    except ValueError:
+        event = None
+    if not isinstance(event, dict) or "text" not in event:
+        return {"time": datetime.now().strftime("%H:%M:%S"), "text": data}
+    return {key: event[key] for key in ("time", "text", "heldS") if key in event}
 
 
 def battery_percent(battery):
@@ -242,6 +270,8 @@ SYSTEM_EVENT_MARKERS = (
     ("EMERGENCY", "CRITICAL", "Mission emergency"),
     ("battery", "HIGH", "Battery return"),
     ("GPS", "HIGH", "GPS degraded"),
+    ("network lost", "HIGH", "Network lost"),
+    ("network restored", "MODERATE", "Network restored"),
     ("RETURNING", "MODERATE", "Returning to base"),
     ("MISSION_COMPLETE", "MODERATE", "Mission complete"),
 )
@@ -252,8 +282,8 @@ METRES_PER_DEGREE_LAT = 111320.0
 WORLD_FILE = "aero_sense_disaster"
 
 
-def world_json(areas: dict) -> dict:
-    """The world origin and every sector's bounds, in metres and in degrees.
+def world_json(areas: dict, no_network: dict | None = None) -> dict:
+    """The world origin, every sector's and dead zone's bounds, in metres and in degrees.
 
     The dashboard's map needs both: the simulation reasons in metres from the origin, an operator
     reads latitude and longitude. Converting here keeps one definition of where the sector is.
@@ -270,19 +300,25 @@ def world_json(areas: dict) -> dict:
         return {"latitude": latitude + y / METRES_PER_DEGREE_LAT,
                 "longitude": longitude + x / metres_per_degree_lon}
 
-    return {
-        "world": WORLD_FILE,
-        "origin": {"latitude": latitude, "longitude": longitude, "elevation": elevation},
-        "metresPerDegree": {"latitude": METRES_PER_DEGREE_LAT, "longitude": metres_per_degree_lon},
-        "sectors": [{
-            "id": scenario,
-            "name": SCENARIO_NAMES.get(scenario, scenario.title()),
+    def region(key: str, name: str, area) -> dict:
+        return {
+            "id": key,
+            "name": name,
             "bounds": {"minX": area.min_x, "minY": area.min_y,
                        "maxX": area.max_x, "maxY": area.max_y},
             "corners": [to_latlon(area.min_x, area.min_y), to_latlon(area.max_x, area.min_y),
                         to_latlon(area.max_x, area.max_y), to_latlon(area.min_x, area.max_y)],
             "centre": to_latlon((area.min_x + area.max_x) / 2, (area.min_y + area.max_y) / 2),
-        } for scenario, area in areas.items()],
+        }
+
+    return {
+        "world": WORLD_FILE,
+        "origin": {"latitude": latitude, "longitude": longitude, "elevation": elevation},
+        "metresPerDegree": {"latitude": METRES_PER_DEGREE_LAT, "longitude": metres_per_degree_lon},
+        "sectors": [region(scenario, SCENARIO_NAMES.get(scenario, scenario.title()), area)
+                    for scenario, area in areas.items()],
+        "noNetworkZones": [region(key, key.replace("_", " "), area)
+                           for key, area in (no_network or {}).items()],
     }
 
 

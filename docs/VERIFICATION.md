@@ -27,6 +27,21 @@ cd frontend && npx tsc -b && npm run build                           # type-chec
 
 ## Flight tests
 
+### Network outage (2026-09-17)
+
+Mission M-20260917-154227 started from the dashboard bridge, earthquake sector, cruise 8 m/s, with the
+bridge reading only the drone's downlink (`comms_link`).
+
+| What | Result |
+|---|---|
+| Cut by hand on the pad | the ground went silent and showed OFFLINE after 3 s; `pause` was refused ("command not sent"); restore sent 1 held event |
+| First outage (SWOOP inside the north-east blocks) | 77 s offline. On reconnect: "sending 3 P2 and 14 held events", each with its original time and `held on board` 14–77 s |
+| Legs 3 and 4 through the zone | 16 s offline along leg 4; DEGRADED (video paused) at the edges |
+| Mission | carried on unchanged: 14 casualties, 98% searched, MISSION_COMPLETE |
+
+Found on this flight: hovering on the zone boundary flapped the link (outages of 0–5 s), so the
+link now returns only 3 m outside a zone (`RECONNECT_MARGIN_M`, tested).
+
 ### The Indian society world (2026-09-17)
 
 `tools/search_evaluation.py` flown over each sector of the generated society (seed 23: 96

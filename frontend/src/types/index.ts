@@ -51,7 +51,8 @@ export interface Drone {
   battery: number | null
   altitude: number
   speed: number
-  link: '5G STRONG' | 'WIFI' | 'OFFLINE'
+  /** The link state as the ground knows it; '5G STRONG' only in recordings made before the link model. */
+  link: LinkState | '5G STRONG'
   gps: '3D FIX' | 'LOST' | 'DEGRADED' | 'UNKNOWN'
   /** Absent until the autopilot has a fix: the map shows nothing rather than a guessed position. */
   latitude?: number | null
@@ -148,10 +149,24 @@ export type LiveMission = Mission & {
 export interface MissionEvent {
   time: string
   text: string
+  /** Seconds the drone held this on board while it had no network. */
+  heldS?: number
+}
+
+export type LinkState = 'CONNECTED' | 'DEGRADED' | 'OFFLINE' | 'UNKNOWN'
+
+/** The drone's network as the ground knows it: during an outage it hears nothing, so what is held is unknown. */
+export interface LinkStatus {
+  state: LinkState
+  quality: number | null
+  silentSeconds: number | null
+  queued: { P1: number; P2: number; P3: number } | null
 }
 
 export interface LiveState {
   connected: boolean
+  /** Absent in recordings made before the link model. */
+  link?: LinkStatus
   drone: Drone
   mission: LiveMission | null
   victims: Victim[]

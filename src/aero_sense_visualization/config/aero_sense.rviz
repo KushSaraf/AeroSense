@@ -46,6 +46,14 @@ Visualization Manager:
         Depth: 10
         Reliability Policy: Reliable
     - Class: rviz_default_plugins/MarkerArray
+      Name: Network (dead zones, link state)
+      Enabled: true
+      Topic:
+        Value: /aero_sense/visualization/network
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+    - Class: rviz_default_plugins/MarkerArray
       Name: Ground truth (evaluation only)
       Enabled: true
       Topic:

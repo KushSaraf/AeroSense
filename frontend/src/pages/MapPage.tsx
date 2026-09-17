@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { LINK_COLOUR, NoNetworkZones } from '../components/NetworkStatus'
 import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import { useWorld } from '../hooks/useWorld'
@@ -31,10 +32,10 @@ function Recentre({ centre }: { centre: [number, number] | null }) {
 }
 
 function MapPage() {
-  const { victims, drone, mission } = useMission()
+  const { victims, drone, mission, link } = useMission()
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
-  const [layers, setLayers] = useState({ sectors: true, victims: true, track: true })
+  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true })
   const latitude = drone?.latitude
   const longitude = drone?.longitude
   const track = useFlightTrack(latitude, longitude, mission?.id, mission?.elapsedSeconds, TRACK_LIMIT)
@@ -48,6 +49,7 @@ function MapPage() {
 
   const toggles = [
     { label: 'Sectors', on: layers.sectors, act: () => setLayers((l) => ({ ...l, sectors: !l.sectors })) },
+    { label: 'No network', on: layers.network, act: () => setLayers((l) => ({ ...l, network: !l.network })) },
     { label: 'Casualties', on: layers.victims, act: () => setLayers((l) => ({ ...l, victims: !l.victims })) },
     { label: 'Flight track', on: layers.track, act: () => setLayers((l) => ({ ...l, track: !l.track })) },
   ]
@@ -84,6 +86,8 @@ function MapPage() {
             )
           })}
 
+          {layers.network && <NoNetworkZones zones={world?.noNetworkZones} />}
+
           {layers.victims && victims.map((victim) => (
             <CircleMarker key={victim.id} center={[victim.latitude, victim.longitude]} radius={7}
                           pathOptions={{ color: PRIORITY_COLOUR[victim.priority] ?? '#8ae0ff',
@@ -103,8 +107,8 @@ function MapPage() {
 
           {latitude != null && longitude != null && (
             <CircleMarker center={[latitude, longitude]} radius={9}
-                          pathOptions={{ color: '#ffffff', fillColor: '#8AE0FF', fillOpacity: 1, weight: 3 }}>
-              <Popup>{drone?.name} · {drone?.mode ?? 'unknown mode'} · {drone?.altitude.toFixed(1)} m</Popup>
+                          pathOptions={{ color: '#ffffff', fillColor: LINK_COLOUR[link?.state ?? 'UNKNOWN'], fillOpacity: 1, weight: 3 }}>
+              <Popup>{drone?.name} · {drone?.mode ?? 'unknown mode'} · {drone?.altitude.toFixed(1)} m · network {link?.state ?? 'unknown'}</Popup>
             </CircleMarker>
           )}
         </MapContainer>

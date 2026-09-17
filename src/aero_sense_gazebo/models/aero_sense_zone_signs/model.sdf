@@ -5,7 +5,9 @@
      grass south of each sector and beside the pad; the yellow outlines are exactly the areas the
      missions search (aero_sense_mission.mission_manager.SCENARIO_AREAS, tested). Everything sits
      outside the search areas or at ambient temperature, below the thermal detector's threshold,
-     so none of it can be mistaken for a casualty. Label meshes: tools/make_label_box.py. -->
+     so none of it can be mistaken for a casualty.
+     Red outlines mark where the network is down (aero_sense_mission.comms.NO_NETWORK_ZONES,
+     tested), raised just above the road surface, with NO NETWORK painted north of the sector. Label meshes: tools/make_label_box.py. -->
 <sdf version="1.9">
   <model name="aero_sense_zone_signs">
     <static>true</static>
@@ -111,6 +113,35 @@
         <cast_shadows>false</cast_shadows>
         <geometry><box><size>0.6 82.6 0.01</size></box></geometry>
         <material><ambient>0.98 0.85 0.1 1</ambient><diffuse>0.98 0.85 0.1 1</diffuse></material>
+      </visual>
+      <visual name="no_network_north_east_blocks_south">
+        <pose>-65.0 50.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>90.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.9 0.12 0.1 1</ambient><diffuse>0.9 0.12 0.1 1</diffuse><emissive>0.5 0.05 0.05 1</emissive></material>
+      </visual>
+      <visual name="no_network_north_east_blocks_north">
+        <pose>-65.0 92.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>90.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.9 0.12 0.1 1</ambient><diffuse>0.9 0.12 0.1 1</diffuse><emissive>0.5 0.05 0.05 1</emissive></material>
+      </visual>
+      <visual name="no_network_north_east_blocks_west">
+        <pose>-110.0 71.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 42.8 0.01</size></box></geometry>
+        <material><ambient>0.9 0.12 0.1 1</ambient><diffuse>0.9 0.12 0.1 1</diffuse><emissive>0.5 0.05 0.05 1</emissive></material>
+      </visual>
+      <visual name="no_network_north_east_blocks_east">
+        <pose>-20.0 71.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 42.8 0.01</size></box></geometry>
+        <material><ambient>0.9 0.12 0.1 1</ambient><diffuse>0.9 0.12 0.1 1</diffuse><emissive>0.5 0.05 0.05 1</emissive></material>
+      </visual>
+      <visual name="no_network_north_east_blocks_label">
+        <pose>-65.0 98.5 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_no_network.glb</uri></mesh></geometry>
       </visual>
       <visual name="outline_flood_south">
         <pose>100.0 20.0 0.62 0 0 0</pose>

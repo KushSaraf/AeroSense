@@ -19,5 +19,6 @@ setup(
     entry_points={"console_scripts": [
         f"drone_interface = {PACKAGE}.drone_interface:main",
         f"mission_manager = {PACKAGE}.mission_manager:main",
+        f"comms_link = {PACKAGE}.comms_link:main",
     ]},
 )
