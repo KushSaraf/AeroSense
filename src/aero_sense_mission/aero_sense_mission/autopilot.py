@@ -38,6 +38,12 @@ PARAM_RESEND_S = 0.3
 GPS_FIX_3D = 3
 #: Horizontal accuracy beyond which the fix is reported DEGRADED.
 GPS_DEGRADED_HACC_M = 3.0
+HOME_TIMEOUT_S = 10.0
+HOME_RESEND_S = 1.0
+#: How close the autopilot's reported home must be to where it was asked to put it.
+HOME_TOLERANCE_M = 2.0
+METRES_PER_DEGREE_LAT = 111320.0
+HOME_POSITION_ID = 242
 
 
 def param_matches(expected: float, echoed: float) -> bool:
@@ -50,6 +56,13 @@ def classify_gps(fix_type: int, h_acc_m: float) -> str:
     if fix_type < GPS_FIX_3D:
         return "LOST"
     return "DEGRADED" if h_acc_m > GPS_DEGRADED_HACC_M else "OK"
+
+
+def ground_distance_m(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    """Metres between two nearby points (equirectangular: exact enough over a search area)."""
+    north = (lat2 - lat1) * METRES_PER_DEGREE_LAT
+    east = (lon2 - lon1) * METRES_PER_DEGREE_LAT * math.cos(math.radians(lat1))
+    return math.hypot(north, east)
 
 
 def _append(history: tuple, sample: tuple) -> tuple:
@@ -95,6 +108,9 @@ class VehicleState:
     gps_hacc_m: float = math.nan
     gps_sats: int = 0
     last_text: str = ""
+    home_lat: float = math.nan
+    home_lon: float = math.nan
+    home_alt_m: float = math.nan   # AMSL
     last_heartbeat: float = 0.0
 
     @property
@@ -180,6 +196,9 @@ class Autopilot:
             h_acc = getattr(msg, "h_acc", 0)
             self._update(gps_fix_type=msg.fix_type, gps_sats=msg.satellites_visible,
                          gps_hacc_m=h_acc / 1000.0 if h_acc else math.nan)
+        elif kind == "HOME_POSITION":
+            self._update(home_lat=msg.latitude / 1e7, home_lon=msg.longitude / 1e7,
+                         home_alt_m=msg.altitude / 1000.0)
         elif kind == "VFR_HUD":
             self._update(ground_speed=msg.groundspeed)
         elif kind == "HEARTBEAT" and msg.get_srcComponent() == 1:
@@ -253,6 +272,30 @@ class Autopilot:
         self._command(mavutil.mavlink.MAV_CMD_NAV_TAKEOFF, 0, 0, 0, 0, 0, 0, altitude)
         self._wait(lambda s: s.altitude >= altitude * CLIMB_COMPLETE_FRACTION,
                    TAKEOFF_TIMEOUT_S, "takeoff climb")
+
+    def set_home_here(self) -> None:
+        """Make home the ground point under the drone now, and wait for the autopilot to confirm.
+
+        ArduPilot takes home from wherever it believes it is at arming. Flown: SITL can pass its
+        pre-arm checks before Gazebo's drone feeds it, while the vehicle still sits at SITL's
+        start point (the world origin); the drone then appeared on the pad 110 m away, took off
+        from there, and RTL flew it back to the origin. Called once airborne, when the position
+        is the real one, this puts home back on the pad it took off from, at the old home's
+        ground altitude."""
+        def confirmed(s):
+            return (math.isfinite(s.home_lat)
+                    and ground_distance_m(s.home_lat, s.home_lon, lat, lon) <= HOME_TOLERANCE_M)
+
+        self._command(mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, HOME_POSITION_ID)
+        self._wait(lambda s: math.isfinite(s.home_alt_m), HOME_TIMEOUT_S, "reading home")
+        state = self.state
+        lat, lon = state.lat, state.lon
+        deadline = time.time() + HOME_TIMEOUT_S
+        while time.time() < deadline and not confirmed(self.state):
+            self._command(mavutil.mavlink.MAV_CMD_DO_SET_HOME, 0, 0, 0, 0, lat, lon, state.home_alt_m)
+            time.sleep(HOME_RESEND_S)
+            self._command(mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, HOME_POSITION_ID)
+        self._wait(confirmed, 1, "setting home to the take-off point")
 
     def goto(self, n: float, e: float, altitude: float, yaw=None) -> None:
         """GUIDED position setpoint in local NED (altitude above home). With `yaw` (rad, NED,

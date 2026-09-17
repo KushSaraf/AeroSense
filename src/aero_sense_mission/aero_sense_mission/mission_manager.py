@@ -239,9 +239,7 @@ class MissionManager(Node):
     def _begin(self, mission_id: str):
         self._mission_id = mission_id
         self._route, self._route_goal, self._disarmed_since = (), None, None
-        # home is where this mission started, so a return goes to the pad it left, not a constant
-        if self._pose is not None:
-            self._base = (self._pose.pose.position.x, self._pose.pose.position.y)
+        self._base = None
         self._started_at = time.time()
         self._waypoints = lawnmower(self._area, self.get_parameter("leg_spacing_m").value)
         self._waypoint_index = 0
@@ -263,6 +261,10 @@ class MissionManager(Node):
         if result is None or not result.success:
             self._transition("EMERGENCY", f"takeoff failed: {getattr(result, 'message', 'no reply')}")
             return
+        # home is the pad this mission took off from, read once airborne above it: before arming
+        # the position can still be the autopilot's origin rather than the pad
+        here = self._pose.pose.position
+        self._base = (here.x, here.y)
         self._transition("SEARCHING", f"{len(self._waypoints)} legs over the {self._scenario} sector")
 
     def _call(self, client, timeout_s: float = 180.0):
@@ -473,7 +475,11 @@ class MissionManager(Node):
         landed_at_home = False
         while rclpy.ok() and time.time() < deadline:
             if not self._armed:                       # the autopilot landed and disarmed
-                landed_at_home = True
+                here = self._pose.pose.position if self._pose is not None else None
+                # disarmed is not home: RTL once put the drone down at the world origin, 110 m
+                # from the pad, and this reported the mission complete
+                landed_at_home = (here is not None and self._base is not None
+                                  and math.dist((here.x, here.y), self._base) <= HOME_RADIUS_M)
                 break
             if self._pose is not None and self._base is not None:
                 here = self._pose.pose.position

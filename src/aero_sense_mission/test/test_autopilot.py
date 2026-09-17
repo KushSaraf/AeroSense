@@ -41,3 +41,34 @@ def test_set_mode_gives_up_with_the_autopilot_text(monkeypatch):
     with pytest.raises(TimeoutError, match="No ping response"):
         drone.set_mode("GUIDED")
     assert drone._conn.calls > 1          # it kept trying
+
+
+def test_ground_distance_matches_the_metres_the_map_frame_uses():
+    pad_lat = -35.363262 - 110.0 / 111320.0
+    assert autopilot_module.ground_distance_m(-35.363262, 149.165237, pad_lat, 149.165237) == pytest.approx(110.0)
+
+
+class HomeConn:
+    """An autopilot that moves home only once DO_SET_HOME arrives, and reports it on request."""
+
+    def __init__(self, drone):
+        self.drone, self.set_home = drone, None
+
+    def send(self, cmd, params):
+        from pymavlink import mavutil
+        if cmd == mavutil.mavlink.MAV_CMD_DO_SET_HOME:
+            self.set_home = (params[4], params[5], params[6])
+        elif cmd == mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE:
+            lat, lon, alt = self.set_home or (-35.363262, 149.165237, 584.0)
+            self.drone._update(home_lat=lat, home_lon=lon, home_alt_m=alt)
+
+
+def test_home_moves_to_the_take_off_point_and_keeps_the_ground_altitude(monkeypatch):
+    monkeypatch.setattr(autopilot_module, "HOME_RESEND_S", 0.01)
+    drone = Autopilot()
+    conn = HomeConn(drone)
+    monkeypatch.setattr(drone, "_command", lambda cmd, *params: conn.send(cmd, list(params) + [0.0] * 7))
+    pad_lat = -35.363262 - 110.0 / 111320.0
+    drone._update(lat=pad_lat, lon=149.165237)
+    drone.set_home_here()
+    assert conn.set_home == (pad_lat, 149.165237, 584.0)

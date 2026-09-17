@@ -162,7 +162,8 @@ class DroneInterface(Node):
             self._ap.set_param("WP_SPD", self.get_parameter("cruise_speed_mps").value),
             self._ap.set_mode("GUIDED"),
             self._ap.arm(),
-            self._ap.takeoff(alt)))
+            self._ap.takeoff(alt),
+            self._ap.set_home_here()))
 
     def _land(self, _request, response):
         return self._run(response, "landing", self._ap.land)
