@@ -39,18 +39,39 @@ mission manager (`/aero_sense/mission/start`, SWOOP on), 30 m search altitude, f
 | Flood | 3 of its 5 | 0.31 m | 0 | 1 descent, ruled out | V20, V23 leaning out of first-floor windows, under the sunshade |
 
 Why recall fell: the old DARPA manikin was bulky. A real person seen from above is small. Warm area
-visible from overhead, from the meshes, at 30 m (0.20 m a pixel; the detector needs 4 pixels):
+visible from overhead, from the meshes, with the 256x192 thermal core these flights flew (0.13 m a
+pixel from 30 m; the detector then needed 4 pixels):
 
 | Casualty | Visible | Pixels at 30 m | At 22 m |
 |---|---|---|---|
-| lying in the open (V05, V09, V19) | 0.4-0.5 m2 | 10-12 | 19-23 |
-| legs under rubble, lying (V01, V04, V07) | 0.33 m2 | 8 | 15 |
-| seated, legs under rubble (V06, V15, V18) | 0.07 m2 | 2 | 3 |
-| standing on a car or roof (V10, V12) | 0.1 m2 | 2.5 | 4.6 |
-| feet only (V22) / hand only (V21) | 0.05 / 0.01 m2 | 1.2 / 0.3 | 2.3 / 0.5 |
+| lying in the open (V05, V09, V19) | 0.4-0.5 m2 | 26-31 | 48-58 |
+| legs under rubble, lying (V01, V04, V07) | 0.33 m2 | 20 | 38 |
+| seated, legs under rubble (V06, V15, V18) | 0.07 m2 | 5 | 9 |
+| standing on a car or roof (V10, V12) | 0.1 m2 | 6 | 12 |
+| feet only (V22) / hand only (V21) | 0.05 / 0.01 m2 | 3 / 0.6 | 6 / 1.2 |
+
+These are areas, not what the camera renders. gz samples the scene once per pixel, so a limb thinner
+than a pixel shows in some frames and not others; that is the likely reason a seated torso of about
+5 px was missed (not yet measured frame by frame).
 
 The two standing flood casualties were still found (higher and closer to the camera than the
 ground). Both window casualties are hidden from above by the chajja over the window.
+
+### SWOOP's close look counts a hand (2026-09-17)
+
+The detector's smallest blob was a fixed 4 pixels at every height, so SWOOP flew down to a hand, feet
+or a seated casualty under rubble, looked straight at a patch of 1-4 px, and ruled it out. It is now
+a ground area (`min_blob_m2: 0.008`, about a forearm and hand), turned into pixels for the drone's
+height each frame. Flown with `tools/mission_evaluation.py`, 30 m search, 256x192 thermal core:
+
+| Sector | Before (4 px) | After (0.008 m2) | False positives |
+|---|---|---|---|
+| Earthquake | 8 of 18 | **13 of 18**, 99% searched, 750 s | 0 |
+| Flood | 3 of 5 | **5 of 5**, 99.5% searched, 464 s | 0 |
+
+Now found: the hand (V21), the feet (V22), the seated casualties with legs under rubble (V06, V15,
+V18) and both people leaning out of windows (V20, V23). Still missed: V09 (dead, at ambient), V16
+and V17 (buried; the warm patch on the pile is below 304 K), V13 and V14 (inside collapse cracks).
 
 ### Searching lower, 22 m instead of 30 m (2026-09-17)
 

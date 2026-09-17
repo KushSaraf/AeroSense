@@ -9,7 +9,9 @@ from aero_sense_perception.tracker import Tracker
 from aero_sense_perception.victim_detector import load_config
 
 CFG = load_config()
-DET = CFG["detector"]
+HFOV_RAD = 0.9948
+#: the detector as it runs close to the ground (4 px minimum), where a speck is not a body part
+DET = {**{k: v for k, v in CFG["detector"].items() if k != "min_blob_m2"}, "min_blob_px": 4}
 AMBIENT_K = 298.0
 
 
@@ -31,6 +33,19 @@ def test_finds_a_warm_body_and_ignores_ambient_ground():
 def test_ignores_specks_and_whole_hot_surfaces():
     blobs = detector.detect(frame_with([(10, 10, 1, 310.0), (40, 40, 80, 310.0)]), **DET)
     assert blobs == ()
+
+
+def test_the_smallest_blob_is_a_hand_at_any_height():
+    """The minimum is ground area, so a hand-sized patch counts from any height: one pixel from
+    search altitude, several from a SWOOP close look, a lot more just off the ground."""
+    area_m2 = CFG["detector"]["min_blob_m2"]
+    assert 0.005 <= area_m2 <= 0.012                                     # about a forearm and hand
+    at = {h: detector.min_blob_px(area_m2, h, HFOV_RAD, 256) for h in (2.0, 10.0, 30.0, 60.0)}
+    assert at[60.0] == at[30.0] == 1 and at[10.0] > at[30.0] and at[2.0] > at[10.0]
+    gsd_10 = 2 * 10.0 * math.tan(HFOV_RAD / 2) / 256
+    assert at[10.0] * gsd_10 ** 2 <= area_m2 < (at[10.0] + 1) * gsd_10 ** 2
+    one_px = {**DET, "min_blob_px": at[30.0]}
+    assert len(detector.detect(frame_with([(10, 10, 1, 309.0)]), **one_px)) == 1   # a hand from 30 m
 
 
 def test_confidence_grows_with_temperature_and_saturates():

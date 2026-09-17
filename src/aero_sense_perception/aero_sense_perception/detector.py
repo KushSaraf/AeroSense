@@ -4,6 +4,7 @@ Pure numpy/OpenCV: no ROS, no ground truth. The frame is real sensor data, so th
 that actually has to find casualties. In a scene where everything else sits at ambient, warmth
 is the cue that separates a person from rubble.
 """
+import math
 from dataclasses import dataclass
 
 import cv2
@@ -24,6 +25,13 @@ class ThermalBlob:
     mean_k: float
     confidence: float
     surround_k: float        # median temperature of the ground ringing the blob
+
+
+def min_blob_px(min_area_m2: float, height_m: float, hfov_rad: float, width_px: int) -> int:
+    """The smallest blob, in pixels, that covers `min_area_m2` of ground seen straight down from
+    `height_m`: the same hand counts from 30 m (1 px) and from 10 m (a few). Never below 1."""
+    ground_sample_m = 2.0 * max(height_m, 0.5) * math.tan(hfov_rad / 2.0) / width_px
+    return max(1, math.floor(min_area_m2 / ground_sample_m ** 2))
 
 
 def detect(kelvin: np.ndarray, min_temperature_k: float, min_blob_px: int, max_blob_px: int,

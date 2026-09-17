@@ -50,7 +50,8 @@ class VictimDetector(Node):
         self.declare_parameter("world_file", "")
         self.declare_parameter("camera_hfov_rad", 0.9948)       # FLIR Lepton 3.5, 57 deg
         config = load_config(self.get_parameter("config_file").value)
-        self._detector_cfg = config["detector"]
+        self._detector_cfg = {k: v for k, v in config["detector"].items() if k != "min_blob_m2"}
+        self._min_blob_m2 = config["detector"]["min_blob_m2"]
         self._tracker = Tracker(**config["tracker"])
         self._suspect_cfg = {k: v for k, v in config["suspects"].items()
                              if k not in ("associate_radius_m", "min_height_m", "min_looks")}
@@ -143,9 +144,11 @@ class VictimDetector(Node):
             return
         position, rotation = pose
         kelvin = np.frombuffer(msg.data, np.uint16).reshape(msg.height, msg.width) * self._scale
-        blobs = detector.detect(kelvin, **self._detector_cfg)
-        scale = msg.width / self._info.width if self._info.width else 1.0
         height_m = float(position[2] - self._ground_z)
+        min_blob_px = detector.min_blob_px(self._min_blob_m2, height_m, self.get_parameter("camera_hfov_rad").value,
+                                           msg.width)
+        blobs = detector.detect(kelvin, min_blob_px=min_blob_px, **self._detector_cfg)
+        scale = msg.width / self._info.width if self._info.width else 1.0
         detections = []
         for blob in blobs:
             # camera_info may describe a different resolution than the image (profiles differ)

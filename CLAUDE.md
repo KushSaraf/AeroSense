@@ -73,6 +73,9 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
   - leads must be inside the search area and at least 3 s old
   - the drone descends as low as `verify_altitude` allows, 10 m minimum
   - it dwells for 5 s, then proves the lead or rules it out
+- **Proof:** a lead is proven only if the detector confirms a casualty there, so the detector's
+  smallest blob is a ground area (`detector.min_blob_m2`, a hand), not pixels: a fixed pixel count
+  made every close look at a hand or feet fail.
 - **Tuning:** thresholds live in `perception.yaml` (`suspects:`) and the mission parameters
   `verify_*`.
 
