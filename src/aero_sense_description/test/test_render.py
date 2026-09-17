@@ -8,7 +8,8 @@ from ament_index_python.packages import get_package_share_directory
 
 from aero_sense_description import render
 
-SENSORS = {"rgb": "camera", "depth": "depth_camera", "thermal": "thermal", "imu": "imu", "baro": "air_pressure"}
+SENSORS = {"rgb": "camera", "depth": "depth_camera", "stereo_left": "camera", "stereo_right": "camera",
+           "thermal": "thermal", "imu": "imu", "baro": "air_pressure"}
 
 
 def payload_sensors(sdf):
@@ -190,3 +191,40 @@ def test_labelled_parts_are_their_published_size_and_nothing_floats():
     mast, base = wires["gps_mast_0"], boxes["gps_mast_base"]            # mast stands on its base, base on the plate
     assert math.isclose(mast["xyz"][2] - mast["length"] / 2, base["xyz"][2] + base["size"][2] / 2)
     assert math.isclose(base["xyz"][2] - base["size"][2] / 2, af["plate_top_z_m"])
+
+
+def test_openvins_sees_the_stereo_pair_where_the_model_renders_it():
+    """Both cameras look straight down (optical +z = body -z), 75 mm apart along the body's y, left
+    camera on +y; the calibration's intrinsics match the rendered image and field of view."""
+    import numpy as np
+    cfg = render.load("medium")
+    poses = render.stereo_in_imu(cfg)
+    for pose in poses.values():
+        assert np.allclose(pose[:3, 2], (0.0, 0.0, -1.0), atol=1e-5)   # pitch is 1.5708, not pi/2
+    left, right = poses["stereo_left"][:3, 3], poses["stereo_right"][:3, 3]
+    assert np.allclose(left - right, (0.0, cfg["stereo"]["baseline_m"], 0.0), atol=1e-9)
+    sensors = sensors_of("medium")
+    for cam, y in render.stereo_offsets(cfg).items():
+        assert float(sensors[cam].findtext("pose").split()[1]) == pytest.approx(y)
+    calib = render.openvins_calibration(cfg, "/drone_01/")["kalibr_imucam_chain.yaml"]
+    width = cfg["profile"]["stereo"]["width"]
+    fx = width / 2 / math.tan(cfg["stereo"]["hfov_rad"] / 2)
+    assert f"intrinsics: [{fx:.6f}, {fx:.6f}, {width / 2:.6f}" in calib
+    assert "rostopic: /drone_01/aero_sense/camera/stereo_left/image_raw" in calib
+
+
+def test_the_stereo_optical_frames_agree_between_model_tf_and_calibration():
+    import numpy as np
+    cfg = render.load("low")
+    tf = {child: (xyz, rpy) for _, child, xyz, rpy in render.static_transforms(cfg)}
+    for cam, pose in render.stereo_in_imu(cfg).items():
+        xyz, rpy = tf[f"{cam}_optical"]
+        assert pose[1, 3] == pytest.approx(xyz[1]) and rpy == render.OPTICAL_RPY
+
+
+def test_imu_noise_density_follows_its_rate():
+    cfg = render.load("low")
+    imu = render.openvins_calibration(cfg)["kalibr_imu_chain.yaml"]
+    density = cfg["imu"]["gyro_stddev"] / math.sqrt(cfg["imu"]["rate_hz"])
+    assert f"gyroscope_noise_density: {density:.6e}" in imu
+    assert "update_rate: 200.0" in imu

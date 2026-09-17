@@ -73,6 +73,14 @@ depth:                        # OAK-D Pro W stereo pair, OV9282, 75 mm baseline
   hfov_rad: 2.2166            # 127 deg
   clip_m: [0.7, 12.0]         # Luxonis' ideal depth range: nothing reads at search altitude
   noise_stddev: 0.02          # metres
+stereo:                       # OAK-D Pro W's OV9282 pair as the two mono images VIO tracks (OpenVINS)
+  baseline_m: 0.075           # Luxonis: 75 mm between the stereo cameras
+  # The real lens is 127 deg; gz renders a pinhole camera, which at 127 deg stretches the edges
+  # beyond what a pinhole model tracks well, so the sim renders the central 90 deg. A real build
+  # calibrates the full lens with an equidistant (fisheye) model instead.
+  hfov_rad: 1.5708
+  clip_m: [0.3, 300.0]
+  noise_stddev: 0.007         # fraction of full scale, as the colour camera
 thermal:                      # LWIR core at 256x192 (fixed, so not part of the quality profiles)
   hfov_rad: 0.9948            # 57 deg, as the Lepton 3.5 this replaced
   # 256x192, as 12 um uncooled cores (InfiRay Tiny1-C class) ship; the Lepton 3.5 is 160x120.
@@ -93,7 +101,7 @@ thermal:                      # LWIR core at 256x192 (fixed, so not part of the 
   resolution_k: 0.01          # scale of the L16 counts (1 count = 0.01 K), not the precision
   # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera.
 imu:                          # OAK-D Pro W's BNO086; the flight IMU stays noise-free for SITL
-  rate_hz: 100
+  rate_hz: 200                # VIO integrates between frames: OpenVINS wants 200 Hz or more
   gyro_stddev: 0.0009         # rad/s
   accel_stddev: 0.017         # m/s^2
 baro:                         # flight controller's barometer
@@ -104,9 +112,12 @@ profiles:                     # OAK-D resolution and rate only (both sensors 16:
   low:
     rgb:     {width: 640,  height: 400, rate_hz: 5}
     depth:   {width: 640,  height: 400, rate_hz: 5}
+    stereo:  {width: 640,  height: 400, rate_hz: 15}
   medium:
     rgb:     {width: 960,  height: 600, rate_hz: 10}
     depth:   {width: 1280, height: 800, rate_hz: 5}
+    stereo:  {width: 640,  height: 400, rate_hz: 20}
   high:
     rgb:     {width: 1280, height: 800, rate_hz: 15}
     depth:   {width: 1280, height: 800, rate_hz: 10}
+    stereo:  {width: 1280, height: 800, rate_hz: 30}

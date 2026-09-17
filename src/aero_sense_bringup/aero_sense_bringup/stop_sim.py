@@ -18,7 +18,8 @@ from pathlib import Path
 
 #: Programs that are part of a simulation, by the name they are invoked as.
 SIMULATION_PROGRAMS = {"arducopter", "mavproxy.py", "parameter_bridge",
-                       "static_transform_publisher", "rviz2"}
+                       "static_transform_publisher", "rviz2",
+                       "run_subscribe_msckf"}           # OpenVINS, with vio:=true
 #: Python processes count only when they are running one of our nodes or the launch itself.
 PYTHON_MARKERS = ("aero_sense", "mavproxy.py")
 SITL_TCP_PORT = 5760

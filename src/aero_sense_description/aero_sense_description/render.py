@@ -7,15 +7,18 @@ import math
 from pathlib import Path
 
 import jinja2
+import numpy as np
 import yaml
 from ament_index_python.packages import get_package_share_directory
 
 PACKAGE = "aero_sense_description"
 QUALITIES = ("low", "medium", "high")
-CAMERAS = ("rgb", "depth", "thermal")
+STEREO = ("stereo_left", "stereo_right")
+CAMERAS = ("rgb", "depth", "thermal", *STEREO)
 #: Camera body frame (x forward, z up) -> optical frame (z forward, x right, y down).
 OPTICAL_RPY = (-math.pi / 2, 0.0, -math.pi / 2)
-FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "imu_link", "baro_link")
+FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "imu_link", "baro_link",
+               *(f"{cam}_optical" for cam in STEREO))
 #: ArduPilot Hexa-X (FRAME_CLASS 2, FRAME_TYPE 1), in motor order: (bearing deg clockwise from
 #: forward, spin seen from above). Copied from AP_MotorsMatrix::setup_hexa_matrix; the model's
 #: rotor_<i>_joint is ArduPilot's motor i+1, so this order must not change.
@@ -169,7 +172,8 @@ def model_sdf(cfg: dict, name: str, frame_prefix: str = "") -> str:
                              undefined=jinja2.StrictUndefined, trim_blocks=True, lstrip_blocks=True)
     return env.get_template("drone.sdf.jinja").render(
         cfg=cfg, name=name, frames=frames(frame_prefix), topics=gz_topics(name),
-        rotors=rotors(cfg["airframe"]["arm_m"]), meshes=share() / "meshes", parts=layout(cfg))
+        rotors=rotors(cfg["airframe"]["arm_m"]), meshes=share() / "meshes", parts=layout(cfg),
+        stereo=stereo_offsets(cfg))
 
 
 def _gz_to_ros(ros: str, gz: str, ros_type: str, gz_type: str) -> dict:
@@ -203,14 +207,91 @@ def static_transforms(cfg: dict, frame_prefix: str = "") -> tuple:
         (f["camera_link"], f["camera_optical"], (0.0, 0.0, 0.0), OPTICAL_RPY),
         (f["base_link"], f["imu_link"], mount, (0.0, 0.0, 0.0)),
         (f["base_link"], f["baro_link"], mount, (0.0, 0.0, 0.0)),
+        *((f["camera_link"], f[f"{cam}_optical"], (0.0, y, 0.0), OPTICAL_RPY)
+          for cam, y in stereo_offsets(cfg).items()),
     )
 
 
+def stereo_offsets(cfg: dict) -> dict:
+    """Each stereo camera's sideways offset (m, +y = left) from the mount's optical centre."""
+    half = cfg["stereo"]["baseline_m"] / 2
+    return {"stereo_left": half, "stereo_right": -half}
+
+
+def _rotation(roll: float, pitch: float, yaw: float) -> np.ndarray:
+    """Fixed-axis roll, pitch, yaw (SDF and TF convention) as a rotation matrix."""
+    cr, sr, cp, sp, cy, sy = (f(a) for a in (roll, pitch, yaw) for f in (math.cos, math.sin))
+    rx = np.array([[1, 0, 0], [0, cr, -sr], [0, sr, cr]])
+    ry = np.array([[cp, 0, sp], [0, 1, 0], [-sp, 0, cp]])
+    rz = np.array([[cy, -sy, 0], [sy, cy, 0], [0, 0, 1]])
+    return rz @ ry @ rx
+
+
+def stereo_in_imu(cfg: dict) -> dict:
+    """4x4 pose of each stereo camera's optical frame in the payload IMU's frame (Kalibr T_imu_cam).
+
+    The IMU sits at the mount with the body's orientation; each camera is pitched down with the
+    mount and offset sideways by half the baseline."""
+    pitch = _rotation(0.0, cfg["mount"]["camera_pitch_rad"], 0.0)
+    rotation = pitch @ _rotation(*OPTICAL_RPY)
+    poses = {}
+    for cam, y in stereo_offsets(cfg).items():
+        pose = np.eye(4)
+        pose[:3, :3], pose[:3, 3] = rotation, pitch @ np.array((0.0, y, 0.0))
+        poses[cam] = pose
+    return poses
+
+
+def pinhole_intrinsics(width: int, height: int, hfov_rad: float) -> tuple:
+    """(fx, fy, cx, cy) of gz's distortion-free pinhole camera."""
+    f = width / (2 * math.tan(hfov_rad / 2))
+    return f, f, width / 2, height / 2
+
+
+def _matrix(rows) -> str:
+    return "".join(f"    - [{', '.join(f'{v:.9f}' for v in row)}]\n" for row in rows)
+
+
+def openvins_calibration(cfg: dict, topic_prefix: str = "/") -> dict:
+    """OpenVINS's kalibr_imu_chain.yaml and kalibr_imucam_chain.yaml for the simulated payload.
+
+    Noise densities come from the IMU's configured per-sample noise (density = stddev / sqrt(rate)).
+    The simulated IMU has no bias drift, but the filter needs a non-zero random walk: EuRoC's figures."""
+    imu, stereo, profile = cfg["imu"], cfg["stereo"], cfg["profile"]["stereo"]
+    root = math.sqrt(imu["rate_hz"])
+    identity = _matrix(np.eye(3))
+    imu_yaml = (
+        "%YAML:1.0\n\nimu0:\n  T_i_b:\n" + _matrix(np.eye(4)) +
+        f"  accelerometer_noise_density: {imu['accel_stddev'] / root:.6e}\n"
+        "  accelerometer_random_walk: 3.0e-03\n"
+        f"  gyroscope_noise_density: {imu['gyro_stddev'] / root:.6e}\n"
+        "  gyroscope_random_walk: 1.9393e-05\n"
+        f"  rostopic: {topic_prefix}aero_sense/imu\n  time_offset: 0.0\n  update_rate: {float(imu['rate_hz'])}\n"
+        '  model: "kalibr"\n' +
+        "".join(f"  {name}:\n{identity}" for name in ("Tw", "R_IMUtoGYRO", "Ta", "R_IMUtoACC")) +
+        "  Tg:\n" + _matrix(np.zeros((3, 3))))
+    fx, fy, cx, cy = pinhole_intrinsics(profile["width"], profile["height"], stereo["hfov_rad"])
+    cams = ""
+    for index, (cam, pose) in enumerate(stereo_in_imu(cfg).items()):
+        cams += (f"cam{index}:\n  T_imu_cam:\n{_matrix(pose)}  cam_overlaps: [{1 - index}]\n"
+                 "  camera_model: pinhole\n  distortion_coeffs: [0.0, 0.0, 0.0, 0.0]\n  distortion_model: radtan\n"
+                 f"  intrinsics: [{fx:.6f}, {fy:.6f}, {cx:.6f}, {cy:.6f}]\n"
+                 f"  resolution: [{profile['width']}, {profile['height']}]\n"
+                 f"  rostopic: {topic_prefix}aero_sense/camera/{cam}/image_raw\n")
+    return {"kalibr_imu_chain.yaml": imu_yaml, "kalibr_imucam_chain.yaml": "%YAML:1.0\n\n" + cams}
+
+
 def generate(out_dir: Path, quality: str, name: str, frame_prefix: str = "") -> tuple:
-    """Write model.sdf and bridge.yaml for one drone; returns (model_path, bridge_path, cfg)."""
+    """Write model.sdf, bridge.yaml and the OpenVINS config (openvins/) for one drone;
+    returns (model_path, bridge_path, cfg)."""
     cfg = load(quality)
     out_dir.mkdir(parents=True, exist_ok=True)
     model, bridge = out_dir / "model.sdf", out_dir / "bridge.yaml"
     model.write_text(model_sdf(cfg, name, frame_prefix))
     bridge.write_text(yaml.safe_dump(bridge_config(name), sort_keys=False))
+    openvins = out_dir / "openvins"
+    openvins.mkdir(exist_ok=True)
+    (openvins / "estimator_config.yaml").write_text((share() / "config" / "openvins" / "estimator_config.yaml").read_text())
+    for filename, text in openvins_calibration(cfg, f"/{frame_prefix}").items():
+        (openvins / filename).write_text(text)
     return model, bridge, cfg

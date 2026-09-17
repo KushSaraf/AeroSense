@@ -186,6 +186,12 @@ def test_stop_sim_matches_gazebo_when_its_command_line_is_one_argument():
     assert stop_sim.simulation_pids([(31, ["gz topic -e -t /clock"])]) == []
 
 
+def test_stop_sim_stops_openvins_too():
+    from aero_sense_bringup import stop_sim
+    openvins = [(40, ["/home/u/uav_ws/install/ov_msckf/lib/ov_msckf/run_subscribe_msckf", "--ros-args"])]
+    assert stop_sim.simulation_pids(openvins) == [40]
+
+
 def test_stop_sim_excludes_our_own_process_tree():
     from aero_sense_bringup import stop_sim
     assert 12 not in stop_sim.simulation_pids(PROCESS_SAMPLE, exclude={12})

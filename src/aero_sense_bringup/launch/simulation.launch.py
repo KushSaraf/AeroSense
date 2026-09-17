@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0]
+        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=false]
 
 Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
 for evaluation.
@@ -105,6 +105,15 @@ def _victim_actions(world, gz_world: str) -> list:
     return actions
 
 
+def _openvins(config: Path, namespace: str) -> Node:
+    """OpenVINS on the OAK-D stereo pair and IMU (built in ~/uav_ws). Its calibration is rendered
+    with the drone, so it always matches the cameras actually fitted. Publishes ov_msckf/odomimu."""
+    return Node(package="ov_msckf", executable="run_subscribe_msckf", namespace=f"{namespace}/ov_msckf" if namespace else "ov_msckf",
+                output="screen",
+                parameters=[{"config_path": str(config), "use_stereo": True, "max_cameras": 2,
+                             "verbosity": "WARNING", "use_sim_time": True}])
+
+
 def _launch(context, *args, **kwargs):
     if not worlds.port_is_free(SITL_TCP_PORT):
         raise RuntimeError(
@@ -174,6 +183,8 @@ def _launch(context, *args, **kwargs):
                       output="screen")
     actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission, comms_link,
                *_static_tf_nodes(cfg, frame_prefix, namespace)]
+    if LaunchConfiguration("vio").perform(context).lower() in ("true", "1"):
+        actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))
     return actions
@@ -190,6 +201,8 @@ def generate_launch_description() -> LaunchDescription:
                               description="sensor quality profile (resolution / rate)"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
+        DeclareLaunchArgument("vio", default_value="false", choices=["true", "false"],
+                              description="run OpenVINS on the stereo pair (needs ov_msckf built in ~/uav_ws); experimental: diverges in live flight, see tools/vio_drift.py"),
         DeclareLaunchArgument("cruise_speed", default_value="4.0",
                               description="m/s between waypoints; raise it to fly a demo quickly"),
         OpaqueFunction(function=_launch),
