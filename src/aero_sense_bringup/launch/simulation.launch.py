@@ -81,7 +81,7 @@ def _victim_actions(world, gz_world: str) -> list:
     for victim in victim_table.load():
         x, y, z, roll, pitch, yaw = victim_table.spawn_pose(victim)
         actions.append(Node(
-            package="ros_gz_sim", executable="create", output="log",
+            package="aero_sense_bringup", executable="spawn", output="log",
             name=f"spawn_{victim_table.model_name(victim)}",
             arguments=["-world", gz_world, "-string", victim_table.victim_sdf(victim),
                        "-name", victim_table.model_name(victim), "-x", str(x), "-y", str(y),
@@ -146,7 +146,7 @@ def _launch(context, *args, **kwargs):
     mavproxy = TimerAction(period=MAVPROXY_DELAY_S, actions=[
         ExecuteProcess(cmd=mavproxy_cmd, cwd=str(SITL_DIR), output="log")])
     x, y, z, yaw = worlds.spawn_pose(world)
-    spawn = Node(package="ros_gz_sim", executable="create", output="screen",
+    spawn = Node(package="aero_sense_bringup", executable="spawn", output="screen",
                  arguments=["-world", worlds.world_name(world), "-file", str(model), "-name", drone_name,
                             "-x", str(x), "-y", str(y), "-z", str(z), "-Y", str(yaw)])
     bridge = Node(package="ros_gz_bridge", executable="parameter_bridge", namespace=namespace,
