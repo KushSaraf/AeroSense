@@ -21,8 +21,8 @@ ros2 run aero_sense_bringup stop_sim                              # stops every 
 Verify a change the way the user expects: build, tests, then a flight. A scored search is
 `tools/search_evaluation.py` (flies setpoints itself, no mission manager; earthquake by default,
 flood with `--x-range 20 180 --y-range 20 80`). To exercise the mission manager, including SWOOP,
-call `/aero_sense/mission/start` (`StartMission`, scenario `earthquake` or `flood`) and watch
-`/aero_sense/mission/events`. The user's dashboard sim blocks SITL port 5760: stop it
+run `tools/mission_evaluation.py earthquake|flood` on a running sim: it starts the mission, prints
+events and ends with `REPORT {json}` (found, recall, false positives, missed, SWOOP). The user's dashboard sim blocks SITL port 5760: stop it
 (`tools/dashboard.sh --stop`) before a test flight and restart it afterwards.
 
 ## The world is generated

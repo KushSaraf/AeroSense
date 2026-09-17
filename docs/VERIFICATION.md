@@ -52,6 +52,20 @@ visible from overhead, from the meshes, at 30 m (0.20 m a pixel; the detector ne
 The two standing flood casualties were still found (higher and closer to the camera than the
 ground). Both window casualties are hidden from above by the chajja over the window.
 
+### Searching lower, 22 m instead of 30 m (2026-09-17)
+
+Flown with `tools/mission_evaluation.py` against the same people, 22 m search with 18 m between legs
+(the same overlap as 30 m and 25 m).
+
+| Sector | 30 m | 22 m |
+|---|---|---|
+| Earthquake | 8 of 18, 95% searched, 730 s | 9 of 18, 90% searched, 771 s |
+| Flood | 3 of 5, 100%, 454 s | 3 of 5, 100%, 511 s |
+
+22 m found the seated casualties with their legs under rubble (V06, V15, V18) but missed two it
+found from 30 m (V03, V04), covered less and took longer. One casualty is within run-to-run
+variation, so the search stays at 30 m.
+
 ### Network outage (2026-09-17)
 
 Mission M-20260917-154227 started from the dashboard bridge, earthquake sector, cruise 8 m/s, with the

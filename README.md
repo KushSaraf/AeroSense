@@ -133,6 +133,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `dashboard.sh` | start everything: bridge + frontend + simulation (`--stop` to stop) |
 | `demo.sh` | simulation + RViz + a scored search, no dashboard |
 | `search_evaluation.py` | fly a search and score it against ground truth |
+| `mission_evaluation.py` | start a mission (SWOOP, triage and all) on a running sim and score what it confirmed |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
 | `record_thermal_dataset.py` | save labelled thermal (16-bit, 0.01 K) + RGB frames for developing algorithms |
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
