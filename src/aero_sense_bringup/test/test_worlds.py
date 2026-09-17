@@ -215,3 +215,15 @@ def test_search_area_outlines_match_the_missions():
         x = [float(visuals[f"outline_{scenario}_{side}"].findtext("pose").split()[0]) for side in ("west", "east")]
         y = [float(visuals[f"outline_{scenario}_{side}"].findtext("pose").split()[1]) for side in ("south", "north")]
         assert (x, y) == ([area.min_x, area.max_x], [area.min_y, area.max_y]), scenario
+
+
+def test_the_earthquake_left_no_building_intact():
+    """Every building in the earthquake sector is damaged or collapsed: an intact society there
+    looked like a town nothing had happened to."""
+    world = next(w for w in WORLDS if w.stem == "aero_sense_disaster")
+    standing = [include.findtext("name") for include in ET.parse(world).getroot().iter("include")
+                if include.findtext("uri", "").startswith("model://aero_sense_building_")
+                and float(include.findtext("pose").split()[0]) < 0
+                and not include.findtext("uri").startswith(("model://aero_sense_building_damaged_",
+                                                            "model://aero_sense_building_collapsed_"))]
+    assert not standing

@@ -67,11 +67,34 @@ The motor order lives in `render.py` (`HEXA_X`); tests check it against ArduPilo
 
 The earthquake and flood sectors are one Indian residential society, and nothing in it is on a grid
 or straight. Winding asphalt roads and narrow concrete galis run through dense pastel RCC row
-houses, shops and G+3 apartment blocks with black Sintex tanks on their roofs, all facing the
-street. In the earthquake sector many buildings are pancaked or slumped with rubble and dust
-spilling into the lanes, and electric poles lean. The flood sector's village stands in water that
-stops at a ragged, muddy shoreline. `tools/make_buildings.py` makes the buildings,
-`tools/layout_world.py` lays everything out around the casualties, and both can be re-run.
+houses, shops and apartment blocks with black Sintex tanks on their roofs, all facing the street.
+The earthquake left no building whole, following damage seen in Bhuj, Nepal and Turkey:
+- pancaked floors, and a block toppled like dominoes
+- a crushed soft storey
+- brick infill blown out of the RC frame
+- a fallen corner or top floor
+
+Rubble and dust spill into the lanes, and electric poles lean. The flood sector's village sits in
+a valley, so its water is up to 2.4 m deep in the middle and shallow at a ragged, muddy shoreline.
+`tools/make_buildings.py` makes the buildings; `tools/layout_world.py` (with `flood_valley.py`) lays
+everything out around the casualties. Both can be re-run.
+
+### SWOOP: flying down to faint leads
+
+**SWOOP** stands for **S**uspect, **W**eigh, **O**bserve **O**verhead, **P**rove. From 30 m a hand out
+of rubble or an arm above flood water is a couple of warm pixels, too little to confirm a casualty.
+SWOOP makes sure the drone doesn't fly past it:
+
+1. **Suspect:** perception (`aero_sense_perception/suspects.py`) finds every small warm patch,
+   measured against its local background, so warm roads and roofs don't count.
+2. **Weigh:** each patch is rated by how likely it is to be a person, from its heat contrast and its
+   size compared with a person at that height. Leads go to `/aero_sense/perception/suspects`.
+3. **Observe Overhead:** the mission breaks off for any lead at least **5 %** likely, flies over it
+   at cruise height and drops straight down. It goes as low as the buildings around it allow, 10 m
+   over open ground, and hovers there looking.
+4. **Prove:** a casualty confirmed there proves the lead; otherwise the lead is ruled out. The drone
+   climbs back and resumes the search where it left off (`aero_sense_mission/swoop.py`, state
+   `VERIFYING`).
 
 ### Casualties
 
@@ -102,7 +125,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |
 | `make_label_box.py` | labelled boxes for parts without CAD (battery, flight controller, RB5, ESCs) |
 | `make_buildings.py` | the society's buildings: RCC houses, row houses, apartment blocks and collapses |
-| `layout_world.py` | lay out roads, galis, buildings, poles, vehicles and the flood around the casualties |
+| `layout_world.py` | lay out roads, galis, buildings, poles, vehicles and the flood valley around the casualties |
 
 ## Running it
 

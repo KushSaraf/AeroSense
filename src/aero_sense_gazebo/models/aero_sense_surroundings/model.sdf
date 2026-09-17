@@ -1,12 +1,13 @@
 <?xml version="1.0"?>
-<!-- Open fields to the horizon around the playable ground (which is 440 x 250 m): a 3 km plane just
-     below it, a duller green so the disaster area still stands out. Visual only; nobody flies here. -->
+<!-- Open fields to the horizon beyond the grass ground mesh (which reaches 700 m out): a 3 km plane
+     below the flood valley's floor (-1.8 m), so it never shows through the valley, in a duller green
+     so the disaster area still stands out. Visual only; nobody flies here. -->
 <sdf version="1.9">
   <model name="aero_sense_surroundings">
     <static>true</static>
     <link name="link">
       <visual name="fields">
-        <pose>0 0 -0.05 0 0 0</pose>
+        <pose>0 0 -2.2 0 0 0</pose>
         <cast_shadows>false</cast_shadows>
         <geometry><plane><normal>0 0 1</normal><size>3000 3000</size></plane></geometry>
         <material><ambient>0.33 0.38 0.2 1</ambient><diffuse>0.33 0.38 0.2 1</diffuse></material>

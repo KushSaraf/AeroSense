@@ -17,6 +17,7 @@ const MISSION_STAGES = [
   { state: 'TAKEOFF', label: 'Takeoff' },
   { state: 'SEARCHING', label: 'Search the sector' },
   { state: 'VICTIM_DETECTED', label: 'Inspect casualties' },
+  { state: 'VERIFYING', label: 'Verify faint leads (SWOOP)' },
   { state: 'RETURNING', label: 'Return to base' },
   { state: 'LANDING', label: 'Land' },
   { state: 'MISSION_COMPLETE', label: 'Complete' },

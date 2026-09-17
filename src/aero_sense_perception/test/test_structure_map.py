@@ -15,7 +15,7 @@ def test_loads_the_society_from_the_world():
     kinds = {s.kind for s in structures}
     buildings = [s for s in structures if s.kind.startswith(structure_map.BUILDING_PREFIX)]
     assert len(buildings) >= 60
-    assert any("collapsed" in s.kind for s in buildings) and any("apartment" in s.kind for s in buildings)
+    assert any("collapsed" in s.kind for s in buildings) and any("damaged" in s.kind for s in buildings)
     assert all(s.radius_m > 3.0 and s.height_m > 2.0 for s in buildings)   # read from each model's collision box
     # vehicles, barriers and poles are in the world too, and are not structures
     assert not kinds & {"jersey_barrier", "pickup", "aero_sense_electric_pole"}

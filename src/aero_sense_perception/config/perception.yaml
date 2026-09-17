@@ -23,3 +23,24 @@ tracker:
   confirm_hits: 3
   # Tracks not seen again for this long stop being republished as current.
   forget_after_s: 60.0
+
+# SWOOP (Suspect, Weigh, Observe Overhead, Prove): faint or tiny heat that is not a confirmed
+# casualty, rated by how likely it is to be a person. The mission flies down to any suspect at or
+# above its own threshold (5 %) to verify it. See aero_sense_perception/suspects.py.
+suspects:
+  # One gz heat quantisation step (~2.6 K): contrast below it is indistinguishable from the ground.
+  noise_k: 2.5
+  # Full contrast of a live body over sun-warmed ground (308 K on 298 K).
+  body_contrast_k: 10.0
+  # Warmer than every surface (asphalt 301 K, one quantisation step on): ground showing between the
+  # cold walls of collapsed buildings is a local warm feature too, but no warmer than ground.
+  min_peak_k: 303.0
+  # Published from here up; the mission decides which are worth the descent.
+  min_probability: 0.05
+  # looks within this distance in the map frame are the same lead
+  associate_radius_m: 6.0
+  # no leads until the drone is this high: on the pad the camera sees its own skids and the pad
+  min_height_m: 5.0
+  # a lead is published once seen this often: a single frame taken mid-bank projects a real
+  # casualty metres off and made ghost leads the drone flew down to for nothing
+  min_looks: 3

@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """Generate the Indian residential buildings of the disaster world as Gazebo models: RCC frames
 in pastel paint with slab bands, chajjas over the windows, balconies, compound walls with a gate,
-a stair room and a black Sintex tank on the roof, and pancaked or slumped collapses.
+a stair room and a black Sintex tank on the roof, and the earthquake damage seen in Bhuj (2001),
+Nepal (2015) and Turkey (2023): pancaked floors, a slumped half, a soft storey crushed under its
+upper floors, a whole block toppled like dominoes, infill brick blown out of the RC frame, and a
+collapsed top floor or corner.
 
     python3 tools/make_buildings.py src/aero_sense_gazebo/models
 
@@ -44,12 +47,18 @@ INTACT = (
     ("apartment_4f_peach", 16.0, 22.0, 4, "peach", {"balcony"}),
     ("apartment_4f_lavender", 14.0, 20.0, 4, "lavender", {"balcony"}),
 )
-#: (name, width, depth, floors, paint, kind)
+#: (name, width, depth, floors, paint, kind). Everything the earthquake sector is built from.
 COLLAPSED = (
     ("collapsed_pancake_3f", 10.0, 14.0, 3, "green", "pancake"),
     ("collapsed_pancake_2f", 9.0, 12.0, 2, "pink", "pancake"),
     ("collapsed_slumped_4f", 16.0, 22.0, 4, "peach", "slumped"),
     ("collapsed_pancake_rowhouse", 6.5, 10.0, 2, "teal", "pancake"),
+    ("collapsed_toppled_5f", 24.0, 14.0, 5, "white", "toppled"),
+    ("damaged_softstorey_4f", 14.0, 20.0, 4, "lavender", "soft_storey"),
+    ("damaged_infill_3f", 10.0, 14.0, 3, "green", "infill_blowout"),
+    ("damaged_topfloor_rowhouse_3f", 6.0, 11.0, 3, "cream", "top_floor"),
+    ("damaged_corner_house_3f", 9.0, 15.0, 3, "pink", "corner"),
+    ("damaged_infill_rowhouse_2f", 6.5, 10.0, 2, "orange", "infill_blowout"),
 )
 #: A pancaked building leaves a crack open along +x of its centre line, where the slabs broke:
 #: a casualty trapped there is partly visible from above (victims.yaml inside_structure).
@@ -75,10 +84,27 @@ class Parts:
         self._add(colour, trimesh.creation.cylinder(radius=radius, height=height, sections=16), centre, rpy)
 
     def shifted(self, dx: float) -> "Parts":
+        return self.transformed(trimesh.transformations.translation_matrix((dx, 0.0, 0.0)))
+
+    def transformed(self, matrix) -> "Parts":
         moved = Parts()
         for colour, meshes in self.by_colour.items():
-            moved.by_colour[colour] = [m.copy().apply_translation((dx, 0.0, 0.0)) for m in meshes]
+            moved.by_colour[colour] = [m.copy().apply_transform(matrix) for m in meshes]
         return moved
+
+    def merged(self, other: "Parts") -> "Parts":
+        both = Parts()
+        for source in (self, other):
+            for colour, meshes in source.by_colour.items():
+                both.by_colour.setdefault(colour, []).extend(meshes)
+        return both
+
+    def without(self, keep) -> "Parts":
+        """Only the meshes whose centre `keep(x, y, z)` accepts: knock pieces out of a building."""
+        kept = Parts()
+        for colour, meshes in self.by_colour.items():
+            kept.by_colour[colour] = [m for m in meshes if keep(*m.bounds.mean(axis=0))]
+        return kept
 
     def scene(self) -> trimesh.Scene:
         scene = trimesh.Scene()
@@ -117,18 +143,52 @@ def facade(p, w, d, floors, features):
         p.box("gate", (0.0, -d / 2 - 0.04, PLINTH_M + 1.05), (1.1, 0.08, 2.1))
 
 
-def intact(w, d, floors, paint, features, rng) -> Parts:
+def quadrants(p, colour, w, d, z, height, inset=0.0):
+    """A w x d slab or block as four quarter pieces, so a corner can fall away on its own."""
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            p.box(colour, (sx * w / 4, sy * d / 4, z), (w / 2 - inset, d / 2 - inset, height))
+
+
+def bay_walls(p, w, d, floors, paint):
+    """Outer walls as one brick infill panel per window bay per floor, over a dark interior: knock a
+    panel out and the room behind shows, as when infill falls out of an RC frame."""
+    quadrants(p, "glass", w, d, PLINTH_M + floors * FLOOR_M / 2, floors * FLOOR_M, inset=0.5)
+    for floor in range(floors):
+        z = PLINTH_M + floor * FLOOR_M + FLOOR_M / 2
+        for along_x, length, depth in ((True, w, d), (False, d, w)):
+            bays = openings(length)
+            width = length / len(bays)
+            for sign in (-1, 1):
+                for u in bays:
+                    centre = (u, sign * (depth / 2 - 0.12)) if along_x else (sign * (depth / 2 - 0.12), u)
+                    p.box(paint, (*centre, z), (width, 0.25, FLOOR_M) if along_x else (0.25, width, FLOOR_M))
+
+
+def intact(w, d, floors, paint, features, rng, bays=False) -> Parts:
+    """A standing building. `bays` builds it from pieces (wall panels, quarter slabs) that damage
+    can knock out; otherwise solid, which is lighter for the buildings that stay whole."""
     p = Parts()
     top = PLINTH_M + floors * FLOOR_M
     p.box("concrete", (0, 0, PLINTH_M / 2), (w + 0.3, d + 0.3, PLINTH_M))
-    p.box(paint, (0, 0, PLINTH_M + floors * FLOOR_M / 2), (w, d, floors * FLOOR_M))
-    for floor in range(1, floors + 1):
-        p.box("concrete", (0, 0, PLINTH_M + floor * FLOOR_M - SLAB_M / 2), (w + 0.3, d + 0.3, SLAB_M))
-    p.box("roof", (0, 0, top + 0.01), (w - 0.4, d - 0.4, 0.02))
-    for sx in (-1, 1):
-        p.box(paint, (sx * (w / 2 - 0.1), 0, top + PARAPET_M / 2), (0.2, d, PARAPET_M))
-    for sy in (-1, 1):
-        p.box(paint, (0, sy * (d / 2 - 0.1), top + PARAPET_M / 2), (w, 0.2, PARAPET_M))
+    if bays:
+        bay_walls(p, w, d, floors, paint)
+        for floor in range(1, floors + 1):
+            quadrants(p, "concrete", w + 0.3, d + 0.3, PLINTH_M + floor * FLOOR_M - SLAB_M / 2, SLAB_M)
+        quadrants(p, "roof", w - 0.4, d - 0.4, top + 0.01, 0.02)
+        for sx in (-1, 1):
+            for sy in (-1, 1):
+                p.box(paint, (sx * (w / 2 - 0.1), sy * d / 4, top + PARAPET_M / 2), (0.2, d / 2, PARAPET_M))
+                p.box(paint, (sx * w / 4, sy * (d / 2 - 0.1), top + PARAPET_M / 2), (w / 2, 0.2, PARAPET_M))
+    else:
+        p.box(paint, (0, 0, PLINTH_M + floors * FLOOR_M / 2), (w, d, floors * FLOOR_M))
+        for floor in range(1, floors + 1):
+            p.box("concrete", (0, 0, PLINTH_M + floor * FLOOR_M - SLAB_M / 2), (w + 0.3, d + 0.3, SLAB_M))
+        p.box("roof", (0, 0, top + 0.01), (w - 0.4, d - 0.4, 0.02))
+        for sx in (-1, 1):
+            p.box(paint, (sx * (w / 2 - 0.1), 0, top + PARAPET_M / 2), (0.2, d, PARAPET_M))
+        for sy in (-1, 1):
+            p.box(paint, (0, sy * (d / 2 - 0.1), top + PARAPET_M / 2), (w, 0.2, PARAPET_M))
     facade(p, w, d, floors, features)
     if "balcony" in features:
         for floor in range(1, floors):
@@ -187,7 +247,7 @@ def pancake(w, d, floors, paint, rng) -> Parts:
         p.box(paint, (rng.uniform(-0.4, 0.4), d / 2 - 0.2, z + 0.25), (w * rng.uniform(0.4, 0.8), 0.2, 0.35))
     p.box(paint, (-w / 2 - 1.0, rng.uniform(-2, 2), 1.4), (0.25, 4.0, 3.0), (0, rng.uniform(0.5, 0.9), 0))
     p.cylinder("tank", (-w / 2 - 1.8, d / 2 + 0.8, 0.65), 0.65, 1.3, (math.pi / 2, 0, rng.uniform(0, 3)))
-    rubble(p, w, d, paint, rng, 60, 1.5)
+    rubble(p, w, d, paint, rng, 60, rubble_spread(w, 1.5))
     return p
 
 
@@ -205,6 +265,125 @@ def slumped(w, d, floors, paint, rng) -> Parts:
     p.cylinder("tank", (w / 2 + 1.2, -d / 4, 0.65), 0.65, 1.3, (math.pi / 2, 0, 0.7))
     rubble(p, w, d, paint, rng, 90, 2.0)
     return p
+
+
+def frame(p, w, d, floors, rng, missing=0.0):
+    """The bare RC frame: columns at the corners and every ~4 m, and a beam round each floor."""
+    columns_x = [(i / max(1, round(w / 4))) * w - w / 2 for i in range(round(w / 4) + 1)]
+    columns_y = [(i / max(1, round(d / 4))) * d - d / 2 for i in range(round(d / 4) + 1)]
+    for x in columns_x:
+        for y in columns_y:
+            if (abs(x) == w / 2 or abs(y) == d / 2) and rng.random() >= missing:
+                p.box("concrete", (x, y, PLINTH_M + floors * FLOOR_M / 2), (0.3, 0.3, floors * FLOOR_M))
+    for floor in range(1, floors + 1):
+        z = PLINTH_M + floor * FLOOR_M - 0.25
+        for sy in (-1, 1):
+            p.box("concrete", (0, sy * d / 2, z), (w, 0.3, 0.45))
+        for sx in (-1, 1):
+            p.box("concrete", (sx * w / 2, 0, z), (0.3, d, 0.45))
+
+
+def toppled(w, d, floors, paint, rng) -> Parts:
+    """A block gone over like dominoes (the photograph the team sent): the floor slabs still stacked
+    with crushed gaps between them, each tipped and slid a little further than the one below,
+    snapped columns in the gaps, and its walls spread as rubble on the side it fell towards."""
+    p = Parts()
+    lean = math.radians(rng.uniform(14, 19))
+    storey = 2.3                                          # crushed from 3 m
+    for level in range(floors + 1):
+        y = level * 1.3
+        z = 0.6 + level * storey + (d / 2) * math.sin(lean) * 0.5
+        colour = "roof" if level == floors else "concrete"
+        broken = rng.uniform(0.85, 1.0)
+        p.box(colour, (rng.uniform(-0.4, 0.4), y, z), (w * broken, d, 0.35),
+              (lean + rng.uniform(-0.04, 0.04), rng.uniform(-0.02, 0.02), rng.uniform(-0.02, 0.02)))
+        # the edge beam hanging down on the high side
+        p.box("concrete", (0, y + (d / 2) * math.cos(lean), z + (d / 2) * math.sin(lean) - 0.3), (w * broken, 0.3, 0.6),
+              (lean, 0, 0))
+        if level < floors:                               # snapped columns in the crushed gap
+            for x in (-w / 2 + 1, -w / 4, 0.0, w / 4, w / 2 - 1):
+                for along in (-d / 3, d / 3):
+                    if rng.random() < 0.6:
+                        p.box("concrete", (x + rng.uniform(-0.3, 0.3), y + along * math.cos(lean) + 0.6,
+                                           z + along * math.sin(lean) + storey / 2),
+                              (0.35, 0.35, storey * rng.uniform(0.5, 0.9)), (lean * 2.2, rng.uniform(-0.3, 0.3), 0))
+            p.box(paint, (-w / 2 + 0.3, y, z + 0.9), (0.2, d * rng.uniform(0.3, 0.6), 1.0), (lean, 0, 0))
+    p.cylinder("tank", (w / 3, -d / 2 - 2.5, 0.65), 0.65, 1.3, (math.pi / 2, 0, 1.2))
+    for _ in range(3):                                   # fallen wall panels on the low side
+        p.box(paint, (rng.uniform(-w / 2, w / 2), -d / 2 - rng.uniform(1, 3), 0.2), (rng.uniform(2, 4), 1.5, 0.25),
+              (rng.uniform(-0.2, 0.2), 0, rng.uniform(-0.5, 0.5)))
+    rubble(p, w, d, paint, rng, 140, 3.5)
+    return p
+
+
+def soft_storey(w, d, floors, paint, rng) -> Parts:
+    """The open ground floor (stilt parking) crushed: the upper floors sit on its wreck, sunk and
+    tilted, with the columns punched out at the base."""
+    upper = intact(w, d, floors - 1, paint, {"balcony"}, rng)
+    tilt = math.radians(rng.uniform(4, 7))
+    sink = trimesh.transformations.translation_matrix((0, 0, 0.9))
+    lean = trimesh.transformations.rotation_matrix(tilt, (1, 0, 0), (0, d / 2, 0))
+    p = upper.transformed(lean @ sink)
+    for x in (-w / 2, 0, w / 2):
+        for y in (-d / 2, 0, d / 2):
+            p.box("concrete", (x, y, 0.45), (0.35, 0.35, 0.9), (rng.uniform(-0.6, 0.6), rng.uniform(-0.6, 0.6), 0))
+    rubble(p, w, d, paint, rng, 70, 2.0)
+    return p
+
+
+def infill_blowout(w, d, floors, paint, rng) -> Parts:
+    """Brick infill thrown out of the RC frame: the frame stands, whole wall panels (with their
+    windows) are gone above the ground floor, and lie broken at its foot."""
+    p = intact(w, d, floors, paint, set(), rng, bays=True)
+
+    def standing(x, y, z):
+        on_x_face, on_y_face = abs(abs(x) - w / 2) < 0.8, abs(abs(y) - d / 2) < 0.8
+        if z < PLINTH_M + FLOOR_M or not (on_x_face or on_y_face) or z > PLINTH_M + floors * FLOOR_M:
+            return True
+        floor = int((z - PLINTH_M) // FLOOR_M)
+        bay = (math.copysign(1, x), round(y, 1)) if on_x_face and not on_y_face else (math.copysign(1, y), round(x, 1))
+        return random.Random(f"{bay}{floor}").random() >= 0.45
+
+    p = p.without(standing)
+    frame(p, w, d, floors, rng)
+    rubble(p, w, d, paint, rng, 90, rubble_spread(w, 2.5))
+    return p
+
+
+def top_floor(w, d, floors, paint, rng) -> Parts:
+    """The top floor gone: its slab down on the floor below at a slant, walls broken to stubs."""
+    p = intact(w, d, floors - 1, paint, set(), rng).without(lambda x, y, z: z < PLINTH_M + (floors - 1) * FLOOR_M + 0.2)
+    top = PLINTH_M + (floors - 1) * FLOOR_M
+    p.box("concrete", (0, 0, top - SLAB_M / 2), (w + 0.3, d + 0.3, SLAB_M))
+    for sx in (-1, 1):
+        p.box(paint, (sx * (w / 2 - 0.1), rng.uniform(-1, 1), top + 0.5), (0.2, d * rng.uniform(0.3, 0.7), rng.uniform(0.4, 1.2)))
+    p.box("roof", (rng.uniform(-0.5, 0.5), 0.8, top + 1.1), (w * 0.95, d * 0.9, SLAB_M * 1.4),
+          (math.radians(rng.uniform(9, 14)), math.radians(rng.uniform(-4, 4)), 0))
+    p.cylinder("tank", (w / 2 + 1.0, -d / 3, 0.65), 0.65, 1.3, (math.pi / 2, 0, 0.4))
+    rubble(p, w, d, paint, rng, 50, rubble_spread(w, 1.5))
+    return p
+
+
+def corner(w, d, floors, paint, rng) -> Parts:
+    """The front corner of the upper floors fallen away, slabs hanging off the break, the dark rooms
+    open to the street, the rest standing."""
+    p = intact(w, d, floors, paint, {"balcony"}, rng, bays=True)
+    p = p.without(lambda x, y, z: not (x > 0.05 and y < -0.05 and z > PLINTH_M + FLOOR_M))
+    for floor in range(2, floors + 1):
+        z = PLINTH_M + floor * FLOOR_M - 0.6 * floor
+        p.box("concrete", (w / 4, -d / 4 - 0.5, z), (w / 2, d / 2, SLAB_M * 1.4),
+              (math.radians(-rng.uniform(15, 30)), math.radians(rng.uniform(10, 20)), 0))
+    rubble(p, w, d, paint, rng, 60, rubble_spread(w, 2.0))
+    return p
+
+
+def rubble_spread(w, most):
+    """How far rubble reaches past the walls: a narrow row house spills less than a block."""
+    return min(most, 0.18 * w + 0.3)
+
+
+DAMAGE = {"pancake": pancake, "slumped": slumped, "toppled": toppled, "soft_storey": soft_storey,
+          "infill_blowout": infill_blowout, "top_floor": top_floor, "corner": corner}
 
 
 MODEL_CONFIG = """<?xml version="1.0"?>
@@ -260,9 +439,9 @@ def main():
         write(args.models, name, intact(w, d, floors, paint, features, random.Random(f"{args.seed}{name}")),
               f"{storeys} {paint} RCC building, {w:g} x {d:g} m.")
     for name, w, d, floors, paint, kind in COLLAPSED:
-        build = pancake if kind == "pancake" else slumped
-        write(args.models, name, build(w, d, floors, paint, random.Random(f"{args.seed}{name}")),
-              f"Collapsed ({kind}) {floors}-storey {paint} RCC building, {w:g} x {d:g} m plot.")
+        state = "Collapsed" if name.startswith("collapsed") else "Damaged"
+        write(args.models, name, DAMAGE[kind](w, d, floors, paint, random.Random(f"{args.seed}{name}")),
+              f"{state} ({kind.replace('_', ' ')}) {floors}-storey {paint} RCC building, {w:g} x {d:g} m plot.")
 
 
 if __name__ == "__main__":

@@ -3,14 +3,15 @@
 The state machine that turns "a simulation is running" into "a mission is being flown":
 
     STANDBY -> PRE_FLIGHT -> TAKEOFF -> SEARCHING <-> VICTIM_DETECTED
-                                             |
+                                             |  <-> VERIFYING (SWOOP, swoop.py)
                                              +-> RETURNING -> LANDING -> MISSION_COMPLETE
 
 Two things here are deliberately honest. Coverage is *measured* from where the camera actually
 looked, so a mission that flew every leg can still report 82%. And every confirmed casualty gets
 a closer look: the search breaks off, descends over the detection and dwells, because a blob seen
 once from 30 m is a lead, not a finding — and an uncertain one is exactly what a human would go
-back to check.
+back to check. Fainter still, a lead perception rates only 5 % likely to be a person is flown down
+to and verified before the search moves on (SWOOP).
 """
 import math
 import threading
@@ -34,7 +35,7 @@ from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
 from aero_sense_perception import structure_map
 
-from . import airspace
+from . import airspace, swoop
 from .search_pattern import Area, CoverageGrid, footprint_centre, footprint_radius, lawnmower
 
 #: Sector bounds in the map frame, matching aero_sense_gazebo/worlds/aero_sense_disaster.sdf.
@@ -50,7 +51,7 @@ HOME_RADIUS_M = 8.0
 RETURN_TIMEOUT_S = 300.0
 LANDED_ALTITUDE_M = 1.5
 #: States in which the drone must be armed and flying. Disarming in one of them is a crash.
-FLYING_STATES = ("SEARCHING", "VICTIM_DETECTED")
+FLYING_STATES = ("SEARCHING", "VICTIM_DETECTED", "VERIFYING")
 #: How long a disarm must last before it counts: rides out one dropped status message.
 DISARM_GRACE_S = 3.0
 #: Longest a single detour leg on the way home may take before the return goes ahead anyway.
@@ -73,6 +74,16 @@ class MissionManager(Node):
         #: Every confirmed casualty is inspected once; below this confidence it is inspected again,
         #: because an uncertain detection is the one a human would go back and check.
         self.declare_parameter("reinspect_below_confidence", 0.9)
+        # SWOOP: descend to any lead at least this likely to be a person, as low as the buildings
+        # round it allow (never below the floor), look for verify_dwell_s, then prove or rule it out
+        self.declare_parameter("verify_min_probability", 0.05)
+        self.declare_parameter("verify_floor_altitude_m", 10.0)
+        self.declare_parameter("verify_dwell_s", 5.0)
+        self.declare_parameter("verify_radius_m", 8.0)
+        self.declare_parameter("max_verifications", 30)
+        # a lead must stay unexplained this long first: a real casualty seen at body strength is
+        # confirmed by the tracker within a second or two, and needs no descent
+        self.declare_parameter("verify_lead_age_s", 3.0)
         self.declare_parameter("return_battery_percent", 25.0)
         self.declare_parameter("map_frame", "map")
         self.declare_parameter("world_file", "")
@@ -101,6 +112,11 @@ class MissionManager(Node):
         self._inspect_target = None
         self._inspect_until = 0.0
         self._resume_index = 0
+        self._leads = {}
+        self._lead_first_seen = {}
+        self._visited = []
+        self._verify = None
+        self._verifications = 0
         self._paused = False
         self._busy = threading.Lock()
 
@@ -116,6 +132,7 @@ class MissionManager(Node):
         self.create_subscription(PoseStamped, "aero_sense/drone/pose", self._on_pose, 10)
         self.create_subscription(BatteryState, "aero_sense/drone/battery", self._on_battery, 10)
         self.create_subscription(VictimArray, "aero_sense/victims", self._on_victims, 10)
+        self.create_subscription(VictimArray, "aero_sense/perception/suspects", self._on_leads, 10)
         self.create_subscription(DroneStatus, "aero_sense/drone/status",
                                  lambda m: setattr(self, "_armed", m.armed), 10)
 
@@ -143,7 +160,7 @@ class MissionManager(Node):
 
     def _on_pose(self, msg: PoseStamped):
         self._pose = msg
-        if self._coverage is None or self._state not in ("SEARCHING", "VICTIM_DETECTED"):
+        if self._coverage is None or self._state not in FLYING_STATES:
             return
         position = msg.pose.position
         yaw = self._yaw_of(msg)
@@ -231,6 +248,8 @@ class MissionManager(Node):
         self._coverage = CoverageGrid(self._area, self.get_parameter("coverage_cell_m").value)
         self._victims.clear()
         self._inspected.clear()
+        self._leads, self._visited, self._verify, self._verifications = {}, [], None, 0
+        self._lead_first_seen = {}
         # a mission searches for its own casualties; stale tracks would be inspected instead
         if self._reset_perception.wait_for_service(timeout_sec=5.0):
             self._reset_perception.call_async(Trigger.Request())
@@ -288,6 +307,8 @@ class MissionManager(Node):
             self._search_step()
         elif self._state == "VICTIM_DETECTED":
             self._inspect_step()
+        elif self._state == "VERIFYING":
+            self._verify_step()
 
     def _search_step(self):
         if self._battery_percent <= self.get_parameter("return_battery_percent").value:
@@ -296,6 +317,10 @@ class MissionManager(Node):
         target = self._next_inspection()
         if target is not None:
             self._start_inspection(target)
+            return
+        lead = self._next_lead()
+        if lead is not None:
+            self._start_verification(lead)
             return
         if self._waypoint_index >= len(self._waypoints):
             self._go_home("search pattern complete")
@@ -350,6 +375,79 @@ class MissionManager(Node):
                 self._inspect_target = None
                 self._waypoint_index = self._resume_index
                 self._transition("SEARCHING", "resuming the search pattern")
+
+    # -- SWOOP: verify faint leads before moving on ------------------------------
+
+    def _on_leads(self, msg: VictimArray):
+        now = time.time()
+        for lead in msg.victims:
+            self._lead_first_seen.setdefault(lead.victim_id, now)
+        self._leads = {lead.victim_id: lead for lead in msg.victims}
+
+    def _next_lead(self):
+        if self._verifications >= self.get_parameter("max_verifications").value:
+            return None
+        here = (self._pose.pose.position.x, self._pose.pose.position.y)
+        settled = time.time() - self.get_parameter("verify_lead_age_s").value
+        leads = tuple(lead for lead in self._leads.values()
+                      if self._lead_first_seen.get(lead.victim_id, time.time()) <= settled)
+        return swoop.next_lead(leads, tuple(self._victims.values()), self._visited,
+                               here, self.get_parameter("verify_min_probability").value,
+                               self.get_parameter("verify_radius_m").value, self._area)
+
+    def _start_verification(self, lead):
+        x, y = lead.position.x, lead.position.y
+        self._visited.append((x, y))
+        self._verifications += 1
+        cruise = self.get_parameter("search_altitude_m").value
+        altitude = swoop.verify_altitude(self._structures, x, y,
+                                         self.get_parameter("verify_floor_altitude_m").value, cruise)
+        if altitude is None:
+            self._event(f"SWOOP {lead.victim_id}: {lead.confidence:.0%} likely a person at ({x:.0f}, {y:.0f}), "
+                        f"but nothing is clear below {cruise:.0f} m there; left for the ground team")
+            return
+        self._verify = {"lead": lead, "x": x, "y": y, "altitude": altitude, "phase": "over", "until": 0.0}
+        self._resume_index = self._waypoint_index
+        self._transition("VERIFYING", f"SWOOP {lead.victim_id}: {lead.confidence:.0%} likely a person at "
+                                      f"({x:.0f}, {y:.0f}); descending to {altitude:.0f} m to verify")
+
+    def _verify_step(self):
+        """Over the lead at cruise height, straight down, look, prove or rule out, straight up."""
+        v = self._verify
+        if v is None:
+            self._transition("SEARCHING", "nothing to verify")
+            return
+        x, y, low = v["x"], v["y"], v["altitude"]
+        cruise = self.get_parameter("search_altitude_m").value
+        if v["phase"] == "over":
+            if self._fly_safely(x, y, cruise):
+                v["phase"] = "down"
+        elif v["phase"] == "down":
+            self._fly_to(x, y, low, 0.0)
+            if self._distance_to(x, y, low) < REACHED_M:
+                v["phase"], v["until"] = "look", time.time() + self.get_parameter("verify_dwell_s").value
+        elif v["phase"] == "look":
+            self._fly_to(x, y, low, 0.0)
+            if time.time() >= v["until"]:
+                self._prove(v)
+                v["phase"] = "up"
+        else:
+            self._fly_to(x, y, cruise, 0.0)
+            if self._distance_to(x, y, cruise) < REACHED_M:
+                self._verify = None
+                self._waypoint_index = self._resume_index
+                self._transition("SEARCHING", "resuming the search pattern")
+
+    def _prove(self, v):
+        lead = v["lead"]
+        found = swoop.proven(tuple(self._victims.values()), v["x"], v["y"],
+                             self.get_parameter("verify_radius_m").value)
+        if found is None:
+            self._event(f"SWOOP {lead.victim_id}: ruled out, nothing there from {v['altitude']:.0f} m")
+            return
+        self._inspected.setdefault(found.victim_id, 1)      # seen from lower than an inspection flies
+        self._event(f"SWOOP {lead.victim_id}: proven, casualty {found.victim_id} confirmed from "
+                    f"{v['altitude']:.0f} m ({found.confidence:.0%} confident)")
 
     def _approach_yaw(self, victim) -> float:
         here = self._pose.pose.position

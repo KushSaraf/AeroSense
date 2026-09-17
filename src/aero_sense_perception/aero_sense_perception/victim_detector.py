@@ -5,6 +5,7 @@ evaluation can score these detections against it.
 
     thermal image -> hot blobs -> ray through the pixel -> ground intersection in `map`
                   -> nearest-neighbour track -> /aero_sense/victims
+                  -> faint or tiny warm patches, rated -> /aero_sense/perception/suspects (SWOOP)
 """
 import math
 from pathlib import Path
@@ -21,11 +22,12 @@ from tf2_ros import Buffer, TransformListener
 
 from aero_sense_interfaces.msg import TriageScore, VictimArray, VictimDetection
 
-from . import detector, geolocate, structure_map, triage
+from . import detector, geolocate, structure_map, suspects, triage
 from .tracker import Tracker
 
 DETECTIONS_TOPIC = "aero_sense/perception/detections"
 VICTIMS_TOPIC = "aero_sense/victims"
+SUSPECTS_TOPIC = "aero_sense/perception/suspects"
 EARTH_RADIUS_M = 6378137.0
 
 
@@ -46,9 +48,16 @@ class VictimDetector(Node):
         self.declare_parameter("ground_z", 0.0)
         self.declare_parameter("ambient_k", 293.0)
         self.declare_parameter("world_file", "")
+        self.declare_parameter("camera_hfov_rad", 0.9948)       # FLIR Lepton 3.5, 57 deg
         config = load_config(self.get_parameter("config_file").value)
         self._detector_cfg = config["detector"]
         self._tracker = Tracker(**config["tracker"])
+        self._suspect_cfg = {k: v for k, v in config["suspects"].items()
+                             if k not in ("associate_radius_m", "min_height_m", "min_looks")}
+        self._lead_radius_m = config["suspects"]["associate_radius_m"]
+        self._lead_min_height_m = config["suspects"]["min_height_m"]
+        self._lead_min_looks = config["suspects"]["min_looks"]
+        self._leads = ()
         self._scale = self.get_parameter("thermal_resolution_k").value
         self._origin = (self.get_parameter("origin_latitude").value,
                         self.get_parameter("origin_longitude").value)
@@ -66,6 +75,7 @@ class VictimDetector(Node):
         self.create_service(Trigger, "aero_sense/perception/reset", self._reset)
         self._raw_pub = self.create_publisher(VictimArray, DETECTIONS_TOPIC, 10)
         self._victims_pub = self.create_publisher(VictimArray, VICTIMS_TOPIC, 10)
+        self._suspects_pub = self.create_publisher(VictimArray, SUSPECTS_TOPIC, 10)
         self.get_logger().info(
             f"thermal search above {self._detector_cfg['min_temperature_k']} K -> {VICTIMS_TOPIC}")
 
@@ -92,7 +102,9 @@ class VictimDetector(Node):
         carries the previous mission's casualties over, and the drone spends the new flight
         re-inspecting bodies it found in a different sector."""
         found = len(self._tracker.confirmed())
-        self._tracker = Tracker(**load_config(self.get_parameter("config_file").value)["tracker"])
+        config = load_config(self.get_parameter("config_file").value)
+        self._tracker = Tracker(**config["tracker"])
+        self._leads = ()
         response.success = True
         response.message = f"cleared {found} tracks"
         self.get_logger().info(response.message)
@@ -147,6 +159,7 @@ class VictimDetector(Node):
             detections.append((tuple(point), blob.confidence, blob.peak_k, exposure, blob.surround_k))
         self._publish_raw(msg.header.stamp, detections)
         self._publish_victims(msg.header.stamp, detections)
+        self._publish_suspects(msg.header.stamp, kelvin, scale, position, rotation, height_m)
 
     def _geodetic(self, x: float, y: float) -> tuple:
         lat = self._origin[0] + math.degrees(y / EARTH_RADIUS_M)
@@ -198,6 +211,29 @@ class VictimDetector(Node):
                                     t.exposure, t.surround_k) for t in confirmed]
         self._victims_pub.publish(msg)
 
+    def _publish_suspects(self, stamp, kelvin, scale, position, rotation, height_m):
+        """SWOOP's leads: every faint warm patch rated at least `min_probability`, kept as one
+        lead per place so the mission can fly down to it."""
+        found = suspects.find(kelvin, height_m, self.get_parameter("camera_hfov_rad").value, **self._suspect_cfg)
+        looks = []
+        for suspect in found:
+            point = geolocate.project(suspect.u / scale, suspect.v / scale, self._info.k, position,
+                                      rotation, self._ground_z)
+            if point is not None:
+                looks.append((tuple(point), suspect.probability, suspect.peak_k, suspect.contrast_k))
+        self._leads = suspects.merge(self._leads, looks, self._lead_radius_m)
+        msg = VictimArray()
+        msg.header.stamp, msg.header.frame_id = stamp, self._map_frame
+        for lead in (lead for lead in self._leads if lead.looks >= self._lead_min_looks):
+            lat, lon = self._geodetic(lead.position[0], lead.position[1])
+            msg.victims.append(VictimDetection(
+                victim_id=lead.lead_id,
+                position=Point(x=float(lead.position[0]), y=float(lead.position[1]), z=float(lead.position[2])),
+                latitude=lat, longitude=lon, confidence=float(lead.probability),
+                evidence=f"SUSPECT +{lead.contrast_k:.1f} K over the ground, {lead.looks} looks",
+                surface_temperature_k=float(lead.peak_k), movement="unknown", visibility="unknown",
+                vital_state="unknown", priority="UNTRIAGED"))
+        self._suspects_pub.publish(msg)
 
 def main():
     rclpy.init()

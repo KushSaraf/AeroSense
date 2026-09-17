@@ -142,7 +142,7 @@ def telemetry_point(stamp, battery_percent: float, altitude: float, speed: float
 
 
 #: Mission states the state machine publishes, mapped to what the dashboard calls them.
-RUNNING_STATES = {"PRE_FLIGHT", "TAKEOFF", "TRANSIT", "SEARCHING", "VICTIM_DETECTED",
+RUNNING_STATES = {"PRE_FLIGHT", "TAKEOFF", "TRANSIT", "SEARCHING", "VICTIM_DETECTED", "VERIFYING",
                   "HAZARD_DETECTED", "LOCAL_REPLAN", "GPS_DENIED", "OFFLINE_AUTONOMY",
                   "RETURNING", "LANDING"}
 SCENARIO_NAMES = {"earthquake": "Earthquake SAR", "flood": "Flood assessment",

@@ -214,19 +214,40 @@ Gazebo world frame (verified: ROS pose (0.00, −109.99) vs Gazebo (0.00, −110
 
 **S4 landslide:** removed. The world is the earthquake (S1) and flood (S2) sectors on a flat plain.
 
-**S2 flood:** a village standing in 0.6 m of water with a ragged shoreline and a wet mud fringe.
-The flood surface is a transparent mesh laid over the sector, so the buildings and vehicles beneath it are submerged by construction
-rather than by separate "flooded" models. It reads 291 K in LWIR — *colder* than the 298 K
-ground — so a casualty in the water stands out by contrast the opposite way round from one on
-dry land, and the same detector finds them without a special case. Verified: all three flood
-casualties found, 0.5-1.1 m error. That error is larger than S1's 0.2 m because they float
-0.6 m above the ground plane the projection assumes, which is the cue to use depth for range.
+**S2 flood:** a village in a valley (`tools/flood_valley.py`). The ground inside a ragged
+shoreline falls away to 1.8 m below the plain, and the water stands level at 0.6 m above it, so it
+is up to 2.4 m deep in the middle and shallow at the muddy edge. Buildings, vehicles, tracks and
+the ground meshes all sit on the sunken floor. The flood surface is a transparent mesh, so what is
+under it is submerged by construction rather than by separate "flooded" models. It reads 291 K in
+LWIR, *colder* than the 298 K ground, so a casualty in the water stands out by contrast the
+opposite way round from one on dry land, and the same detector finds them without a special case.
 
-**S1 earthquake:** the society's older half, with dense row houses along crooked galis, pancaked
-and slumped collapses spilling rubble into the lanes, leaning electric poles and crashed vehicles,
-plus the hand-placed tdf landmarks: collapsed industrial hall (24 m), fire and police stations,
-a police cordon of jersey barriers, and two tall obstacles above the search altitude, a 44 m
-radio mast at (−40, 60) and a 10 m water tower.
+**S1 earthquake:** the society's older half, where nothing is left intact (tested). The damage
+follows what Bhuj (2001), Nepal (2015) and Turkey (2023) left behind:
+- pancaked floors, including row houses
+- a block toppled like dominoes
+- a soft storey crushed under the floors above
+- brick infill blown out of the RC frame
+- a fallen corner or top floor, and a slumped half
+
+Rubble (allowed to spill onto roads and into neighbouring rubble, never onto a casualty) and dust
+fill the crooked galis, and poles lean. The hand-placed tdf landmarks add a collapsed industrial
+hall (24 m), fire and police stations, a police cordon of jersey barriers, and two tall obstacles
+above the search altitude: a 44 m radio mast at (−40, 60) and a 10 m water tower.
+
+**SWOOP (Suspect, Weigh, Observe Overhead, Prove):** `victim_detector` also publishes faint leads
+on `/aero_sense/perception/suspects`:
+- **Finding them:** a white top-hat keeps warm features smaller than 2.5 m and drops roads and roofs.
+- **Rating them:** each lead's probability comes from its contrast above one gz quantisation step and its size against a person at that height.
+- **Keeping them:** the best single look is kept, and frames never compound.
+
+`mission_manager` flies down to the nearest lead that is at least 5 % likely, inside the search area
+and not already explained:
+- **Height:** as low as `swoop.verify_altitude` allows, which is 5 m above the tallest structure whose no-fly circle covers the spot, never below 10 m.
+- **Proving it:** the drone looks for 5 s, then proves the lead (a casualty is confirmed within 8 m) or rules it out.
+- **Resuming:** it climbs back and resumes the lawnmower.
+
+Leads beside the mast, where nothing below cruise height is clear, are left for the ground team.
 
 Assets come from `reference/` (gitignored, used in place; see README "Reference assets"):
 tdf_gazebo, the Gazebo model collection, the fire-detection repo and DARPA SubT. Their meshes

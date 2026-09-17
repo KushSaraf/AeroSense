@@ -108,3 +108,69 @@ def test_a_found_casualty_is_never_forgotten_but_stops_being_current():
     much_later = CFG["tracker"]["forget_after_s"] + 10
     assert len(t.confirmed(now_s=much_later)) == 1
     assert t.current(now_s=much_later) == ()
+
+
+# -- SWOOP leads: faint heat that is not yet a casualty ------------------------------------------
+
+from aero_sense_perception import suspects  # noqa: E402
+
+SUS = {k: v for k, v in CFG["suspects"].items() if k not in ("associate_radius_m", "min_height_m", "min_looks")}
+LEPTON_HFOV = 0.9948
+
+
+def lepton_frame(kelvin=298.0):
+    return np.full((120, 160), kelvin, dtype=np.float32)
+
+
+def test_a_hand_too_small_to_be_a_casualty_is_still_a_lead():
+    frame = lepton_frame()
+    frame[50:52, 70] = 305.8                                   # two pixels of skin from 30 m
+
+    assert detector.detect(frame, **DET) == ()
+    (lead,) = suspects.find(frame, 30.0, LEPTON_HFOV, **SUS)
+    assert 0.05 <= lead.probability < 0.5 and lead.contrast_k == pytest.approx(7.8, abs=0.01)
+
+
+def test_an_arm_above_cold_flood_water_rates_higher_than_on_warm_ground():
+    water, ground = lepton_frame(291.0), lepton_frame(298.0)
+    water[60, 80:82] = ground[60, 80:82] = 305.8
+
+    (in_water,) = suspects.find(water, 30.0, LEPTON_HFOV, **SUS)
+    (on_ground,) = suspects.find(ground, 30.0, LEPTON_HFOV, **SUS)
+    assert in_water.probability > on_ground.probability
+
+
+def test_a_whole_body_is_a_certain_lead():
+    frame = lepton_frame()
+    frame[40:44, 40:46] = 308.4
+
+    (lead,) = suspects.find(frame, 30.0, LEPTON_HFOV, **SUS)
+    assert lead.probability == pytest.approx(1.0)
+
+
+def test_warm_roads_and_heat_below_the_sensor_noise_are_not_leads():
+    road = lepton_frame()
+    road[:, 60:100] = 301.0                                    # an 8 m asphalt road
+    faint = lepton_frame()
+    faint[40:43, 40] = 299.0                                   # a buried casualty's 1 K bloom
+
+    assert suspects.find(road, 30.0, LEPTON_HFOV, **SUS) == ()
+    assert suspects.find(faint, 30.0, LEPTON_HFOV, **SUS) == ()
+
+
+def test_the_same_patch_seen_again_is_one_lead_keeping_its_best_look():
+    leads = suspects.merge((), [((10.0, 5.0, 0.0), 0.2, 305.8, 7.8)], radius_m=6.0)
+    leads = suspects.merge(leads, [((11.0, 5.0, 0.0), 0.4, 306.0, 8.0), ((40.0, 5.0, 0.0), 0.1, 304.0, 6.0)], 6.0)
+    leads = suspects.merge(leads, [((10.5, 5.0, 0.0), 0.1, 304.0, 6.0)], 6.0)
+
+    assert [lead.lead_id for lead in leads] == ["S-001", "S-002"]
+    assert leads[0].probability == 0.4 and leads[0].looks == 3     # looks do not compound
+
+
+def test_ground_between_cold_collapsed_walls_is_not_a_lead():
+    """Buildings read ambient (293 K), cooler than the ground, so a gali between them is a narrow
+    warm strip. It is still only ground."""
+    frame = lepton_frame(293.0)                                # rubble and walls
+    frame[40:80, 70:73] = 298.0                                # a 60 cm strip of earth between them
+
+    assert suspects.find(frame, 30.0, LEPTON_HFOV, **SUS) == ()

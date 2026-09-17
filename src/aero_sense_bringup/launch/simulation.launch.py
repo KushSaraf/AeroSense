@@ -161,6 +161,7 @@ def _launch(context, *args, **kwargs):
                       namespace=namespace, output="screen",
                       parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon,
                                    "thermal_resolution_k": cfg["thermal"]["resolution_k"],
+                                   "camera_hfov_rad": cfg["thermal"]["hfov_rad"],
                                    "camera_frame": f"{frame_prefix}camera_optical"}])
     mission = Node(package="aero_sense_mission", executable="mission_manager",
                    namespace=namespace, output="screen",
