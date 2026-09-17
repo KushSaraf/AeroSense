@@ -107,14 +107,19 @@ each marked with how long it waited on board.
 
 ### Casualties
 
-`src/aero_sense_scenario_manager/config/victims.yaml` lists 22 casualties, each built from its entry
+`src/aero_sense_scenario_manager/config/victims.yaml` lists 23 casualties, each built from its entry
 (`victim_models.py`):
 
-- **Visibility:** `full` in the open; `partial` with legs under a rubble heap, or only the `feet`
-  showing, or only a `hand` (out of a rubble mound, or above flood water with the body under it);
-  `buried` under a mound, where a living casualty leaves only a faint warm patch on the surface.
+- **People:** real textured men, women, a nurse and a child (Fuel characters), posed by
+  `tools/make_people.py` lying on their back or face down, sitting, reaching up, standing, waving or
+  leaning out of a window.
+- **Visibility:** `full` in the open; `partial` with the legs under broken slabs and brick, or only
+  the `feet` showing, or only a forearm and `hand` reaching out of the rubble; `buried` under a pile,
+  where a living casualty leaves only a faint warm patch on the surface.
+- **Flood:** nobody alive is in the water. They wait on a stranded car's roof, on a roof terrace, or
+  lean out of an upper-floor window (`perch`); the layout builds the car or house round them.
 - **Alive or dead:** the deceased read near ambient temperature and never move; some of the living
-  move (`waving` arm, `crawling` body), driven by the `victim_motion` node.
+  move (a `waving` arm swinging from the shoulder, a `crawling` body), driven by the `victim_motion` node.
 - **Priority** follows stated rules (tested): trapped and alive first (P1), the deceased last (P3).
 
 Ground truth (`/aero_sense/ground_truth/victims`) carries all of this for evaluation, and
@@ -135,6 +140,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `make_label_box.py` | labelled boxes for parts without CAD (battery, flight controller, RB5, ESCs) |
 | `make_buildings.py` | the society's buildings: RCC houses, row houses, apartment blocks and collapses |
 | `layout_world.py` | lay out roads, galis, buildings, poles, vehicles and the flood valley around the casualties |
+| `make_people.py` | pose the casualties' people (Fuel characters) into static, thermal-visible meshes |
 
 ## Running it
 

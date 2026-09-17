@@ -104,7 +104,8 @@ def _structures(world):
 def test_no_victim_is_buried_in_a_structure():
     """A casualty inside a building mesh is invisible to every sensor, which quietly makes the
     scenario unsolvable — it cost a search flight before this test existed. Lanes between
-    buildings are fine, and are where most of these casualties lie."""
+    buildings are fine, and are where most of these casualties lie; a flood casualty stands on the
+    car or house layout_world built for them (perch), and on no other."""
     from aero_sense_scenario_manager import victims as victim_table
     world = next(w for w in WORLDS if w.stem == "aero_sense_disaster")
     structures = list(_structures(world))
@@ -119,6 +120,8 @@ def test_no_victim_is_buried_in_a_structure():
             if abs(local_x) < half_x + VICTIM_CLEARANCE_M and abs(local_y) < half_y + VICTIM_CLEARANCE_M:
                 if victim.get("inside_structure"):
                     inside_on_purpose.append(victim["id"])
+                elif victim.get("perch") and name.endswith("_" + victim["id"].lower()):
+                    continue                          # on its own car roof or terrace, at its own window
                 else:
                     buried.append(f"{victim['id']} inside {name}")
     assert not buried

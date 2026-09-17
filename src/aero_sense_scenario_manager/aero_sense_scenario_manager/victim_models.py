@@ -1,60 +1,83 @@
-"""The Gazebo model for one casualty: the manikin, the rubble that hides it, the heat that leaks
-through that rubble, and the joints that make a living casualty move.
+"""The Gazebo model for one casualty: a real, posed person, the rubble that hides part of them, the
+heat that leaks through it, and the joints that make a living casualty move.
 
-  visibility full     the manikin in the open
-  visibility partial  part of the body shows; `exposed` says which:
-                        upper_body (default)  a rubble heap over the legs
-                        feet                  a heap over all but the feet
-                        hand                  only an arm and hand: out of a rubble mound, or out
-                                              of flood water when the body is spawned below it (z < 0)
-  visibility buried   a mound over all of it; if alive, a warm patch where body heat reaches the
-                      mound's surface, which is all LWIR can ever see of a buried casualty
-  motion waving       an arm swings on a revolute joint
+  character, pose     which person and how they lie, sit or stand: a textured mesh posed by
+                      tools/make_people.py, whose people.yaml gives its body box and joint points
+  visibility full     the person in the open, on a car roof or on a roof terrace
+  visibility partial  part of the body shows; `exposed` says which, the rest is under a pile of
+                      broken slabs, lumps and brick:
+                        upper_body (default)  the pile over the legs
+                        feet                  the pile over all but the feet
+                        hand                  the pile over all but a forearm and hand reaching up
+                      a casualty leaning out of a window (perch window) has the house's walls instead
+  visibility buried   the pile over all of it; if alive, a warm slab on top where body heat reaches
+                      the surface, which is all LWIR can ever see of a buried casualty
+  motion waving       the right arm (its own mesh) swings from the shoulder on a revolute joint
   motion crawling     the body shifts back and forth on a prismatic joint
 
-Joints are driven by Gazebo's JointPositionController on the topics `motion_topics` names;
-`victim_motion` publishes the setpoints through ros_gz_bridge. Temperatures follow Gazebo's
-Thermal system: a visual without one reads at the world's 293 K ambient.
+The model frame is the mesh's: the body faces +x, z up, its lowest point on z 0. Joints are driven by
+Gazebo's JointPositionController on the topics `motion_topics` names; `victim_motion` publishes the
+setpoints through ros_gz_bridge. Temperatures follow Gazebo's Thermal system: a visual without one
+reads at the world's 293 K ambient, which is what rubble should read.
 """
+import functools
+import math
+import random
+from pathlib import Path
+
+import yaml
+
 AMBIENT_K = 293.0
-#: A buried casualty warms the mound surface above it by this share of the body's excess heat.
+#: A buried casualty warms the pile surface above it by this share of the body's excess heat.
 #: Rubble conducts poorly, so the patch is faint: 308 K skin gives ~299 K at the surface.
 SURFACE_BLOOM_FRACTION = 0.4
+#: Flood water surface above the plain (aero_sense_flood_water; tools/flood_valley.WATER_M).
+WATER_SURFACE_Z_M = 0.6
 
-#: Rescue Randy from the DARPA SubT assets, measured from its mesh: the link sits this far below
-#: the model origin so the body rests on the ground, and the body fills this box above it.
-VICTIM_MESH = "model://survivor/meshes/rescue_randy.dae"
-MESH_GROUND_OFFSET_M = -0.623996
-BODY_MIN = (-0.473, -0.714, 0.0)
-BODY_MAX = (0.274, 0.304, 0.73)
-BODY_CENTRE = tuple((lo + hi) / 2 for lo, hi in zip(BODY_MIN, BODY_MAX))
-
-RUBBLE_RGBA = "0.52 0.49 0.44 1"
-SLAB_MESH = "model://wall_debris/meshes/wall_debris.dae"
-#: Mound radii over a buried body (x, y, z), centred on the body: taller and wider than it.
-MOUND_RADII = (1.0, 1.3, 1.05)
-#: Heap over the feet-end half of a partially visible body (the -y half of the manikin).
-HEAP_RADII = (0.75, 0.62, 0.85)
-HEAP_CENTRE = (BODY_CENTRE[0], BODY_MIN[1], 0.0)
-
-#: Motion setpoints (victim_motion.py): waving swings the arm, crawling shifts the whole body.
+PERSON_MESH = "model://aero_sense_people/meshes/{}.glb"
+EXPOSED_PARTS = ("upper_body", "feet", "hand")
+PERCHES = ("car_roof", "terrace", "window")
+#: Motion setpoints (victim_motion.py): waving swings the arm about the facing axis, crawling
+#: shifts the whole body along it.
 MOTIONS = {
-    "waving": {"joint": "wave", "type": "revolute", "amplitude": 1.1, "period_s": 2.0},
+    "waving": {"joint": "wave", "type": "revolute", "amplitude": 0.45, "period_s": 1.6},
     "crawling": {"joint": "crawl", "type": "prismatic", "amplitude": 0.6, "period_s": 20.0},
 }
-ARM_LENGTH_M, ARM_RADIUS_M = 0.55, 0.05
-#: The arm's shoulder: top of the body, in its exposed (+y) half.
-SHOULDER = (BODY_CENTRE[0], BODY_MAX[1] - 0.12, BODY_MAX[2] - 0.1)
-EXPOSED_PARTS = ("upper_body", "feet", "hand")
-#: The manikin's head and torso are at its +y end (0.72 m tall), its feet at -y (0.2 m tall).
-#: Heap over head, torso and thighs, stopping short of the lower legs and feet (0.25 m show).
-FEET_HEAP_RADII = (0.85, 0.52, 0.95)
-FEET_HEAP_CENTRE = (BODY_CENTRE[0], 0.06, 0.0)
+
+#: Rubble colours: RCC slab grey, weathered concrete, dust, broken brick.
+RUBBLE_RGBA = ("0.62 0.60 0.57 1", "0.55 0.52 0.48 1", "0.50 0.47 0.43 1")
+BRICK_RGBA = "0.64 0.38 0.28 1"
+#: How far the pile reaches past what it covers, and how far its bed rises over the covered body.
+PILE_MARGIN_M = 0.3
+PILE_OVER_BODY_M = 0.12
+#: A pile over the legs starts this far down them from the hips, so the torso stays out, rises at
+#: most this far above the hips (a raised knee may show through), and always stops this far below
+#: the head: a seated child's head is lower than an adult's knees.
+LEG_PILE_FROM_HIPS = 0.5
+LEG_PILE_ABOVE_HIPS_M = 0.25
+LEG_PILE_BELOW_HEAD_M = 0.15
+#: How much forearm and hand stick out of the pile, and how much leg a feet-only pile leaves out.
+HAND_SHOWN_M = 0.32
 FEET_SHOWN_M = 0.25
-#: Flood water surface (aero_sense_flood_water): a submerged casualty's hand breaks through it.
-WATER_SURFACE_Z_M = 0.6
-#: Where a hand comes out of a mound: its flank, reaching up and out.
-MOUND_HAND_SHOULDER = (BODY_CENTRE[0] + 0.62, BODY_CENTRE[1], 0.78)
+#: A buried body lies this deep under the pile top.
+BURIED_DEPTH_M = 0.35
+BED_CELL_M = 0.55
+
+
+@functools.lru_cache(maxsize=1)
+def people() -> dict:
+    """people.yaml (tools/make_people.py): body box, look points and waving shoulder per mesh."""
+    from ament_index_python.packages import get_package_share_directory
+    path = Path(get_package_share_directory("aero_sense_scenario_manager")) / "config" / "people.yaml"
+    return yaml.safe_load(path.read_text())
+
+
+def mesh_name(victim: dict) -> str:
+    return f"{victim['character']}_{victim['pose']}"
+
+
+def person(victim: dict) -> dict:
+    return people()[mesh_name(victim)]
 
 
 def motion_topics(victim: dict) -> dict:
@@ -67,7 +90,7 @@ def motion_topics(victim: dict) -> dict:
 
 
 def surface_temperature_k(victim: dict) -> float:
-    """What LWIR reads at the casualty: skin when any of the body shows, the warmed mound surface
+    """What LWIR reads at the casualty: skin when any of the body shows, the warmed pile surface
     when buried (ambient if the casualty is dead and cold)."""
     if victim["visibility"] != "buried":
         return float(victim["temperature_k"])
@@ -75,58 +98,69 @@ def surface_temperature_k(victim: dict) -> float:
     return round(AMBIENT_K + SURFACE_BLOOM_FRACTION * excess, 2)
 
 
-def _thermal(kelvin: float) -> str:
-    return (f'<plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">'
-            f"<temperature>{kelvin}</temperature></plugin>")
-
-
-def _vec(v) -> str:
-    return " ".join(f"{c:.4f}" for c in v)
-
-
-def _material(rgba: str) -> str:
-    return f"<material><ambient>{rgba}</ambient><diffuse>{rgba}</diffuse></material>"
-
-
 def exposed_part(victim: dict) -> str:
-    return victim.get("exposed", "upper_body") if victim["visibility"] == "partial" else ""
+    if victim["visibility"] != "partial" or victim.get("perch"):
+        return ""
+    return victim.get("exposed", "upper_body")
 
 
-def is_submerged(victim: dict) -> bool:
-    """Spawned below ground level: the body is under the flood water, not under rubble."""
-    return float(victim.get("z", 0.0)) < 0.0
+def _box(points, margin: float) -> tuple:
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    return (min(xs) - margin, max(xs) + margin, min(ys) - margin, max(ys) + margin)
 
 
-def shows_arm(victim: dict) -> bool:
-    return victim.get("motion", "none") == "waving" or exposed_part(victim) == "hand"
-
-
-def shoulder(victim: dict) -> tuple:
-    """Where the visible arm attaches, in the model frame."""
-    if exposed_part(victim) != "hand":
-        return SHOULDER
-    if is_submerged(victim):
-        return (BODY_CENTRE[0], BODY_CENTRE[1], WATER_SURFACE_Z_M - 0.12 - float(victim["z"]))
-    return MOUND_HAND_SHOULDER
+def pile(victim: dict):
+    """(x0, x1, y0, y1, top) of the rubble over the hidden part of the body, model frame, or None."""
+    part, body = exposed_part(victim), person(victim)
+    lo, hi, points = body["body_min"], body["body_max"], body["points"]
+    corners = [(lo[0], lo[1]), (hi[0], hi[1])]
+    if victim["visibility"] == "buried":
+        return (*_box(corners, PILE_MARGIN_M), hi[2] + BURIED_DEPTH_M)
+    if part == "upper_body":
+        thighs = [[h + LEG_PILE_FROM_HIPS * (f - h) for h, f in zip(points["hips"], points[foot])]
+                  for foot in ("foot_r", "foot_l")]
+        legs = [*thighs, points["foot_r"], points["foot_l"]]
+        x0, x1, y0, y1 = _box(legs, PILE_MARGIN_M)
+        top = min(hi[2], points["hips"][2] + LEG_PILE_ABOVE_HIPS_M) + PILE_OVER_BODY_M
+        head_x, head_y, head_z = points["head"]
+        if x0 <= head_x <= x1 and y0 <= head_y <= y1:              # sitting up: the head is over the pile
+            top = min(top, head_z - LEG_PILE_BELOW_HEAD_M)
+        return (x0, x1, y0, y1, top)
+    if part == "feet":
+        feet = [(a + b) / 2 for a, b in zip(points["foot_r"], points["foot_l"])]
+        shin = [h - f for h, f in zip(points["hips"], feet)]
+        length = math.hypot(*shin[:2])
+        # the pile's leg end, far enough up the legs that its margin still stops short of the feet
+        knees = [f + s * (PILE_MARGIN_M + FEET_SHOWN_M) / length for f, s in zip(feet, shin)]
+        return (*_box([points["head"], points["hand_r"], points["hand_l"], points["hips"], knees], PILE_MARGIN_M),
+                hi[2] + PILE_OVER_BODY_M)
+    if part == "hand":
+        return (*_box(corners, PILE_MARGIN_M), points["hand_r"][2] - HAND_SHOWN_M)
+    return None
 
 
 def visible_point_model(victim: dict) -> tuple:
     """In the model frame, the point a camera should look at for this casualty: the exposed hand
-    or feet, the mound top over a buried body, otherwise the body's centre."""
+    or feet, the pile top over a buried body, the head at a window, otherwise the body's centre."""
+    body = person(victim)
+    points, lo, hi = body["points"], body["body_min"], body["body_max"]
     part = exposed_part(victim)
     if part == "hand":
-        sx, sy, sz = shoulder(victim)
-        return (sx + 0.12, sy, sz + ARM_LENGTH_M * 0.8)
+        return tuple(points["hand_r"])
     if part == "feet":
-        return (BODY_CENTRE[0], BODY_MIN[1] + FEET_SHOWN_M / 2, 0.1)
+        return tuple((a + b) / 2 for a, b in zip(points["foot_r"], points["foot_l"]))
+    if part == "upper_body":
+        return tuple((a + b) / 2 for a, b in zip(points["hips"], points["head"]))
     if victim["visibility"] == "buried":
-        return (BODY_CENTRE[0], BODY_CENTRE[1], MOUND_RADII[2])
-    return (BODY_CENTRE[0], BODY_CENTRE[1], BODY_MAX[2] / 2)
+        x0, x1, y0, y1, top = pile(victim)
+        return ((x0 + x1) / 2, (y0 + y1) / 2, top)
+    if victim.get("perch") == "window":
+        return tuple(points["head"])
+    return tuple((a + b) / 2 for a, b in zip(lo, hi))
 
 
 def visible_point_world(victim: dict) -> tuple:
     """visible_point_model placed in the world by the casualty's spawn pose (yaw only)."""
-    import math
     mx, my, mz = visible_point_model(victim)
     yaw = math.radians(victim.get("yaw_deg", 0.0))
     return (victim["x"] + mx * math.cos(yaw) - my * math.sin(yaw),
@@ -134,42 +168,68 @@ def visible_point_world(victim: dict) -> tuple:
             float(victim.get("z", 0.0)) + mz)
 
 
-def _heap(name: str, centre, radii, yaw: float = 0.0) -> str:
-    return (f'<visual name="{name}"><pose>{_vec(centre)} 0 0 {yaw}</pose>'
-            f'<geometry><ellipsoid><radii>{_vec(radii)}</radii></ellipsoid></geometry>'
-            f"{_material(RUBBLE_RGBA)}</visual>")
+def _thermal(kelvin: float) -> str:
+    return (f'<plugin filename="gz-sim-thermal-system" name="gz::sim::systems::Thermal">'
+            f"<temperature>{kelvin}</temperature></plugin>")
+
+
+def _material(rgba: str) -> str:
+    return f"<material><ambient>{rgba}</ambient><diffuse>{rgba}</diffuse></material>"
+
+
+def _block(name, x, y, z, roll, pitch, yaw, size, rgba, extra="") -> str:
+    return (f'<visual name="{name}"><pose>{x:.3f} {y:.3f} {z:.3f} {roll:.3f} {pitch:.3f} {yaw:.3f}</pose>'
+            f'<geometry><box><size>{size[0]:.3f} {size[1]:.3f} {size[2]:.3f}</size></box></geometry>'
+            f"{_material(rgba)}{extra}</visual>")
 
 
 def _cover(victim: dict) -> str:
-    """Rubble visuals for partial and buried casualties (visual only: nothing lands on them)."""
-    c = BODY_CENTRE
-    part = exposed_part(victim)
-    if part == "upper_body":
-        return _heap("rubble_heap", HEAP_CENTRE, HEAP_RADII, 0.3)
-    if part == "feet":
-        return _heap("rubble_heap", FEET_HEAP_CENTRE, FEET_HEAP_RADII)
-    if part == "hand" and is_submerged(victim):
-        return ""                                     # the flood water hides the body
-    if victim["visibility"] != "buried" and part != "hand":
+    """Rubble visuals (visual only: nothing lands on the body). A bed of overlapping lumps as high
+    as the pile, so nothing of the covered body shows between pieces; broken slabs tilted across
+    its top and past its edges; loose brick scattered over and round it. Seeded by the casualty's
+    id, so the same scenario always builds the same pile."""
+    extent = pile(victim)
+    if extent is None:
         return ""
-    visuals = (f'<visual name="rubble_mound"><pose>{c[0]:.4f} {c[1]:.4f} 0 0 0 0</pose>'
-               f'<geometry><ellipsoid><radii>{_vec(MOUND_RADII)}</radii></ellipsoid></geometry>'
-               f"{_material(RUBBLE_RGBA)}</visual>"
-               f'<visual name="rubble_slab"><pose>{c[0] - 0.3:.4f} {c[1]:.4f} {MOUND_RADII[2] * 0.72:.4f} 0.25 0.1 0.6</pose>'
-               f'<geometry><mesh><uri>{SLAB_MESH}</uri><scale>0.8 0.8 2</scale></mesh></geometry>'
-               f'{_material("0.6 0.58 0.55 1")}</visual>')
+    x0, x1, y0, y1, top = extent
+    rng = random.Random(victim["id"])
+    visuals = []
+    nx, ny = max(1, round((x1 - x0) / BED_CELL_M)), max(1, round((y1 - y0) / BED_CELL_M))
+    cw, ch = (x1 - x0) / nx, (y1 - y0) / ny
+    for i in range(nx):
+        for j in range(ny):
+            height = top * rng.uniform(0.92, 1.0)
+            visuals.append(_block(
+                f"rubble_bed_{i}_{j}", x0 + (i + 0.5) * cw + rng.uniform(-0.06, 0.06), y0 + (j + 0.5) * ch + rng.uniform(-0.06, 0.06),
+                height / 2, rng.uniform(-0.08, 0.08), rng.uniform(-0.08, 0.08), rng.uniform(-0.3, 0.3),
+                (cw * rng.uniform(1.15, 1.35), ch * rng.uniform(1.15, 1.35), height), rng.choice(RUBBLE_RGBA)))
+    for k in range(max(3, round((x1 - x0) * (y1 - y0) / 0.3))):
+        thickness = rng.uniform(0.07, 0.15)
+        visuals.append(_block(
+            f"rubble_slab_{k}", rng.uniform(x0, x1), rng.uniform(y0, y1), top + rng.uniform(-0.04, 0.05),
+            rng.uniform(-0.35, 0.35), rng.uniform(-0.35, 0.35), rng.uniform(0, math.pi),
+            (rng.uniform(0.45, 0.95), rng.uniform(0.35, 0.75), thickness), rng.choice(RUBBLE_RGBA[:2])))
+    for k in range(rng.randint(8, 14)):
+        visuals.append(_block(
+            f"brick_{k}", rng.uniform(x0 - 0.3, x1 + 0.3), rng.uniform(y0 - 0.3, y1 + 0.3),
+            rng.choice((0.04, top * rng.uniform(0.9, 1.1))), rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4),
+            rng.uniform(0, math.pi), (0.23, 0.11, 0.075), BRICK_RGBA))
     surface_k = surface_temperature_k(victim)
     if victim["visibility"] == "buried" and surface_k > AMBIENT_K + 0.5:
-        # a thin cap just proud of the mound top, rubble-coloured: invisible to RGB, warm in LWIR
-        visuals += (f'<visual name="heat_bloom"><pose>{c[0]:.4f} {c[1]:.4f} {MOUND_RADII[2] - 0.035:.4f} 0 0 0</pose>'
-                    f'<geometry><ellipsoid><radii>0.45 0.55 0.06</radii></ellipsoid></geometry>'
-                    f"{_material(RUBBLE_RGBA)}{_thermal(surface_k)}</visual>")
-    return visuals
+        # a rubble-coloured slab on the pile top: invisible to RGB, faintly warm in LWIR
+        visuals.append(_block("heat_bloom", (x0 + x1) / 2, (y0 + y1) / 2, top + 0.09, 0, 0, 0.2,
+                              (0.9, 0.7, 0.05), RUBBLE_RGBA[0], _thermal(surface_k)))
+    return "".join(visuals)
 
 
 def _body_visual(victim: dict) -> str:
-    return (f'<visual name="visual"><pose>0 0 {MESH_GROUND_OFFSET_M} 0 0 0</pose>'
-            f'<geometry><mesh><uri>{VICTIM_MESH}</uri></mesh></geometry>{_thermal(victim["temperature_k"])}</visual>')
+    return (f'<visual name="body"><geometry><mesh><uri>{PERSON_MESH.format(mesh_name(victim))}</uri></mesh>'
+            f'</geometry>{_thermal(victim["temperature_k"])}</visual>')
+
+
+def _arm_visual(victim: dict) -> str:
+    return (f'<visual name="arm_visual"><geometry><mesh><uri>{PERSON_MESH.format(mesh_name(victim) + "_arm")}</uri>'
+            f'</mesh></geometry>{_thermal(victim["temperature_k"])}</visual>')
 
 
 def _controller(joint: str, topic: str) -> str:
@@ -189,21 +249,11 @@ def _sdf(name: str, static: bool, body: str) -> str:
             f"<static>{'true' if static else 'false'}</static>{body}</model></sdf>")
 
 
-def _arm_visual(victim: dict, pose: str) -> str:
-    return (f'<visual name="arm_visual"><pose>{pose}</pose>'
-            f'<geometry><capsule><radius>{ARM_RADIUS_M}</radius><length>{ARM_LENGTH_M}</length></capsule></geometry>'
-            f'{_material("0.85 0.55 0.25 1")}{_thermal(victim["temperature_k"] - 1.0)}</visual>')
-
-
 def model_sdf(name: str, victim: dict) -> str:
     motion = victim.get("motion", "none")
     cover = _cover(victim)
     if motion == "none":
-        arm = ""
-        if shows_arm(victim):                         # a still hand, reaching up and a little out
-            sx, sy, sz = shoulder(victim)
-            arm = _arm_visual(victim, f"{sx + 0.12:.4f} {sy:.4f} {sz + ARM_LENGTH_M / 2 - 0.03:.4f} 0 0.45 0")
-        return _sdf(name, True, f'<link name="link">{_body_visual(victim)}{cover}{arm}</link>')
+        return _sdf(name, True, f'<link name="link">{_body_visual(victim)}{cover}</link>')
     spec = MOTIONS[motion]
     joint, topic = next(iter(motion_topics(victim).items()))
     # moving casualties are dynamic, weightless links held to the world by their joints
@@ -214,16 +264,16 @@ def model_sdf(name: str, victim: dict) -> str:
                 '<joint name="anchor" type="fixed"><parent>world</parent><child>anchor_link</child></joint>'
                 f'<link name="link"><gravity>0</gravity>{_inertial(70)}{_body_visual(victim)}</link>'
                 f'<joint name="{joint}" type="prismatic"><parent>anchor_link</parent><child>link</child>'
-                f"<axis><xyz>0 1 0</xyz><limit><lower>-{reach}</lower><upper>{reach}</upper></limit></axis></joint>")
+                f"<axis><xyz>1 0 0</xyz><limit><lower>-{reach}</lower><upper>{reach}</upper></limit></axis></joint>")
         if cover:
             body += (f'<link name="cover">{cover}</link>'
                      '<joint name="cover_anchor" type="fixed"><parent>world</parent><child>cover</child></joint>')
         return _sdf(name, False, body + _controller(joint, topic))
-    sx, sy, sz = shoulder(victim)
+    sx, sy, sz = person(victim)["shoulder"]
     body = (f'<link name="link"><gravity>0</gravity>{_inertial(70)}{_body_visual(victim)}{cover}</link>'
             '<joint name="anchor" type="fixed"><parent>world</parent><child>link</child></joint>'
             f'<link name="arm"><pose>{sx:.4f} {sy:.4f} {sz:.4f} 0 0 0</pose><gravity>0</gravity>{_inertial(4)}'
-            f'{_arm_visual(victim, f"0 0 {ARM_LENGTH_M / 2} 0 0 0")}</link>'
+            f'{_arm_visual(victim)}</link>'
             f'<joint name="{joint}" type="revolute"><parent>link</parent><child>arm</child>'
             "<axis><xyz>1 0 0</xyz><limit><lower>-1.6</lower><upper>1.6</upper></limit></axis></joint>")
     return _sdf(name, False, body + _controller(joint, topic))

@@ -54,6 +54,18 @@ def load(path: Path = None) -> list:
             raise ValueError(f"{v['id']}: crawling needs a free body (visibility full)")
         if motion == "waving" and exposed == "feet":
             raise ValueError(f"{v['id']}: waving needs a free arm, but only the feet are exposed")
+        mesh = victim_models.mesh_name(v) if "character" in v and "pose" in v else None
+        if mesh not in victim_models.people():
+            raise ValueError(f"{v['id']}: no posed person {mesh!r}; set character and pose, then run tools/make_people.py")
+        if (motion == "waving") != ("shoulder" in victim_models.people()[mesh]):
+            raise ValueError(f"{v['id']}: motion waving needs a *_waving pose, and a *_waving pose needs motion waving")
+        perch = v.get("perch")
+        if perch is not None and perch not in victim_models.PERCHES:
+            raise ValueError(f"{v['id']}: perch {perch!r} not one of {victim_models.PERCHES}")
+        if perch is not None and ("z" not in v or exposed is not None or v["visibility"] == "buried"):
+            raise ValueError(f"{v['id']}: perch {perch!r} needs z (the floor they stand on) and no rubble (exposed, buried)")
+        if perch == "window" and v["visibility"] != "partial":
+            raise ValueError(f"{v['id']}: leaning out of a window is visibility partial (the walls hide the rest)")
         if v["expected_priority"] not in PRIORITIES:
             raise ValueError(f"{v['id']}: expected_priority {v['expected_priority']!r} not one of {PRIORITIES}")
         if not MIN_TEMP_K <= v["temperature_k"] <= MAX_TEMP_K:

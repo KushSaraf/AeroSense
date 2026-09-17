@@ -129,8 +129,14 @@ EKF actually uses.
 
 `aero_sense_scenario_manager/config/victims.yaml` is the scenario's casualty list: position,
 pose, LWIR skin temperature, occlusion and the priority a correct triage engine should reach.
-The launch spawns one static manikin per entry (DARPA SubT `survivor` mesh) carrying a Thermal
-plugin at that temperature — body heat is what makes LWIR search meaningful — and
+The launch spawns one person per entry: a Fuel character (man, woman, nurse, child) that
+`tools/make_people.py` poses by skinning its rig (the thermal camera cannot see animated actors, so
+every pose is baked into a static textured mesh). The body carries a Thermal plugin at that
+temperature — body heat is what makes LWIR search meaningful. Rubble over a partly visible or
+buried casualty is a seeded pile of overlapping lumps, broken slabs and brick at ambient
+temperature, sized from the pose's joints so exactly the named part shows. A waving arm is split off
+the same mesh and swings from the shoulder on a joint. `victim_ground_truth` republishes the table,
+and
 `victim_ground_truth` republishes the table on its own latched topic for evaluation.
 `victims:=false` runs the world empty.
 
@@ -219,8 +225,12 @@ shoreline falls away to 1.8 m below the plain, and the water stands level at 0.6
 is up to 2.4 m deep in the middle and shallow at the muddy edge. Buildings, vehicles, tracks and
 the ground meshes all sit on the sunken floor. The flood surface is a transparent mesh, so what is
 under it is submerged by construction rather than by separate "flooded" models. It reads 291 K in
-LWIR, *colder* than the 298 K ground, so a casualty in the water stands out by contrast the
-opposite way round from one on dry land, and the same detector finds them without a special case.
+LWIR, *colder* than the 298 K ground. Nobody alive is in water up to 2.4 m deep: each flood casualty
+has a `perch`, and `layout_world.py` builds it round them before anything else. A hatchback stranded
+on the track takes a man on its roof, single- and two-storey houses take people on their roof
+terraces, and houses whose first-floor window faces the track take a nurse and a child leaning out.
+Their spawn z must equal the terrain under the perch plus its roof or floor height, or the layout
+refuses (so nobody floats or stands in the water).
 
 **S1 earthquake:** the society's older half, where nothing is left intact (tested). The damage
 follows what Bhuj (2001), Nepal (2015) and Turkey (2023) left behind:

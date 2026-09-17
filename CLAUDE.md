@@ -34,6 +34,7 @@ call `/aero_sense/mission/start` (`StartMission`, scenario `earthquake` or `floo
 ```bash
 python3 tools/make_buildings.py src/aero_sense_gazebo/models   # building models (intact, damaged, collapsed)
 python3 tools/layout_world.py                                  # roads, galis, buildings, poles, vehicles, flood valley, ground meshes
+python3 tools/make_people.py                                   # the posed people victims.yaml casts (character + pose)
 ```
 
 - Buildings are `aero_sense_building_*`, and each model's collision box is its footprint.
@@ -41,6 +42,11 @@ python3 tools/layout_world.py                                  # roads, galis, b
 - The earthquake sector must contain no intact building (tested).
 - The layout keeps casualties clear. V13–V15 are pinned inside collapse cracks on purpose
   (`inside_structure`).
+- Casualties are posed Fuel characters (`make_people.py` skins the rig; actors are invisible to the
+  thermal camera). Rubble piles are seeded boxes sized from the pose's joints (`victim_models.pile`),
+  and tests check exactly the named part shows. Change a `character`/`pose` → rerun make_people.
+- Flood casualties have a `perch` (car_roof, terrace, window). `layout_world.PERCHED` builds the car or
+  house round them and exits with the z each must have if victims.yaml disagrees.
 - `tools/flood_valley.py` holds the terrain height field. The water level is 0.6 m
   (`victim_models.WATER_SURFACE_Z_M`), and the bank decides where the waterline shows.
 

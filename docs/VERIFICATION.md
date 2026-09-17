@@ -27,6 +27,31 @@ cd frontend && npx tsc -b && npm run build                           # type-chec
 
 ## Flight tests
 
+### Real people as casualties (2026-09-17)
+
+The casualties became posed people (`tools/make_people.py`), rubble piles of slabs and brick, and
+flood casualties on a car roof, two roof terraces and at two windows. Each sector was flown by the
+mission manager (`/aero_sense/mission/start`, SWOOP on), 30 m search altitude, fresh simulation each.
+
+| Sector | Found | Position error | False positives | SWOOP | Missed |
+|---|---|---|---|---|---|
+| Earthquake | 8 of its 18 (was 14 with the manikin) | 0.95 m | 0 | 3 descents, 1 proven | V06, V15, V18 seated with legs under rubble; V13, V14 in collapse cracks; V21 hand; V22 feet; V16, V17 buried; V09 dead |
+| Flood | 3 of its 5 | 0.31 m | 0 | 1 descent, ruled out | V20, V23 leaning out of first-floor windows, under the sunshade |
+
+Why recall fell: the old DARPA manikin was bulky. A real person seen from above is small. Warm area
+visible from overhead, from the meshes, at 30 m (0.20 m a pixel; the detector needs 4 pixels):
+
+| Casualty | Visible | Pixels at 30 m | At 22 m |
+|---|---|---|---|
+| lying in the open (V05, V09, V19) | 0.4-0.5 m2 | 10-12 | 19-23 |
+| legs under rubble, lying (V01, V04, V07) | 0.33 m2 | 8 | 15 |
+| seated, legs under rubble (V06, V15, V18) | 0.07 m2 | 2 | 3 |
+| standing on a car or roof (V10, V12) | 0.1 m2 | 2.5 | 4.6 |
+| feet only (V22) / hand only (V21) | 0.05 / 0.01 m2 | 1.2 / 0.3 | 2.3 / 0.5 |
+
+The two standing flood casualties were still found (higher and closer to the camera than the
+ground). Both window casualties are hidden from above by the chajja over the window.
+
 ### Network outage (2026-09-17)
 
 Mission M-20260917-154227 started from the dashboard bridge, earthquake sector, cruise 8 m/s, with the

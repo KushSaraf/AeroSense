@@ -21,7 +21,7 @@ def test_every_victim_carries_body_heat():
     """A victim without a thermal plugin reads at ambient, which would make LWIR search a lie."""
     for v in victim_table.load():
         root = ET.fromstring(victim_table.victim_sdf(v))
-        body = root.find(".//visual[@name='visual']")
+        body = root.find(".//visual[@name='body']")
         plugin = body.find("plugin")
         assert plugin is not None and "Thermal" in plugin.get("name")
         assert float(plugin.findtext("temperature")) == v["temperature_k"]
@@ -76,22 +76,22 @@ def test_geodetic_conversion_matches_metres():
     assert east_lat == CMAC[0] and east_lon > CMAC[1]                # east of the origin
 
 
-def _box_inside_ellipsoid(lo, hi, centre, radii):
-    """Every corner of the body box lies inside the ellipsoid (x/a)^2 + (y/b)^2 + (z/c)^2 <= 1."""
-    import itertools
-    return all(sum(((p - c) / r) ** 2 for p, c, r in zip(corner, centre, radii)) <= 1.0
-               for corner in itertools.product(*zip(lo, hi)))
+def _covered(v) -> tuple:
+    """The part of the body box a casualty's pile hides, and the pile: (lo, hi, pile)."""
+    from aero_sense_scenario_manager import victim_models as vm
+    body = vm.person(v)
+    return body["body_min"], body["body_max"], vm.pile(v)
 
 
 def test_buried_casualties_are_covered_and_leak_only_faint_heat():
-    """A buried body is wholly inside its mound; if alive, the only LWIR sign is a surface patch
+    """A buried body is wholly under its pile; if alive, the only LWIR sign is a surface patch
     too faint for today's 304 K detector (a real algorithm has to earn it); if dead, none."""
     from aero_sense_scenario_manager import victim_models as vm
     buried = [v for v in victim_table.load() if v["visibility"] == "buried"]
     assert {victim_table.is_alive(v) for v in buried} == {True, False}
-    lo, hi = vm.BODY_MIN, vm.BODY_MAX
-    assert _box_inside_ellipsoid(lo, hi, (vm.BODY_CENTRE[0], vm.BODY_CENTRE[1], 0.0), vm.MOUND_RADII)
     for v in buried:
+        lo, hi, (x0, x1, y0, y1, top) = _covered(v)
+        assert x0 < lo[0] and hi[0] < x1 and y0 < lo[1] and hi[1] < y1 and hi[2] < top
         root = ET.fromstring(victim_table.victim_sdf(v))
         bloom = root.find(".//visual[@name='heat_bloom']")
         if victim_table.is_alive(v):
@@ -125,6 +125,10 @@ def test_moving_casualties_have_a_driven_joint():
     ({"visibility": "partial", "exposed": "elbow"}, "exposed"),
     ({"visibility": "partial", "motion": "crawling"}, "crawling"),
     ({"visibility": "partial", "exposed": "feet", "motion": "waving"}, "feet"),
+    ({"pose": "cartwheel"}, "posed person"),
+    ({"motion": "waving"}, "waving"),
+    ({"perch": "tree"}, "perch"),
+    ({"perch": "window", "visibility": "full", "z": 3.0}, "window"),
 ])
 def test_exposed_parts_are_validated(tmp_path, bad, message):
     import yaml
@@ -136,27 +140,49 @@ def test_exposed_parts_are_validated(tmp_path, bad, message):
 
 
 def test_only_the_exposed_part_shows():
-    """A hand-only casualty shows a warm arm and nothing else of the body: under a mound on land,
-    under the water surface in the flood (the arm clears it); a feet-only one has its heap."""
+    """Rubble hides what it should: the legs of an upper-body casualty, all but the feet of a
+    feet-only one, all but a forearm and hand reaching out of the slabs; nobody perched in the
+    flood has rubble on them."""
     from aero_sense_scenario_manager import victim_models as vm
     victims = victim_table.load()
-    cases = {vm.exposed_part(v) + ("_water" if vm.is_submerged(v) else "") for v in victims}
-    assert {"hand", "hand_water", "feet", "upper_body"} <= cases
+    assert {"hand", "feet", "upper_body"} <= {vm.exposed_part(v) for v in victims}
     for v in victims:
         root = ET.fromstring(victim_table.victim_sdf(v))
-        if vm.exposed_part(v) == "hand":
-            assert root.find(".//visual[@name='arm_visual']") is not None
-            if vm.is_submerged(v):
-                body_top = float(v["z"]) + vm.BODY_MAX[2]
-                assert body_top < vm.WATER_SURFACE_Z_M                                 # body hidden
-                assert float(v["z"]) + vm.shoulder(v)[2] + vm.ARM_LENGTH_M > vm.WATER_SURFACE_Z_M + 0.3
-            else:
-                assert root.find(".//visual[@name='rubble_mound']") is not None
-        if vm.exposed_part(v) == "feet":
-            assert root.find(".//visual[@name='rubble_heap']") is not None
-            heap_end = vm.FEET_HEAP_CENTRE[1] - vm.FEET_HEAP_RADII[1]                 # feet stick out past it
-            assert abs((heap_end - vm.BODY_MIN[1]) - vm.FEET_SHOWN_M) < 0.02
-            assert vm.FEET_HEAP_CENTRE[1] + vm.FEET_HEAP_RADII[1] > vm.BODY_MAX[1]     # the head is covered
+        rubble = root.findall(".//visual") and [e for e in root.iter("visual") if e.get("name").startswith("rubble_bed")]
+        part = vm.exposed_part(v)
+        if not part and v["visibility"] != "buried":
+            assert not rubble, v["id"]
+            continue
+        assert rubble, v["id"]
+        lo, hi, (x0, x1, y0, y1, top) = _covered(v)
+        points = vm.person(v)["points"]
+        inside = lambda p: x0 <= p[0] <= x1 and y0 <= p[1] <= y1 and p[2] < top    # noqa: E731
+        if part == "hand":
+            assert inside(points["hips"]) and inside(points["head"]) and not inside(points["hand_r"]), v["id"]
+            assert points["hand_r"][2] - top >= vm.HAND_SHOWN_M - 1e-6
+        if part == "feet":
+            assert inside(points["head"]) and inside(points["hips"]), v["id"]
+            assert not inside(points["foot_r"]) and not inside(points["foot_l"]), v["id"]
+        if part == "upper_body":
+            assert inside(points["foot_r"]) and inside(points["foot_l"]) and not inside(points["head"]), v["id"]
+
+
+def test_casualties_are_people_not_primitives():
+    """Every body is a posed person mesh; the only primitives are rubble boxes."""
+    for v in victim_table.load():
+        root = ET.fromstring(victim_table.victim_sdf(v))
+        assert root.find(".//visual[@name='body']/geometry/mesh") is not None, v["id"]
+        for shape in ("capsule", "sphere", "ellipsoid", "cylinder"):
+            assert root.find(f".//{shape}") is None, (v["id"], shape)
+
+
+def test_nobody_in_the_flood_is_in_the_water():
+    """Flood casualties wait above it: on a car roof, a roof terrace or at an upper window."""
+    from aero_sense_scenario_manager import victim_models as vm
+    flood = [v for v in victim_table.load() if v["x"] > 0]
+    assert {v.get("perch") for v in flood} == set(vm.PERCHES)
+    for v in flood:
+        assert v["z"] >= vm.WATER_SURFACE_Z_M, v["id"]
 
 
 def test_priorities_follow_the_rules():
@@ -171,13 +197,13 @@ def test_priorities_follow_the_rules():
 
 
 def test_label_point_is_the_part_a_camera_sees():
-    """Dataset labels point at the exposed hand above the water, the mound top, the feet: not at a
-    hidden body centre, which would label water or rubble as the casualty."""
+    """Dataset labels point at the exposed hand, the pile top, the feet, the head at a window: not
+    at a hidden body centre, which would label rubble or a wall as the casualty."""
     from aero_sense_scenario_manager import victim_models as vm
     for v in victim_table.load():
         x, y, z = vm.visible_point_world(v)
-        if vm.exposed_part(v) == "hand" and vm.is_submerged(v):
-            assert z > vm.WATER_SURFACE_Z_M
         if v["visibility"] == "buried":
-            assert abs(z - vm.MOUND_RADII[2]) < 1e-9
+            assert abs(z - float(v.get("z", 0.0)) - vm.pile(v)[4]) < 1e-9
+        if vm.exposed_part(v) == "hand":
+            assert z - float(v.get("z", 0.0)) > vm.pile(v)[4]
         assert abs(x - v["x"]) < 1.2 and abs(y - v["y"]) < 1.2

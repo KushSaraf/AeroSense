@@ -5,35 +5,40 @@
 # Ground truth is a simulation aid only (evaluation and sensor realism). Perception must find
 # these by looking, and the dashboard must never read this file.
 #
-# state:        lying | seated | prone | trapped | deceased  (drives pose and the evidence a
-#               searcher can expect, not the detection itself)
+# state:        lying | seated | prone | trapped | deceased  (the evidence a searcher can expect,
+#               not the detection itself)
+# character:    man | woman | nurse | kid - who it is (tools/make_people.py poses the Fuel model)
+# pose:         supine | prone | seated | seated_waving | standing | standing_waving | reaching |
+#               leaning | leaning_waving - how they lie, sit or stand (a *_waving pose for motion waving)
 # temperature_k LWIR skin temperature. Ambient is 293 K, so a live casualty stands out by 12-17 K;
 #               a deceased one barely at all.
 # visibility:   full | partial | buried - how much of the body any camera can see. partial and
-#               buried spawn rubble over the body (victim_models.py); a buried casualty shows only
-#               as a faint warm patch on the mound (alive) or not at all (deceased). A casualty
-#               beside or inside a structure is `partial` because the walls hide part of it.
-# exposed:      upper_body | feet | hand (optional, partial only) - which part of a partial casualty
-#               shows: legs under a heap, only the feet, or only an arm and hand (out of a rubble
-#               mound, or out of flood water when z < 0 puts the body under the surface).
+#               buried put broken slabs and brick over the body (victim_models.py); a buried casualty
+#               shows only as a faint warm patch on the pile (alive) or not at all (deceased). A
+#               casualty beside or inside a structure is `partial` because the walls hide part of it.
+# exposed:      upper_body | feet | hand (optional, partial only) - which part shows from the rubble:
+#               legs under it, only the feet, or only a forearm and hand reaching out of it.
+# perch:        car_roof | terrace | window (optional, flood only) - where someone waits for rescue
+#               above the water: standing on a car roof, on a house's roof terrace, or leaning out of
+#               an upper-floor window. tools/layout_world.py builds the car or house round them and
+#               checks z, which is the floor they stand on (terrain + roof or floor height).
 # motion:       none | waving | crawling (optional, default none) - living, visible casualties only;
 #               what separates alive from dead when heat alone cannot.
 #
 # Priority (expected_priority), the rules the priority-based search is scored on (tested):
-#   P1  alive and cannot get out: buried, pinned with only a hand or feet showing, or in water
+#   P1  alive and cannot get out: buried, pinned with only a hand or feet showing, or cut off by water
 #   P2  alive, injured, partly able: seated/lying in the open or beside structures, crawling
 #   P3  deceased (and the least urgent of the living, where a scenario has one)
 # expected_priority: what a correct triage engine should conclude (Phase 10 scores itself on this).
 #
 # Positions sit beside structures, never inside their meshes: a victim placed under a collapsed
 # building is invisible to every sensor, which silently makes a scenario unsolvable.
-#
-# No roll/pitch: the manikin's model origin sits below the body, so rolling it sinks half the
-# casualty underground and thermal loses them. State is carried by placement and context.
 
 victims:
   - id: V01
     state: lying
+    character: man
+    pose: supine
     x: -176.0
     y: 21.5
     yaw_deg: 20
@@ -44,6 +49,8 @@ victims:
 
   - id: V02
     state: trapped
+    character: woman
+    pose: prone
     x: -136.0
     y: 21.5
     yaw_deg: -60
@@ -54,6 +61,8 @@ victims:
 
   - id: V03
     state: seated
+    character: kid
+    pose: seated
     x: -156.0
     y: 31.0
     yaw_deg: 0
@@ -64,6 +73,8 @@ victims:
 
   - id: V04
     state: prone
+    character: man
+    pose: prone
     x: -78.0
     y: 25.0
     yaw_deg: 100
@@ -74,6 +85,8 @@ victims:
 
   - id: V05
     state: lying
+    character: woman
+    pose: supine
     x: -12.0
     y: 40.0
     yaw_deg: 200
@@ -84,6 +97,8 @@ victims:
 
   - id: V06
     state: seated
+    character: nurse
+    pose: seated
     x: -148.0
     y: 75.0
     yaw_deg: 45
@@ -94,6 +109,8 @@ victims:
 
   - id: V07
     state: trapped
+    character: man
+    pose: prone
     x: -57.0
     y: 88.0
     yaw_deg: 170
@@ -103,7 +120,9 @@ victims:
     note: at the north-east corner of the police station, visible only from a steep angle
 
   - id: V08
-    state: lying
+    state: seated
+    character: man
+    pose: seated_waving
     x: -33.0
     y: 66.0
     yaw_deg: 300
@@ -111,10 +130,12 @@ victims:
     visibility: full
     motion: waving
     expected_priority: P1
-    note: open ground near the radio mast, waving at the drone
+    note: open ground near the radio mast, sitting up and waving at the drone
 
   - id: V09
     state: deceased
+    character: man
+    pose: supine
     x: -108.0
     y: 40.0
     yaw_deg: 90
@@ -123,42 +144,50 @@ victims:
     expected_priority: P3
     note: no useful thermal contrast; only RGB shape betrays this one
 
-  # --- S2 flood. The water surface is at 0.6 m and a body extends upward from its spawn z, so
-  # spawning at 0.6 left them sitting on top of the flood. 0.25 puts the waterline across the
-  # middle of the casualty. Perception projects onto the ground plane, so expect a few tens of
-  # centimetres of extra error here until depth is used for range.
+  # --- S2 flood: the village stands in 1-2.4 m of water, so nobody who is still alive is in it.
+  # They wait where the water cannot reach: on a car roof, on a roof terrace, at an upper window.
   - id: V10
     state: trapped
+    character: man
+    pose: standing
+    perch: car_roof
     x: 55.0
     y: 32.0
-    z: 0.25
-    yaw_deg: 40
+    z: 0.67
+    yaw_deg: 33
     temperature_k: 306.0
     visibility: full
     expected_priority: P1
-    note: in the water between the flooded houses, cooling fast
+    note: standing on the roof of his car, stranded on the track with the water at the doors
 
   - id: V11
     state: seated
-    x: 100.0
-    y: 60.0
-    z: 0.25
-    yaw_deg: 150
+    character: woman
+    pose: seated
+    perch: terrace
+    x: 95.6
+    y: 67.3
+    z: 2.21
+    yaw_deg: 301
     temperature_k: 305.0
     visibility: partial
     expected_priority: P1
-    note: hypothermic on debris, barely above the water
+    note: hypothermic, sitting behind the parapet of a single-storey house's roof
 
   - id: V12
-    state: lying
-    x: 150.0
-    y: 45.0
-    z: 0.25
-    yaw_deg: 250
+    state: trapped
+    character: man
+    pose: standing_waving
+    perch: terrace
+    x: 148.3
+    y: 53.3
+    z: 4.76
+    yaw_deg: 282
     temperature_k: 308.0
     visibility: full
-    expected_priority: P2
-    note: clinging to wreckage in open water
+    motion: waving
+    expected_priority: P1
+    note: on a two-storey roof terrace, waving at the drone
 
   # --- Trapped inside collapsed buildings. `inside_structure` marks this as deliberate: the
   # clearance test rejects any *other* victim inside a mesh, because that is normally an
@@ -167,6 +196,8 @@ victims:
   # the rest from above.
   - id: V13
     state: trapped
+    character: woman
+    pose: prone
     x: -164.0
     y: 13.0
     yaw_deg: 35
@@ -178,6 +209,8 @@ victims:
 
   - id: V14
     state: trapped
+    character: man
+    pose: supine
     x: -93.0
     y: 37.0
     yaw_deg: -70
@@ -189,6 +222,8 @@ victims:
 
   - id: V15
     state: seated
+    character: woman
+    pose: seated
     x: -94.0
     y: 63.0
     yaw_deg: 120
@@ -203,6 +238,8 @@ victims:
   # (y 47-53), where the rubble fell, clear of every structure.
   - id: V16
     state: trapped
+    character: man
+    pose: prone
     x: -116.0
     y: 52.5
     yaw_deg: 10
@@ -213,6 +250,8 @@ victims:
 
   - id: V17
     state: deceased
+    character: woman
+    pose: prone
     x: -70.0
     y: 46.0
     yaw_deg: 75
@@ -223,6 +262,8 @@ victims:
 
   - id: V18
     state: trapped
+    character: nurse
+    pose: seated_waving
     x: -175.0
     y: 50.0
     yaw_deg: -30
@@ -234,6 +275,8 @@ victims:
 
   - id: V19
     state: prone
+    character: man
+    pose: prone
     x: -40.0
     y: 50.0
     yaw_deg: 90
@@ -243,22 +286,40 @@ victims:
     expected_priority: P2
     note: crawling along the street towards the avenue
 
-  # --- Only one part of the body shows: what a searcher actually sees in a flood or a collapse.
+  # --- Only one part of the body shows: what a searcher actually sees in a collapse.
   - id: V20
     state: trapped
-    x: 125.0
-    y: 35.0
-    z: -0.45
-    yaw_deg: 0
+    character: nurse
+    pose: leaning_waving
+    perch: window
+    x: 122.8
+    y: 40.6
+    z: 1.97
+    yaw_deg: 291
     temperature_k: 306.0
     visibility: partial
-    exposed: hand
     motion: waving
     expected_priority: P1
-    note: under the flood water; only an arm breaks the surface, waving
+    note: leaning out of a first-floor window over the flooded track, waving; the walls hide the rest
+
+  - id: V23
+    state: trapped
+    character: kid
+    pose: leaning
+    perch: window
+    x: 73.2
+    y: 36.5
+    z: 2.66
+    yaw_deg: 123
+    temperature_k: 307.0
+    visibility: partial
+    expected_priority: P1
+    note: a child looking out of a first-floor window, the ground floor under water
 
   - id: V21
     state: trapped
+    character: man
+    pose: reaching
     x: -95.0
     y: 50.0
     yaw_deg: 30
@@ -266,10 +327,12 @@ victims:
     visibility: partial
     exposed: hand
     expected_priority: P1
-    note: under a collapsed-wall mound; one palm and forearm stick out of its flank
+    note: under a collapsed wall; one forearm and hand reach up out of the slabs
 
   - id: V22
     state: trapped
+    character: woman
+    pose: prone
     x: -135.0
     y: 47.0
     yaw_deg: -80
