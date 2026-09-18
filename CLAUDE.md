@@ -78,6 +78,12 @@ relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the do
   GPS is good and streamed as VISION_POSITION_ESTIMATE. When GPS is not OK the EKF switches to
   source set 2 (`vio.parm`); back to set 1 once GPS has been OK for 5 s. Vision is used only
   while its track fits the GPS track within 5 m RMS.
+- **No GPS and no vision:** the EKF goes to source set 3 (`hexa.parm`: no horizontal position), never
+  stays on set 1. The jammer lets fake 3D fixes through for up to 3.1 s; on set 1 the EKF took them
+  and flew the drone after positions hundreds of metres off. The 5 s rule rejects them; without a
+  position the EKF failsafe lands where it is. `DroneStatus.navigation` says GPS | VISION | NONE.
+- **Drag:** the airframe has horizontal drag (`sensors.yaml` `drag_n_per_mps`, gz Hydrodynamics
+  damping). Without it nothing slowed a drone that stopped controlling position.
 - **OpenVINS** runs by default (`vio:=true`). It initialises in a hover after take-off
   (`try_zupt`); it could not on the pad (too few features) nor mid-climb (diverged).
 - **By hand:** `POST /api/simulation/gps {"up": false}` (JAM GPS on the dashboard).
@@ -93,6 +99,8 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
   - leads must be inside the search area and at least 3 s old
   - the drone descends as low as `verify_altitude` allows, 10 m minimum
   - it dwells for 5 s, then proves the lead or rules it out
+- **Height:** no leads below `suspects.min_height_m`: the top-hat is sized to a person at the
+  current height, and on the pad one frame took 4.2 s.
 - **Proof:** a lead is proven only if the detector confirms a casualty there, so the detector's
   smallest blob is a ground area (`detector.min_blob_m2`, a hand), not pixels: a fixed pixel count
   made every close look at a hand or feet fail.
@@ -105,7 +113,9 @@ ByteTrack's BYTE association in the map frame: confident detections first (Hunga
 only extend tracks, only `tracker.new_track_confidence` starts one (0.3: thermal confidence comes
 in three steps, 0.31 / 0.73 / 1.0, and every step must start one or V05 is lost). A second blob
 within the association radius in one frame is the same body; tracks that settle within it are
-folded into the older name. `/aero_sense/victims` is always the whole list, so consumers replace
+folded into the older name. Each track keeps its best single look (`strength`): working it back out
+of the capped confidence divided by 0.6 ** (hits - 1), which underflows after ~1400 looks and
+crashed the detector. `/aero_sense/victims` is always the whole list, so consumers replace
 theirs rather than accumulate. Compare trackers by replaying a bag of
 `/aero_sense/perception/detections` (`logs/flight_bytetrack*`), not by flying twice.
 

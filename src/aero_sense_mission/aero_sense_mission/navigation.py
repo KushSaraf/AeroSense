@@ -5,6 +5,10 @@ While GPS is good its track is fitted onto the EKF's, heading and offset (vio.fi
 so every OpenVINS pose can be sent to ArduPilot already in the local NED frame. ArduPilot does not
 use it until GPS goes: then drone_interface switches the EKF to source set 2 (vision), and back to
 set 1 once GPS has been good for GPS_TRUST_S. ArduPilot re-anchors the position on the switch.
+
+With GPS gone and no vision to take over, the EKF goes to set 3, which uses no horizontal position
+at all, rather than staying on GPS: a jammer's fake fixes then cannot drag it about. With no
+position the autopilot's EKF failsafe lands the drone where it is.
 """
 import math
 from dataclasses import dataclass
@@ -13,11 +17,11 @@ import numpy as np
 
 from .vio import fit_yaw_translation, rotate
 
-GPS, VISION = "GPS", "VISION"
-#: ArduPilot EK3_SRC<n>_* sets: 1 flies on GPS, 2 on OpenVINS (hexa.parm / vio.parm).
-EKF_SOURCE_SET = {GPS: 1, VISION: 2}
+GPS, VISION, NONE = "GPS", "VISION", "NONE"
+#: ArduPilot EK3_SRC<n>_* sets: 1 flies on GPS, 2 on OpenVINS (vio.parm), 3 on no position (hexa.parm).
+EKF_SOURCE_SET = {GPS: 1, VISION: 2, NONE: 3}
 #: A GPS that comes back must stay good this long before the EKF trusts it again: jamming lets a
-#: lock through now and then, with a position hundreds of metres out.
+#: lock through now and then, with a position hundreds of metres out, for up to 3.1 s.
 GPS_TRUST_S = 5.0
 #: The heading fit uses this much of the most recent track flown on GPS.
 FIT_WINDOW_S = 60.0
@@ -69,13 +73,15 @@ def fit(pairs) -> Alignment | None:
 
 
 def next_source(current: str, gps_status: str, gps_ok_for_s: float, vision_ready: bool) -> str:
-    """The source to fly on now. Leave GPS the moment it is not OK, if vision can take over; go
-    back only after it has been OK for GPS_TRUST_S, or at once if vision is lost and GPS is OK."""
-    if current == GPS:
-        return VISION if gps_status != "OK" and vision_ready else GPS
-    if gps_status == "OK" and (gps_ok_for_s >= GPS_TRUST_S or not vision_ready):
+    """The source to fly on now. Leave GPS the moment it is not OK, for vision if it can take over,
+    else for none; go back only after GPS has been OK for GPS_TRUST_S, or at once from a vision
+    that has been lost."""
+    gps_ok = gps_status == "OK"
+    if current == GPS and gps_ok:
         return GPS
-    return VISION
+    if current != GPS and gps_ok and (gps_ok_for_s >= GPS_TRUST_S or (current == VISION and not vision_ready)):
+        return GPS
+    return VISION if vision_ready else NONE
 
 
 def vio_status(source: str, silent_s: float) -> str:

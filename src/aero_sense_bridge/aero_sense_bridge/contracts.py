@@ -82,7 +82,9 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None,
         "gps": "3D FIX" if getattr(status, "gps_status", "") == "OK" else
                (getattr(status, "gps_status", "") or "UNKNOWN"),
         # what the EKF flies on: OpenVINS once it has taken over from a lost GPS
-        "navigation": ("VISION" if getattr(status, "vio_status", "") == "ACTIVE" else "GPS") if status else "UNKNOWN",
+        # older recordings have no navigation field: there vision ACTIVE was the only other source
+        "navigation": (getattr(status, "navigation", "")
+                       or ("VISION" if getattr(status, "vio_status", "") == "ACTIVE" else "GPS")) if status else "UNKNOWN",
         "vio": getattr(status, "vio_status", "") or "UNKNOWN",
         "latitude": fix.latitude if fix is not None else None,
         "longitude": fix.longitude if fix is not None else None,

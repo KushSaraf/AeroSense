@@ -127,7 +127,11 @@ def _parm(name: str) -> dict:
 
 def test_sitl_frame_is_hexa_x_flown_on_ekf3():
     """EKF3, not SITL's perfect state (10), which the Gazebo plugin's no_time_sync would default to."""
-    assert _parm("hexa.parm") == {"FRAME_CLASS": "2", "FRAME_TYPE": "1", "AHRS_EKF_TYPE": "3"}
+    params = _parm("hexa.parm")
+    assert {k: params[k] for k in ("FRAME_CLASS", "FRAME_TYPE", "AHRS_EKF_TYPE")} == {
+        "FRAME_CLASS": "2", "FRAME_TYPE": "1", "AHRS_EKF_TYPE": "3"}
+    # set 3, no position: where the EKF goes with GPS lost and no vision
+    assert params["EK3_SRC3_POSXY"] == "0" and params["EK3_SRC3_VELXY"] == "0" and params["EK3_SRC3_POSZ"] == "1"
 
 
 def test_vio_parm_makes_openvins_the_second_ekf_source():

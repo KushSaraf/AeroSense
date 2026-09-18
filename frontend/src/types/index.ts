@@ -55,7 +55,7 @@ export interface Drone {
   link: LinkState | '5G STRONG'
   gps: '3D FIX' | 'LOST' | 'DEGRADED' | 'UNKNOWN'
   /** What the autopilot flies on: OpenVINS once it has taken over from a lost GPS. Absent in older recordings. */
-  navigation?: 'GPS' | 'VISION' | 'UNKNOWN'
+  navigation?: 'GPS' | 'VISION' | 'NONE' | 'UNKNOWN'
   /** Absent until the autopilot has a fix: the map shows nothing rather than a guessed position. */
   latitude?: number | null
   longitude?: number | null

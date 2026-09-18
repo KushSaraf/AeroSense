@@ -156,6 +156,19 @@
     </plugin>
 {% endfor %}
 
+    <!-- Air drag on the airframe, horizontal, linear in speed: a multirotor's is mostly rotor drag,
+         about 0.35 N per m/s for each kg (2.55 kg here). Without it nothing slowed the drone once it
+         stopped controlling position: an EKF failsafe landing with no GPS and no vision coasted
+         150 m. Gazebo has no plain body-drag system; Hydrodynamics' linear damping is exactly
+         this force (no added mass, no current, no buoyancy). -->
+    <plugin filename="gz-sim-hydrodynamics-system" name="gz::sim::systems::Hydrodynamics">
+      <link_name>base_link</link_name>
+      <water_density>1.2041</water_density>
+      <xU>-{{ cfg.airframe.drag_n_per_mps }}</xU>
+      <yV>-{{ cfg.airframe.drag_n_per_mps }}</yV>
+      <disable_coriolis>true</disable_coriolis>
+      <disable_added_mass>true</disable_added_mass>
+    </plugin>
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"/>
     <!-- Ground truth for the simulator's own use (GPS jammer, drift scoring), not a drone sensor -->
     <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">

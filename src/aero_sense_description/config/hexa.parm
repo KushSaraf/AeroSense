@@ -6,3 +6,11 @@ FRAME_TYPE 1
 # <no_time_sync> makes SITL default this to 10, its perfect simulated state: flown that way, the
 # drone knew where it was without any sensor, and losing GPS changed nothing.
 AHRS_EKF_TYPE 3
+# EKF source set 3: no horizontal position, baro height, compass yaw. drone_interface switches to it
+# when GPS is lost and OpenVINS cannot take over: left on set 1, the EKF took the jammer's fake
+# fixes and flew the drone after them. Without a position, the EKF failsafe lands where it is.
+EK3_SRC3_POSXY 0
+EK3_SRC3_VELXY 0
+EK3_SRC3_POSZ 1
+EK3_SRC3_VELZ 0
+EK3_SRC3_YAW 1

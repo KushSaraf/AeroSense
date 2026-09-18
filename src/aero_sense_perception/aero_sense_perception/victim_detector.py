@@ -216,8 +216,14 @@ class VictimDetector(Node):
 
     def _publish_suspects(self, stamp, kelvin, scale, position, rotation, height_m):
         """SWOOP's leads: every faint warm patch rated at least `min_probability`, kept as one
-        lead per place so the mission can fly down to it."""
-        found = suspects.find(kelvin, height_m, self.get_parameter("camera_hfov_rad").value, **self._suspect_cfg)
+        lead per place so the mission can fly down to it. Not below `min_height_m`: the finder's
+        filter is sized to a person at this height, and on the pad (0.3 m) one frame took 4.2 s
+        and held the detector's core through every take-off and landing."""
+        if height_m < self._lead_min_height_m:
+            found = ()
+        else:
+            found = suspects.find(kelvin, height_m, self.get_parameter("camera_hfov_rad").value,
+                                  **self._suspect_cfg)
         looks = []
         for suspect in found:
             point = geolocate.project(suspect.u / scale, suspect.v / scale, self._info.k, position,

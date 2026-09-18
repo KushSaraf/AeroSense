@@ -36,6 +36,10 @@ class Track:
     #: glimpsed edge-on through rubble tells you less than the same body seen from overhead.
     exposure: float = 1.0
     surround_k: float = 0.0
+    #: The best single look's confidence, which corroboration compounds from. Kept, not worked
+    #: back out of `confidence`: past the 0.99 cap that loses it, and after ~1400 looks
+    #: 0.6 ** (hits - 1) underflows to 0 and the division crashed the detector mid-mission.
+    strength: float = 0.0
 
 
 class Tracker:
@@ -109,7 +113,8 @@ class Tracker:
                          for a, b in zip(older.position, younger.position))
         clearer = younger if younger.exposure > older.exposure else older
         return replace(older, position=position, hits=hits, peak_k=max(older.peak_k, younger.peak_k),
-                       confidence=self._corroborated(max(self._strength(older), self._strength(younger)), hits),
+                       strength=max(older.strength, younger.strength),
+                       confidence=self._corroborated(max(older.strength, younger.strength), hits),
                        last_seen_s=max(older.last_seen_s, younger.last_seen_s),
                        exposure=clearer.exposure, surround_k=clearer.surround_k)
 
@@ -136,7 +141,7 @@ class Tracker:
         track_id = f"V-{self._next_id:03d}"
         self._next_id += 1
         self._tracks[track_id] = Track(track_id, tuple(position), 1, confidence, peak_k,
-                                       now_s, now_s, exposure, surround_k)
+                                       now_s, now_s, exposure, surround_k, strength=confidence)
 
     def _nearest(self, position):
         candidates = [(math.dist(t.position, position), t) for t in self._tracks.values()]
@@ -147,19 +152,13 @@ class Tracker:
                surround_k: float, now_s: float) -> Track:
         hits = track.hits + 1
         averaged = tuple((old * track.hits + new) / hits for old, new in zip(track.position, position))
-        strongest = max(confidence, self._strength(track))
+        strongest = max(confidence, track.strength)
         clearer = exposure > track.exposure
         return replace(track, position=averaged, hits=hits, peak_k=max(track.peak_k, peak_k),
-                       confidence=self._corroborated(strongest, hits), last_seen_s=now_s,
+                       strength=strongest, confidence=self._corroborated(strongest, hits), last_seen_s=now_s,
                        exposure=max(track.exposure, exposure),
                        surround_k=surround_k if clearer else track.surround_k)
 
     @staticmethod
     def _corroborated(strength: float, hits: int) -> float:
         return min(MAX_CONFIDENCE, 1.0 - (1.0 - strength) * DOUBT_DECAY ** (hits - 1))
-
-    @staticmethod
-    def _strength(track: Track) -> float:
-        """The single-look confidence behind a track's current value, so corroboration compounds
-        from the evidence rather than from itself."""
-        return 1.0 - (1.0 - track.confidence) / DOUBT_DECAY ** (track.hits - 1)

@@ -16,4 +16,5 @@ geometry_msgs/Pose pose          # map frame
 string gps_status                # OK | DEGRADED | LOST
 float32 gps_hacc_m
 string vio_status                # STANDBY | ACTIVE | LOST
+string navigation                # GPS | VISION | NONE: what the EKF takes its position from
 string link_status               # CONNECTED | DEGRADED | OFFLINE | RECOVERING | SYNCHRONIZING

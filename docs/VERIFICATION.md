@@ -62,6 +62,36 @@ purple, and the banner and the Navigation row follow what the drone flies on, no
 
 ![Dashboard with GPS jammed](images/dashboard-gps-denied.png)
 
+### No GPS and no vision: land in place, never follow a jammer (2026-09-18)
+
+GPS jammed by hand at 3.9 m/s with OpenVINS off (`vio:=false`, `logs/flight_jam_drift`), before and
+after, read from the autopilot's own telemetry:
+
+| | Before | After |
+|---|---|---|
+| EKF source with GPS gone | stayed on set 1 (GPS) | set 3, no position |
+| The jammer's fake 3D fixes (up to 3.1 s each) | accepted: "EKF Failsafe Cleared", its estimate ran 1.9 km off at 60 m/s | ignored: "stopped aiding", GPS trusted again only after 5 s |
+| What the drone did | chased the false position, landed 93 m away, crash-disarmed | failsafe at 9.5 s, stopped, straight down, normal disarm |
+| From loss of GPS to touchdown | 93 m | 42 m, 35 m of it the 9.5 s before the failsafe |
+
+The airframe had no drag, so nothing slowed a drone that stopped holding position; it now has
+0.9 N per m/s horizontally (rotor drag, `sensors.yaml`).
+
+Earthquake mission on the dashboard's sim, with the Gazebo window (`logs/flight_nav_none2`):
+MISSION_COMPLETE, 14 of 18, 0 false positives, mean error 0.78 m, 98.7 % searched, 4 SWOOP leads
+proven, 7 GPS losses each handed to OpenVINS and back. The build included the RGB detector
+another session was adding (uncommitted), which likely accounts for the 14th casualty.
+
+Found on the way:
+- **The lead finder at pad height.** Its top-hat is sized to a person at the current height: at
+  0.3 m one frame took 4.2 s, holding the detector's core through every take-off and landing.
+  `suspects.min_height_m` was loaded and never applied; it is now.
+- **The tracker crashed after ~1400 looks at one casualty** (`flight_nav_none`): the single-look
+  strength was worked back out of the capped confidence by dividing by 0.6 ** (hits - 1), which
+  underflows to 0. Each track now keeps its best single look.
+- A first attempt at this mission was cut short when the dashboard was started at 23:28:
+  `tools/dashboard.sh` restarts a running sim, and the evaluation then followed the new one.
+
 ### A search area drawn on the map (2026-09-18)
 
 Drawn on the Live map in the browser (102 x 56 m, x -138 to -36, y 13 to 69), sent as lat/lon and

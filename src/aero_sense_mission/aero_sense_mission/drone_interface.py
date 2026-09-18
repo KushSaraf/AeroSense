@@ -36,7 +36,7 @@ from .autopilot import Autopilot, classify_gps
 from .comms_link import EVENTS_TOPIC
 from .frames import (enu_attitude_to_ned, enu_yaw_to_ned, geodetic_to_map, map_to_ned,
                      ned_attitude_to_enu_quaternion, ned_to_map, quaternion_to_rpy, quaternion_to_yaw)
-from .navigation import GPS, VISION
+from .navigation import GPS, NONE, VISION
 
 PREARM_TIMEOUT_S = 120.0
 #: OpenVINS poses go to ArduPilot at this rate (it publishes at the IMU's 200 Hz).
@@ -196,6 +196,7 @@ class DroneInterface(Node):
         with self._nav_lock:
             source, heard = self._source, self._vio_heard
         msg.vio_status = navigation.vio_status(source, math.inf if heard is None else time.monotonic() - heard)
+        msg.navigation = source
         return msg
 
     # -- navigation: GPS, or OpenVINS when GPS is gone ------------------------------------
@@ -271,6 +272,9 @@ class DroneInterface(Node):
             self._source = target
         if target == VISION:
             self._event(f"GPS {gps.lower()}: navigating on the stereo cameras (OpenVINS)")
+        elif target == NONE:
+            self._event(f"GPS {gps.lower()} and no vision to fall back on: GPS ignored until it holds for "
+                        f"{navigation.GPS_TRUST_S:.0f} s; without a position the autopilot lands where it is")
         else:   # next_source only goes back to GPS once it is OK
             self._event("GPS back: navigating on GPS again")
 

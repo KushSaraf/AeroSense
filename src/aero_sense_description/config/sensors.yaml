@@ -49,6 +49,8 @@ airframe:
   plate_inner_z_m: -0.040     # frame CAD: top face of the bottom plate (floor of the bay)
   plate_top_z_m: 0.050        # frame CAD: top face of the top plate
   body_mass_kg: 2.2           # not yet the real build's: weigh it, or add up datasheet masses
+  # Horizontal air drag, N per m/s: rotor drag, about 0.35 N per m/s per kg, for the 2.55 kg flown.
+  drag_n_per_mps: 0.9
   # ixx, iyy scaled from the first flown design (0.30 m arms) by the arm length, so attitude response
   # per rotor torque stays where ArduPilot's default gains fly it.
   body_inertia: [0.038, 0.038, 0.05]

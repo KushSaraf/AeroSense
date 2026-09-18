@@ -6,7 +6,7 @@ import pytest
 
 from aero_sense_mission import comms, navigation, zones
 from aero_sense_mission.mission_manager import SCENARIO_AREAS
-from aero_sense_mission.navigation import GPS, VISION
+from aero_sense_mission.navigation import GPS, NONE, VISION
 from aero_sense_mission.search_pattern import lawnmower
 
 
@@ -65,15 +65,24 @@ def test_no_fit_from_a_hover():
 def test_gps_lost_switches_to_vision_only_if_vision_is_ready():
     assert navigation.next_source(GPS, "LOST", 0.0, vision_ready=True) == VISION
     assert navigation.next_source(GPS, "DEGRADED", 0.0, vision_ready=True) == VISION
-    assert navigation.next_source(GPS, "LOST", 0.0, vision_ready=False) == GPS
+    assert navigation.next_source(GPS, "LOST", 0.0, vision_ready=False) == NONE
     assert navigation.next_source(GPS, "OK", 99.0, vision_ready=True) == GPS
 
 
 def test_gps_must_stay_good_before_the_ekf_goes_back():
     assert navigation.next_source(VISION, "OK", 1.0, vision_ready=True) == VISION
     assert navigation.next_source(VISION, "OK", navigation.GPS_TRUST_S, vision_ready=True) == GPS
-    assert navigation.next_source(VISION, "LOST", 99.0, vision_ready=False) == VISION
+    assert navigation.next_source(VISION, "LOST", 99.0, vision_ready=False) == NONE
     assert navigation.next_source(VISION, "OK", 0.0, vision_ready=False) == GPS
+
+
+def test_without_gps_or_vision_the_ekf_ignores_gps_until_it_holds():
+    """A jammer lets fake 3D fixes through for up to 3.1 s (flight_jam_drift): on set 1 the EKF took
+    each one and flew the drone after positions hundreds of metres off."""
+    assert navigation.next_source(NONE, "OK", 3.1, vision_ready=False) == NONE
+    assert navigation.next_source(NONE, "OK", navigation.GPS_TRUST_S, vision_ready=False) == GPS
+    assert navigation.next_source(NONE, "LOST", 0.0, vision_ready=True) == VISION
+    assert navigation.EKF_SOURCE_SET[NONE] == 3
 
 
 def test_vio_status():

@@ -175,6 +175,17 @@ def test_two_tracks_that_settle_on_one_casualty_become_one():
     assert confirmed[0].hits == 8
 
 
+
+def test_a_casualty_seen_thousands_of_times_keeps_its_confidence():
+    """After ~1400 looks 0.6 ** (hits - 1) underflowed to 0: working the single-look strength back
+    out of the confidence divided by it and crashed the detector mid-mission (flight_nav_none)."""
+    t = tracker()
+    for i in range(2000):
+        confirmed = t.update([seen((0.0, 0.0, 0.0), 0.73 if i % 2 else 0.31, 309.0)], float(i))
+    assert confirmed[0].hits == 2000 and confirmed[0].strength == 0.73
+    assert confirmed[0].confidence == pytest.approx(0.99)
+
+
 # -- SWOOP leads: faint heat that is not yet a casualty ------------------------------------------
 
 from aero_sense_perception import suspects  # noqa: E402

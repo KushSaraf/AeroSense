@@ -233,7 +233,7 @@ function DashboardPage() {
                 ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
                 ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
                 ['GPS', drone?.gps ?? '—'],
-                ['Navigation', drone?.navigation === 'VISION' ? 'VISION (OpenVINS)' : drone?.navigation ?? '—'],
+                ['Navigation', drone?.navigation === 'VISION' ? 'VISION (OpenVINS)' : drone?.navigation === 'NONE' ? 'NONE (landing)' : drone?.navigation ?? '—'],
                 ['Network', link?.state ?? '—'],
                 ['Mode', drone?.mode ?? '—'],
               ].map(([label, value]) => (
