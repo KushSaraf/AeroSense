@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=true]
+        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=true] [rgb:=true]
 
 Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
 for evaluation.
@@ -185,6 +185,9 @@ def _launch(context, *args, **kwargs):
                                    "thermal_resolution_k": cfg["thermal"]["resolution_k"],
                                    "camera_hfov_rad": cfg["thermal"]["hfov_rad"],
                                    "camera_frame": f"{frame_prefix}camera_optical"}])
+    # people in the RGB camera (ml/models/yolo11n_aerial): SWOOP leads, and the deceased casualty
+    rgb_people = Node(package="aero_sense_perception", executable="rgb_detector", namespace=namespace,
+                      output="screen", parameters=[{"camera_frame": f"{frame_prefix}camera_optical"}])
     mission = Node(package="aero_sense_mission", executable="mission_manager",
                    namespace=namespace, output="screen",
                    # coverage and inspection stand-off follow the thermal camera actually fitted
@@ -201,6 +204,8 @@ def _launch(context, *args, **kwargs):
                gps_jammer, *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if vio:
         actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
+    if LaunchConfiguration("rgb").perform(context).lower() in ("true", "1"):
+        actions.append(rgb_people)
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))
     return actions
@@ -215,6 +220,8 @@ def generate_launch_description() -> LaunchDescription:
                               description="drone namespace, e.g. drone_01 (empty = single drone)"),
         DeclareLaunchArgument("quality", default_value="medium", choices=list(render.QUALITIES),
                               description="sensor quality profile (resolution / rate)"),
+        DeclareLaunchArgument("rgb", default_value="true", choices=["true", "false"],
+                              description="run the RGB person detector (ml/models/yolo11n_aerial) beside thermal"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
         DeclareLaunchArgument("vio", default_value="true", choices=["true", "false"],

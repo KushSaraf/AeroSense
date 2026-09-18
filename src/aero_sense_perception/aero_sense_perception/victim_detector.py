@@ -6,6 +6,7 @@ evaluation can score these detections against it.
     thermal image -> hot blobs -> ray through the pixel -> ground intersection in `map`
                   -> nearest-neighbour track -> /aero_sense/victims
                   -> faint or tiny warm patches, rated -> /aero_sense/perception/suspects (SWOOP)
+    RGB people (rgb_detector) -> SWOOP leads from any height; casualties from low down (rgb.py)
 """
 import math
 from pathlib import Path
@@ -22,7 +23,7 @@ from tf2_ros import Buffer, TransformListener
 
 from aero_sense_interfaces.msg import TriageScore, VictimArray, VictimDetection
 
-from . import detector, geolocate, structure_map, suspects, triage
+from . import detector, geolocate, rgb, structure_map, suspects, triage
 from .tracker import Tracker
 
 DETECTIONS_TOPIC = "aero_sense/perception/detections"
@@ -58,6 +59,7 @@ class VictimDetector(Node):
         self._lead_radius_m = config["suspects"]["associate_radius_m"]
         self._lead_min_height_m = config["suspects"]["min_height_m"]
         self._lead_min_looks = config["suspects"]["min_looks"]
+        self._rgb_cfg = config["rgb"]
         self._leads = ()
         self._scale = self.get_parameter("thermal_resolution_k").value
         self._origin = (self.get_parameter("origin_latitude").value,
@@ -73,6 +75,7 @@ class VictimDetector(Node):
         self.create_subscription(CameraInfo, "aero_sense/camera/thermal/camera_info",
                                  lambda m: setattr(self, "_info", m), 1)
         self.create_subscription(Image, "aero_sense/camera/thermal/image_raw", self._on_thermal, 1)
+        self.create_subscription(VictimArray, rgb.RGB_DETECTIONS_TOPIC, self._on_rgb, 10)
         self.create_service(Trigger, "aero_sense/perception/reset", self._reset)
         self._raw_pub = self.create_publisher(VictimArray, DETECTIONS_TOPIC, 10)
         self._victims_pub = self.create_publisher(VictimArray, VICTIMS_TOPIC, 10)
@@ -114,27 +117,28 @@ class VictimDetector(Node):
     # -- pipeline ---------------------------------------------------------------
 
     def _camera_pose(self, stamp):
-        """(position, rotation) of the camera in `map` *when the frame was taken*, or None until
-        TF is ready.
+        """(position, rotation) of the camera in `map` when the frame was taken (geolocate.camera_pose)."""
+        pose = geolocate.camera_pose(self._tf, self._map_frame, self._camera_frame, stamp)
+        if pose is None:
+            self.get_logger().warn(f"no transform {self._map_frame} <- {self._camera_frame}",
+                                   throttle_duration_sec=10.0)
+        return pose
 
-        The stamp matters more than it looks: using the latest transform instead projects each
-        detection from wherever the drone has since flown to, so the same casualty lands in a
-        different place every frame, never associates into one track, and is never confirmed.
-        At 4 m/s that error hid nothing; at 8 m/s it cost half the casualties.
-        """
-        try:
-            tf = self._tf.lookup_transform(self._map_frame, self._camera_frame,
-                                           rclpy.time.Time.from_msg(stamp),
-                                           timeout=rclpy.duration.Duration(seconds=0.1))
-        except Exception:
-            try:                                       # before the buffer starts, or after a gap
-                tf = self._tf.lookup_transform(self._map_frame, self._camera_frame, rclpy.time.Time())
-            except Exception as exc:
-                self.get_logger().warn(f"no transform {self._map_frame} <- {self._camera_frame}: {exc}",
-                                       throttle_duration_sec=10.0)
-                return None
-        t, q = tf.transform.translation, tf.transform.rotation
-        return np.array([t.x, t.y, t.z]), geolocate.quaternion_to_matrix(q.x, q.y, q.z, q.w)
+    def _on_rgb(self, msg: VictimArray):
+        """RGB people into SWOOP's leads and, from low down, the tracker (rgb.py). Both are published
+        with the next thermal frame, a tenth of a second on."""
+        pose = self._camera_pose(msg.header.stamp)
+        if pose is None:
+            return
+        height_m = float(pose[0][2] - self._ground_z)
+        seen = [((v.position.x, v.position.y, v.position.z), v.confidence) for v in msg.victims]
+        min_height_m, cfg = self._lead_min_height_m, self._rgb_cfg
+        self._leads = suspects.merge(self._leads, rgb.looks(seen, height_m, min_height_m, cfg["lead_confidence"],
+                                                            self._ambient_k), self._lead_radius_m)
+        found = rgb.casualties(seen, height_m, min_height_m, cfg["confirm_confidence"], cfg["confirm_max_height_m"],
+                               self._ambient_k)
+        if found:
+            self._tracker.update(found, msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
 
     def _on_thermal(self, msg: Image):
         if self._info is None:
@@ -177,7 +181,8 @@ class VictimDetector(Node):
             victim_id=victim_id,
             position=Point(x=float(position[0]), y=float(position[1]), z=float(position[2])),
             latitude=lat, longitude=lon, confidence=float(confidence),
-            evidence=f"THERMAL {peak_k:.1f} K",
+            evidence=f"THERMAL {peak_k:.1f} K" if peak_k - self._ambient_k >= triage.LIVE_MARGIN_K
+            else "RGB person, no heat above ambient",
             thermal_strength=float(min(1.0, max(0.0, (peak_k - self._ambient_k) / 17.0))),
             # measured: the peak LWIR reading; not yet estimated: movement, visibility, vital state
             surface_temperature_k=float(peak_k), movement="unknown", visibility="unknown", vital_state="unknown",
@@ -239,7 +244,8 @@ class VictimDetector(Node):
                 victim_id=lead.lead_id,
                 position=Point(x=float(lead.position[0]), y=float(lead.position[1]), z=float(lead.position[2])),
                 latitude=lat, longitude=lon, confidence=float(lead.probability),
-                evidence=f"SUSPECT +{lead.contrast_k:.1f} K over the ground, {lead.looks} looks",
+                evidence=(f"SUSPECT +{lead.contrast_k:.1f} K over the ground, {lead.looks} looks" if lead.contrast_k > 0
+                          else f"SUSPECT RGB person, {lead.looks} looks"),
                 surface_temperature_k=float(lead.peak_k), movement="unknown", visibility="unknown",
                 vital_state="unknown", priority="UNTRIAGED"))
         self._suspects_pub.publish(msg)

@@ -250,3 +250,58 @@ def test_ground_between_cold_collapsed_walls_is_not_a_lead():
     frame[40:80, 70:73] = 298.0                                # a 60 cm strip of earth between them
 
     assert suspects.find(frame, 30.0, LEPTON_HFOV, **SUS) == ()
+
+
+# -- RGB people (rgb.py): leads from any height, casualties from low down ---------------------------
+
+RGB = CFG["rgb"]
+LEAD_MIN_M = CFG["suspects"]["min_height_m"]
+
+
+def rgb_casualties(seen, height_m):
+    from aero_sense_perception import rgb
+    return rgb.casualties(seen, height_m, LEAD_MIN_M, RGB["confirm_confidence"], RGB["confirm_max_height_m"],
+                          AMBIENT_K)
+
+
+def test_an_rgb_person_is_a_lead_from_search_height_but_not_from_the_pad():
+    from aero_sense_perception import rgb
+    seen = [((10.0, 5.0, 0.0), 0.4), ((30.0, 5.0, 0.0), RGB["lead_confidence"] - 0.01)]
+    assert [look[:2] for look in rgb.looks(seen, 30.0, LEAD_MIN_M, RGB["lead_confidence"], AMBIENT_K)] \
+        == [((10.0, 5.0, 0.0), 0.4)]
+    assert rgb.looks(seen, 0.3, LEAD_MIN_M, RGB["lead_confidence"], AMBIENT_K) == []
+
+
+def test_only_a_confident_close_look_makes_an_rgb_casualty():
+    seen = [((10.0, 5.0, 0.0), 0.8), ((30.0, 5.0, 0.0), RGB["confirm_confidence"] - 0.01)]
+    assert [c[0] for c in rgb_casualties(seen, 10.0)] == [(10.0, 5.0, 0.0)]
+    assert rgb_casualties(seen, 30.0) == []                  # from search height it is only a lead
+
+
+def test_someone_only_rgb_sees_is_confirmed_and_triaged_as_showing_no_heat():
+    from aero_sense_perception import triage
+    tracker = Tracker(**CFG["tracker"])
+    for t in range(CFG["tracker"]["confirm_hits"]):
+        confirmed = tracker.update(rgb_casualties([((20.0, 40.0, 0.0), 0.7)], 10.0), float(t))
+    assert len(confirmed) == 1
+    track = confirmed[0]
+    assessment = triage.assess(triage.Observation(peak_k=track.peak_k, surround_k=AMBIENT_K, ambient_k=AMBIENT_K,
+                                                  exposure=track.exposure, structure_distance_m=math.inf))
+    assert assessment.priority == "P3" and "no live thermal signature" in assessment.rationale
+
+
+def test_a_body_both_cameras_see_keeps_its_thermal_reading():
+    tracker = Tracker(**CFG["tracker"])
+    tracker.update([((20.0, 40.0, 0.0), 1.0, 309.0, 0.8, AMBIENT_K)], 0.0)            # thermal
+    tracker.update(rgb_casualties([((20.5, 40.0, 0.0), 0.7)], 10.0), 0.5)             # RGB, same body
+    (track,) = tracker.tracks
+    assert track.hits == 2 and track.peak_k == 309.0 and track.exposure == 0.8
+
+
+def test_rgb_people_far_off_nadir_are_left_out():
+    from aero_sense_perception import rgb
+    k = [240.0, 0.0, 480.0, 0.0, 240.0, 300.0, 0.0, 0.0, 1.0]           # the 960x600, 127 deg RGB camera
+    down = np.array([[0.0, -1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, -1.0]])   # optical z straight down
+    assert rgb.off_nadir_deg(480, 300, k, down) == pytest.approx(0.0, abs=1e-6)
+    assert rgb.off_nadir_deg(900, 300, k, down) > CFG["rgb"]["max_off_nadir_deg"]      # the frame's edge
+    assert rgb.off_nadir_deg(480 + 240 * math.tan(math.radians(30)), 300, k, down) == pytest.approx(30.0)

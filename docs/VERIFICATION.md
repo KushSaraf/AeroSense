@@ -31,6 +31,26 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
+### RGB people beside thermal: the deceased casualty found (2026-09-19)
+
+The fine-tuned RGB detector (`ml/models/yolo11n_aerial`, `rgb_detector`) feeding SWOOP leads and,
+from the close look, the tracker. `tools/mission_evaluation.py`, fresh headless simulation each,
+30 m search, the airframe of ea9e425 (drag, EKF3 source sets).
+
+| Sector | Thermal only | RGB, whole frame | RGB within 35 deg of nadir |
+|---|---|---|---|
+| Earthquake | 13 of 18 (before ea9e425) | 14 of 18, 0 FP, 978 s, 98 % | **14 of 18**, 0 FP, 722 s, 96 %, 1 SWOOP descent |
+| Flood | **5 of 5**, 0 FP, 407 s, 99.5 % | 4 of 5, 0 FP, 559 s, 93 %, 3 descents ruled out | **5 of 5**, 0 FP, 461 s, 99.7 %, 1 ruled out |
+
+The casualty RGB adds is V09, deceased at 295 K and invisible to the thermal camera: an RGB lead
+("72 % likely a person at (-108, 39)"), a descent to 10 m, and RGB confirmed them there, triaged P3
+as the scenario expects. Still missed: V13 and V14 inside collapse cracks, V16 and V17 buried.
+
+The whole-frame run showed why the cone: over the flood it sent the drone down three times to places
+nobody was. The same places photographed straight down gave no detections; seen from the side at the
+edge of the 127 deg frame, walls and windows did, and people on terraces 2-5 m up projected onto the
+ground plane land metres away. The descents broke up the search (93 %) and it missed V20.
+
 ### GPS-denied navigation on OpenVINS (2026-09-18)
 
 Earthquake mission on ArduPilot's EKF3 through all three zones (no network, no GPS, both), the

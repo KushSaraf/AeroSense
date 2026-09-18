@@ -20,3 +20,4 @@ ml/datasets/
 # Training runs (ml/train.py); the published weights in ml/models/yolo11n_aerial/ are committed.
 ml/models/runs/
 !ml/models/yolo11n_aerial/*.pt
+!src/aero_sense_perception/models/*.pt

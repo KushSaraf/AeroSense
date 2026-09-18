@@ -17,14 +17,15 @@ setup(
     data_files=[
         ("share/ament_index/resource_index/packages", [f"resource/{PACKAGE}"]),
         (f"share/{PACKAGE}", ["package.xml"]),
-    ] + tree("config"),
+    ] + tree("config") + tree("models"),       # models/: the RGB detector's weights, from ml/models
     install_requires=["setuptools"],
     zip_safe=True,
     maintainer="kushsaraf",
     maintainer_email="teamdronematrx@gmail.com",
-    description="Finds casualties in the drone's sensor stream: thermal detection, geolocation, tracking.",
+    description="Finds casualties in the drone's sensor stream: thermal and RGB detection, geolocation, tracking.",
     license="TODO",
     entry_points={"console_scripts": [
         f"victim_detector = {PACKAGE}.victim_detector:main",
+        f"rgb_detector = {PACKAGE}.rgb_detector:main",
     ]},
 )

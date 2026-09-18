@@ -47,3 +47,25 @@ def quaternion_to_matrix(x: float, y: float, z: float, w: float) -> np.ndarray:
         [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
         [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
     ])
+
+
+def camera_pose(tf_buffer, map_frame: str, camera_frame: str, stamp):
+    """(position, rotation optical -> map) of the camera *when the frame was taken*, or None until
+    TF has it.
+
+    The stamp matters more than it looks: using the latest transform instead projects each
+    detection from wherever the drone has since flown to, so the same casualty lands in a
+    different place every frame, never associates into one track, and is never confirmed.
+    At 4 m/s that error hid nothing; at 8 m/s it cost half the casualties.
+    """
+    import rclpy                                           # only the nodes need ROS
+    try:
+        tf = tf_buffer.lookup_transform(map_frame, camera_frame, rclpy.time.Time.from_msg(stamp),
+                                        timeout=rclpy.duration.Duration(seconds=0.1))
+    except Exception:
+        try:                                               # before the buffer starts, or after a gap
+            tf = tf_buffer.lookup_transform(map_frame, camera_frame, rclpy.time.Time())
+        except Exception:
+            return None
+    t, q = tf.transform.translation, tf.transform.rotation
+    return np.array([t.x, t.y, t.z]), quaternion_to_matrix(q.x, q.y, q.z, q.w)

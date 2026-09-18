@@ -1,8 +1,8 @@
-# How the drone decides something warm is a person.
+# How the drone decides something is a person.
 #
-# Thermal only, for now: the LWIR image is the one cue that separates a body from rubble in a
-# scene where everything else sits at ambient. RGB shape (YOLO) joins later as a second cue,
-# which is what will let the deceased casualty (no thermal contrast) be found at all.
+# Two cues. LWIR separates a warm body from rubble in a scene where everything else sits at
+# ambient. RGB shape (rgb_detector: YOLO11n fine-tuned on overhead views, ml/) also finds people with
+# no heat to show, like the deceased casualty, and bodies the thermal threshold misses.
 
 detector:
   # Ground is 298 K and asphalt 301 K; a live body is 306-311 K. gz quantises heat to ~2.6 K,
@@ -52,3 +52,24 @@ suspects:
   # a lead is published once seen this often: a single frame taken mid-bank projects a real
   # casualty metres off and made ghost leads the drone flew down to for nothing
   min_looks: 3
+
+# The RGB person detector (rgb_detector, ml/models/yolo11n_aerial). On the scenario's casualties,
+# rendered from 8-34 m (ml/README.md): 67 % found in a frame at confidence 0.35, 41 % at 0.55 with
+# 4 false positives in 184 frames. Its detections go where thermal ones go:
+rgb:
+  model: yolo11n_aerial.pt          # in this package's share/models (ml/models/yolo11n_aerial)
+  imgsz: 960                        # the frame's own width: shrinking loses 10-pixel people
+  rate_hz: 3.0                      # frames looked at per second; a casualty stays in view for seconds
+  # only people within this angle of straight down: the camera sees 127 deg across, and off to the
+  # side a person on a 5 m terrace projects metres from where they are, while walls and windows
+  # seen edge-on made leads nobody was at (three wasted SWOOP descents over the flood). Within 35 deg
+  # 5 m of height is at most 3.5 m off, inside the tracker's 6 m, and from 30 m the cone is still
+  # 42 m across, wider than the 25 m between search legs.
+  max_off_nadir_deg: 35.0
+  # every person this confident is published, and is a SWOOP lead once seen min_looks times
+  # (suspects:) in one place: the descent then proves it or rules it out
+  lead_confidence: 0.35
+  # and a casualty for the tracker when this confident, seen from this low (SWOOP's 10 m close look;
+  # the fewer false positives come from nearer): three such looks confirm someone with no heat at all
+  confirm_confidence: 0.5
+  confirm_max_height_m: 15.0
