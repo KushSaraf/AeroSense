@@ -1,13 +1,15 @@
 import { AlertTriangle, Boxes, Layers3, MapPinned, Radio, RotateCcw, Thermometer, Video } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { CircleMarker, MapContainer, Polyline, Popup, TileLayer } from 'react-leaflet'
-import { LINK_COLOUR, NetworkBanner, NetworkSwitch, NoNetworkZones } from '../components/NetworkStatus'
+import { GpsBanner, GpsSwitch } from '../components/GpsStatus'
+import { LINK_COLOUR, NetworkBanner, NetworkSwitch } from '../components/NetworkStatus'
+import { DeniedZones } from '../components/Zones'
 import StatusPill from '../components/StatusPill'
 import { API_URL, cameraSrc, simulationControl } from '../services/apiServices'
 import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import { useWorld } from '../hooks/useWorld'
-import type { LinkStatus, Victim } from '../types'
+import type { Drone, LinkStatus, Victim } from '../types'
 import 'leaflet/dist/leaflet.css'
 
 const DASHBOARD_TRACK_LIMIT = 400
@@ -36,7 +38,7 @@ const RESTART_POLL_MS = 4000
  * simulation already running; restart tears it down and brings up a fresh one, which is the way
  * out of a crashed drone or a wedged autopilot without leaving the dashboard.
  */
-function SimulationControls({ link }: { link: LinkStatus | null }) {
+function SimulationControls({ link, drone }: { link: LinkStatus | null; drone: Drone | null | undefined }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [note, setNote] = useState<{ text: string; tone: 'warn' | 'ok' } | null>(null)
 
@@ -88,6 +90,7 @@ function SimulationControls({ link }: { link: LinkStatus | null }) {
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap justify-end gap-2">
         <NetworkSwitch link={link} />
+        <GpsSwitch drone={drone} />
         {([['gazebo', 'GAZEBO', Boxes], ['rviz', 'RVIZ', Layers3]] as const).map(([kind, label, Icon]) => (
           <button key={kind} type="button" onClick={() => void open(kind)} disabled={busy !== null}
                   title={`Open ${label} on the running simulation`}
@@ -206,7 +209,7 @@ function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <SimulationControls link={link} />
+            <SimulationControls link={link} drone={drone} />
             <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
             <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
               ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
@@ -216,6 +219,7 @@ function DashboardPage() {
           </div>
         </header>
         <NetworkBanner link={link} />
+        <GpsBanner drone={drone} />
 
         <div className="dashboard-layout">
           <Panel title="Drone 1" icon={<Radio size={15} />}
@@ -229,6 +233,7 @@ function DashboardPage() {
                 ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
                 ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
                 ['GPS', drone?.gps ?? '—'],
+                ['Navigation', drone?.navigation === 'VISION' ? 'VISION (OpenVINS)' : drone?.navigation ?? '—'],
                 ['Network', link?.state ?? '—'],
                 ['Mode', drone?.mode ?? '—'],
               ].map(([label, value]) => (
@@ -242,7 +247,7 @@ function DashboardPage() {
             <div className="relative h-[440px] overflow-hidden rounded-md border border-white/15">
               <MapContainer center={centre} zoom={17} style={{ height: '100%', width: '100%' }}>
                 <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <NoNetworkZones zones={world?.noNetworkZones} />
+                <DeniedZones world={world} />
                 {victims.map((victim) => (
                   <CircleMarker
                     key={victim.id}

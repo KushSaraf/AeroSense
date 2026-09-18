@@ -7,6 +7,7 @@
   WS   /ws             the same state pushed as it changes
   GET  /api/simulation           whether a simulation is running
   POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
+  POST /api/simulation/gps       {"up": false} jams the drone's GPS everywhere, {"up": true} lifts it
   POST /api/simulation/view/gazebo | rviz   open a window onto the running simulation
   POST /api/simulation/start     start one (Gazebo, drone, autopilot, perception)
   POST /api/simulation/stop      stop everything
@@ -48,6 +49,7 @@ from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, 
                                        VictimArray)
 from aero_sense_interfaces.srv import StartMission
 
+from aero_sense_mission import zones
 from aero_sense_mission.comms import NO_NETWORK_ZONES
 from aero_sense_mission.mission_manager import SCENARIO_AREAS
 
@@ -105,6 +107,7 @@ class DashboardBridge(Node):
                                  lambda m: self._events.append(contracts.downlink_event(m.data)), 50)
         self.create_subscription(CommunicationStatus, DOWNLINK + "communication/status", self._on_comms, 10)
         self._network = self.create_client(SetBool, "aero_sense/sim/network")
+        self._gps = self.create_client(SetBool, "aero_sense/sim/gps")
         self._start_mission = self.create_client(StartMission, "aero_sense/mission/start")
         self._mission_commands = {name: self.create_client(Trigger, f"aero_sense/mission/{name}")
                                   for name in ("pause", "resume", "abort", "return_to_base")}
@@ -228,6 +231,10 @@ class DashboardBridge(Node):
         return self._call(self._network, SetBool.Request(data=up),
                           "the drone's comms link is not running; start a simulation first")
 
+    def set_gps(self, up: bool) -> dict:
+        """Simulator control, like the network: the jammer, not the drone, answers."""
+        return self._call(self._gps, SetBool.Request(data=up), "the GPS jammer is not running; start a simulation first")
+
     def _call(self, client, request, absent: str, extra=lambda result: {}) -> dict:
         if not client.wait_for_service(timeout_sec=5.0):
             return {"success": False, "message": absent}
@@ -325,6 +332,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
         """Cut or restore the drone's network, anywhere, to show the drone working without it."""
         return bridge.set_network(bool(options.get("up", True)))
 
+    @app.post("/api/simulation/gps")
+    def simulation_gps(options: dict):
+        """Jam or restore the drone's GPS, anywhere, to show it flying on its cameras."""
+        return bridge.set_gps(bool(options.get("up", True)))
+
     @app.post("/api/simulation/view/{kind}")
     def open_view(kind: str):
         """Open Gazebo or RViz onto the simulation that is already running."""
@@ -372,7 +384,7 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
         The origin is the world's own <spherical_coordinates>, which is also SITL's home, so a
         position in metres and a GPS fix describe the same point."""
-        return contracts.world_json(SCENARIO_AREAS, NO_NETWORK_ZONES)
+        return contracts.world_json(SCENARIO_AREAS, NO_NETWORK_ZONES, zones.of_kind(zones.GPS))
 
     @app.get("/api/hazards")
     def hazards():

@@ -80,6 +80,7 @@ relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the do
   while its track fits the GPS track within 5 m RMS.
 - **OpenVINS** runs by default (`vio:=true`). It initialises in a hover after take-off
   (`try_zupt`); it could not on the pad (too few features) nor mid-climb (diverged).
+- **By hand:** `POST /api/simulation/gps {"up": false}` (JAM GPS on the dashboard).
 - **Scoring:** `tools/vio_drift.py` against ground truth.
 
 ## SWOOP (Suspect, Weigh, Observe Overhead, Prove)

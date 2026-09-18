@@ -317,3 +317,17 @@ def test_world_json_places_the_dead_zones_too():
     world = contracts.world_json({}, {"north_east_blocks": _Area(-110.0, 50.0, -20.0, 92.0)})
     zone = world["noNetworkZones"][0]
     assert zone["id"] == "north_east_blocks" and len(zone["corners"]) == 4
+
+
+def test_world_json_places_the_no_gps_zones():
+    world = contracts.world_json({}, {}, {"south_lanes": _Area(-160.0, 10.0, -60.0, 38.0)})
+    assert [z["id"] for z in world["noGpsZones"]] == ["south_lanes"] and world["noNetworkZones"] == []
+
+
+def test_the_drone_says_what_it_navigates_on():
+    from aero_sense_interfaces.msg import DroneStatus
+    on_vision = contracts.drone_json(DroneStatus(gps_status="LOST", vio_status="ACTIVE"), None, None, None, 0.0)
+    on_gps = contracts.drone_json(DroneStatus(gps_status="OK", vio_status="STANDBY"), None, None, None, 0.0)
+    assert (on_vision["navigation"], on_vision["gps"]) == ("VISION", "LOST")
+    assert on_gps["navigation"] == "GPS" and on_gps["vio"] == "STANDBY"
+    assert contracts.drone_json(None, None, None, None, 0.0)["navigation"] == "UNKNOWN"

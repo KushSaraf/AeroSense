@@ -55,6 +55,13 @@ Found on the way, each flown before it was fixed:
 - **A diverged OpenVINS is never used:** with GPS jammed and vision not trusted (flown once), the
   EKF failsafe landed the drone instead of following it.
 
+On the dashboard (mission M-20260918-132606): **JAM GPS** switched the drone to OpenVINS within a
+second and **RESTORE GPS** back after 5 s of good GPS; the maps draw the zones red, orange and
+purple, and the banner and the Navigation row follow what the drone flies on, not the GPS field
+(a jammed receiver lets fake 3D fixes through).
+
+![Dashboard with GPS jammed](images/dashboard-gps-denied.png)
+
 ### Real people as casualties (2026-09-17)
 
 The casualties became posed people (`tools/make_people.py`), rubble piles of slabs and brick, and

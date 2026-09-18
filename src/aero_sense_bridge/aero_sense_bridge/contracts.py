@@ -81,6 +81,9 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None,
         "link": link,                             # link_json's state: CONNECTED, DEGRADED, OFFLINE
         "gps": "3D FIX" if getattr(status, "gps_status", "") == "OK" else
                (getattr(status, "gps_status", "") or "UNKNOWN"),
+        # what the EKF flies on: OpenVINS once it has taken over from a lost GPS
+        "navigation": ("VISION" if getattr(status, "vio_status", "") == "ACTIVE" else "GPS") if status else "UNKNOWN",
+        "vio": getattr(status, "vio_status", "") or "UNKNOWN",
         "latitude": fix.latitude if fix is not None else None,
         "longitude": fix.longitude if fix is not None else None,
         "position": {"x": pose.pose.position.x, "y": pose.pose.position.y,
@@ -282,7 +285,7 @@ METRES_PER_DEGREE_LAT = 111320.0
 WORLD_FILE = "aero_sense_disaster"
 
 
-def world_json(areas: dict, no_network: dict | None = None) -> dict:
+def world_json(areas: dict, no_network: dict | None = None, no_gps: dict | None = None) -> dict:
     """The world origin, every sector's and dead zone's bounds, in metres and in degrees.
 
     The dashboard's map needs both: the simulation reasons in metres from the origin, an operator
@@ -319,6 +322,7 @@ def world_json(areas: dict, no_network: dict | None = None) -> dict:
                     for scenario, area in areas.items()],
         "noNetworkZones": [region(key, key.replace("_", " "), area)
                            for key, area in (no_network or {}).items()],
+        "noGpsZones": [region(key, key.replace("_", " "), area) for key, area in (no_gps or {}).items()],
     }
 
 

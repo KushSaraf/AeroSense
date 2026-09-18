@@ -141,6 +141,9 @@ export const simulationControl = {
   /** Cut or restore the drone's network: a simulator control, so it works while the drone is unreachable. */
   setNetwork: (up: boolean) =>
     post<{ success: boolean; message: string }>('/api/simulation/network', { up }, 15000),
+  /** Jam or restore the drone's GPS: the simulator's jammer answers, not the drone. */
+  setGps: (up: boolean) =>
+    post<{ success: boolean; message: string }>('/api/simulation/gps', { up }, 15000),
   openViewer: (kind: 'gazebo' | 'rviz') =>
     post<{ opened: boolean; reason?: string }>(`/api/simulation/view/${kind}`, undefined, 15000),
 }

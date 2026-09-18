@@ -111,7 +111,8 @@ The drone flies on ArduPilot's EKF3 with GPS, and on its OAK-D stereo cameras th
 when GPS is gone. The simulator jams SITL's GPS in the north-west blocks (orange outline) and in
 the southern lanes, which lose the network too (purple). The drone notices on its own, switches
 the EKF to OpenVINS, and switches back once GPS has been good for 5 s. OpenVINS is fitted onto
-the GPS track while it lasts and trusted only while the two agree.
+the GPS track while it lasts and trusted only while the two agree. **JAM GPS** on the dashboard jams it
+anywhere.
 
 ### Casualties
 

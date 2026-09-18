@@ -1,14 +1,11 @@
 import { Wifi, WifiOff } from 'lucide-react'
 import { useState } from 'react'
-import { Polygon, Popup } from 'react-leaflet'
 import { simulationControl } from '../services/apiServices'
-import type { WorldSector } from '../hooks/useWorld'
 import type { LinkStatus } from '../types'
 
 export const LINK_COLOUR: Record<string, string> = {
   CONNECTED: '#43d17b', DEGRADED: '#ffb347', OFFLINE: '#ef5350', UNKNOWN: '#8ae0ff',
 }
-const ZONE_COLOUR = '#ef5350'
 
 /**
  * What the ground knows about the drone's network. While it is down the ground hears nothing, so
@@ -29,10 +26,12 @@ export function NetworkBanner({ link }: { link: LinkStatus | null }) {
 }
 
 /**
- * Cut or restore the drone's network from the dashboard, anywhere in the world.
- * ponytail: remembers "cut" in this page only; after a reload press it twice. Ask the bridge if that bites.
+ * A simulator switch (network, GPS): press to take it away anywhere, press again to give it back.
+ * ponytail: remembers its state in this page only; after a reload press it twice. Ask the bridge if that bites.
  */
-export function NetworkSwitch({ link }: { link: LinkStatus | null }) {
+export function SimToggle({ what, title, dot, act }: {
+  what: string; title: string; dot: string; act: (up: boolean) => Promise<{ success: boolean; message: string }>
+}) {
   const [busy, setBusy] = useState(false)
   const [cut, setCut] = useState(false)
   const [note, setNote] = useState<string | null>(null)
@@ -40,7 +39,7 @@ export function NetworkSwitch({ link }: { link: LinkStatus | null }) {
   const toggle = async () => {
     setBusy(true)
     try {
-      const result = await simulationControl.setNetwork(cut)
+      const result = await act(cut)
       if (result.success) setCut(!cut)
       setNote(result.success ? null : result.message)
     } catch {
@@ -52,27 +51,18 @@ export function NetworkSwitch({ link }: { link: LinkStatus | null }) {
 
   return (
     <div className="flex flex-col items-end">
-      <button type="button" onClick={() => void toggle()} disabled={busy}
-              title="Simulate losing the drone's network, wherever it is"
+      <button type="button" onClick={() => void toggle()} disabled={busy} title={title}
               className="flex items-center gap-2 rounded border border-white/25 bg-white/10 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition hover:bg-white/20 disabled:opacity-50">
-        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: LINK_COLOUR[link?.state ?? 'UNKNOWN'] }} />
-        {cut ? 'RESTORE NETWORK' : 'CUT NETWORK'}
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dot }} />
+        {cut ? `RESTORE ${what}` : `${what === 'GPS' ? 'JAM' : 'CUT'} ${what}`}
       </button>
       {note && <span className="mt-1 max-w-[260px] text-right text-[9px] uppercase text-amber-300">{note}</span>}
     </div>
   )
 }
 
-/** The dead zones, drawn where the simulation drops the drone's network. */
-export function NoNetworkZones({ zones }: { zones: WorldSector[] | undefined }) {
-  return (
-    <>
-      {(zones ?? []).map((zone) => (
-        <Polygon key={zone.id} positions={zone.corners.map((c): [number, number] => [c.latitude, c.longitude])}
-                 pathOptions={{ color: ZONE_COLOUR, fillColor: ZONE_COLOUR, fillOpacity: 0.15, weight: 2, dashArray: '4 6' }}>
-          <Popup>No network: {zone.name}</Popup>
-        </Polygon>
-      ))}
-    </>
-  )
+/** Cut or restore the drone's network from the dashboard, anywhere in the world. */
+export function NetworkSwitch({ link }: { link: LinkStatus | null }) {
+  return <SimToggle what="NETWORK" title="Simulate losing the drone's network, wherever it is"
+                    dot={LINK_COLOUR[link?.state ?? 'UNKNOWN']} act={simulationControl.setNetwork} />
 }

@@ -20,6 +20,8 @@ export interface WorldInfo {
   sectors: WorldSector[]
   /** Where the drone has no network; absent in older recordings. */
   noNetworkZones?: WorldSector[]
+  /** Where the drone's GPS is jammed (a zone in both lists loses both); absent in older recordings. */
+  noGpsZones?: WorldSector[]
 }
 
 const WORLD_POLL_MS = 60000

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
-import { LINK_COLOUR, NoNetworkZones } from '../components/NetworkStatus'
+import { LINK_COLOUR } from '../components/NetworkStatus'
+import { DeniedZones } from '../components/Zones'
 import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import { useWorld } from '../hooks/useWorld'
@@ -86,7 +87,7 @@ function MapPage() {
             )
           })}
 
-          {layers.network && <NoNetworkZones zones={world?.noNetworkZones} />}
+          {layers.network && <DeniedZones world={world} />}
 
           {layers.victims && victims.map((victim) => (
             <CircleMarker key={victim.id} center={[victim.latitude, victim.longitude]} radius={7}
