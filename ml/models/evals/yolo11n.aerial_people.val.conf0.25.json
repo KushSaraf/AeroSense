@@ -1,0 +1,864 @@
+{
+ "model": "legacy/prototype/yolo11n.pt",
+ "data": "/home/kushsaraf/sih_2026/ml/datasets/aerial_people",
+ "split": "val",
+ "conf": 0.25,
+ "recall": {
+  "people": 2011,
+  "recall": 0.003
+ },
+ "precision": 0.353,
+ "false_positives": 11,
+ "stray_false_positives": 10,
+ "frames": 512,
+ "empty_frames": 99,
+ "empty_frames_with_a_false_positive": 3,
+ "by_height": {
+  "0-15 m": {
+   "people": 297,
+   "recall": 0.02
+  },
+  "15-25 m": {
+   "people": 730,
+   "recall": 0.0
+  },
+  "25-40 m": {
+   "people": 984,
+   "recall": 0.0
+  }
+ },
+ "by_condition": {
+  "D0008_0": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0008_1": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0008_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0008_3": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0008_4": {
+   "people": 13,
+   "recall": 0.077
+  },
+  "D0008_5": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0008_6": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0008_7": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0016_0": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0016_1": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0016_2": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0016_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0016_4": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0016_5": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0016_6": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0024_0": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0024_1": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0024_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0024_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0024_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0024_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0032_0": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0032_1": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0032_3": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0032_4": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0032_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0040_0": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0040_1": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0040_10": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0040_2": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0040_3": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0040_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0040_5": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0040_6": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0040_8": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0040_9": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0048_0": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0048_1": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0048_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0048_3": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0048_4": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0048_5": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0048_6": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0048_7": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0048_8": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0056_0": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0056_1": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0056_3": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0056_4": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0056_5": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0056_7": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0064_1": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0064_10": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0064_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0064_3": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0064_6": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0064_8": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0072_1": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0072_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0072_3": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0072_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0072_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0072_6": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0072_7": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0080_0": {
+   "people": 12,
+   "recall": 0.083
+  },
+  "D0080_1": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0080_2": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0080_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0080_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0080_5": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0080_6": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0088_0": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0088_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0088_10": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0088_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0088_3": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0088_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0088_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0088_7": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0088_8": {
+   "people": 14,
+   "recall": 0.071
+  },
+  "D0096_1": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0096_3": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0096_4": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0096_5": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0104_6": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0112_0": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0112_1": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0112_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0112_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0112_6": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0112_7": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0112_8": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0112_9": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0128_0": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0128_1": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0128_2": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0128_3": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0128_4": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0128_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0128_6": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0128_9": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0136_0": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0136_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0136_2": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0136_3": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0136_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0136_6": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0136_7": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0144_1": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0144_2": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0144_3": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0144_4": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0144_5": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0152_0": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0152_1": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0152_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0152_3": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0152_4": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0152_5": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0152_6": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0152_7": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0152_8": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0152_9": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0160_0": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0160_1": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0160_2": {
+   "people": 14,
+   "recall": 0.071
+  },
+  "D0160_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0160_4": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0160_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0160_6": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0160_7": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0160_8": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0160_9": {
+   "people": 13,
+   "recall": 0.077
+  },
+  "D0168_1": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0168_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0168_3": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0176_3": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0184_1": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0184_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0192_0": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0192_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0192_2": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0192_4": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0192_5": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0200_0": {
+   "people": 14,
+   "recall": 0.071
+  },
+  "D0200_1": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0200_3": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0200_5": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0200_6": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0200_7": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0200_8": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0208_0": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0208_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0208_3": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0208_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0208_6": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0208_7": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0208_8": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0208_9": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0216_0": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0216_10": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0216_11": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0216_2": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0216_4": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0216_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0216_6": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0216_7": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0216_8": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0216_9": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0224_0": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0224_1": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0224_2": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0224_3": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0224_4": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0224_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0224_6": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0224_7": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0224_8": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0232_0": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0232_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0232_10": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0232_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0232_4": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0232_5": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0232_6": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0232_7": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0232_8": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0240_0": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0240_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0240_2": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0240_3": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0240_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0240_5": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0240_6": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0240_7": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0240_8": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0248_0": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0248_1": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0248_2": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0248_3": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0248_4": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0248_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0248_6": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "feet_out_of_rubble": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "legs_under_rubble": {
+   "people": 26,
+   "recall": 0.0
+  },
+  "open_lying": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "open_seated": {
+   "people": 21,
+   "recall": 0.0
+  },
+  "open_standing": {
+   "people": 7,
+   "recall": 0.0
+  }
+ }
+}

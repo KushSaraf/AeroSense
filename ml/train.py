@@ -40,9 +40,10 @@ def score(model: Path, coco: bool):
     evaluate.EVALS.mkdir(parents=True, exist_ok=True)
     for data, split in splits:
         report = evaluate.evaluate(model, data, split, 0.25, coco)
-        (evaluate.EVALS / f"{model.stem}.{data.name}.{split}.json").write_text(json.dumps(report, indent=1))
+        (evaluate.EVALS / f"{model.stem}.{data.name}.{split}.conf0.25.json").write_text(json.dumps(report, indent=1))
         print(f"{model.stem} on {data.name}/{split}: recall {report['recall']}, "
-              f"false positives {report['false_positives']}, by height {report['by_height']}", flush=True)
+              f"false positives {report['false_positives']} ({report['stray_false_positives']} stray), "
+              f"by height {report['by_height']}", flush=True)
 
 
 def main():

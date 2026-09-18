@@ -88,12 +88,21 @@ The dataset as rendered (`--scenes 250`, seed 2026): 4,000 frames (3,488 train, 
 people boxed, 648 frames with nobody in them, median 26 visible pixels a person. The test set:
 184 frames of the scenario's casualties, 384 boxes (the two buried casualties show nothing).
 
-Stock YOLO11n (COCO, person class, 960 px, confidence 0.25), `models/evals/yolo11n.*.json`:
+Scored at 960 px (`models/evals/*.json`). Stock YOLO11n keeps only COCO's person class. Stray false
+positives are detections not beside any person; the rest are a second box on someone already found
+(a torso and legs split by rubble), which lands where they are and which the tracker folds into them.
 
-| Split | People | Found | False positives | Found below 15 m | 15-25 m | 25-40 m |
-|---|---|---|---|---|---|---|
-| validation | 2,011 | 0.3 % | 11 | 2 % | 0 % | 0 % |
-| scenario casualties (test) | 384 | 0.5 % | 2 | 2.4 % | 0 % | 0 % |
+| Model | Confidence | Split | People found | below 15 m | 15-25 m | 25-40 m | False positives (stray) |
+|---|---|---|---|---|---|---|---|
+| stock YOLO11n | 0.25 | validation, 512 frames | 0.3 % of 2,011 | 2 % | 0 % | 0 % | 11 (10) |
+| stock YOLO11n | 0.25 | scenario casualties, 184 frames | 0.5 % of 384 | 2 % | 0 % | 0 % | 2 (2) |
+| **yolo11n_aerial** | 0.25 | validation | **87.2 %** | 90 % | 90 % | 85 % | 292 (77) |
+| **yolo11n_aerial** | 0.25 | scenario casualties | **77.1 %** | 84 % | 76 % | 75 % | 121 (55) |
+| yolo11n_aerial | 0.45 | validation | 67.1 % | 74 % | 73 % | 61 % | 25 (7) |
+| yolo11n_aerial | 0.45 | scenario casualties | 51.0 % | 60 % | 51 % | 47 % | 15 (6) |
 
-The fine-tuned model is not trained yet: on this laptop's CPU an epoch takes about 40 minutes
-(measured), so training waits for CUDA (see above).
+Trained 60 epochs in 1.9 h on an RTX 2050 (batch 8, 960 px); validation mAP50 0.76 at the end
+(`models/yolo11n_aerial/results.csv`). On the scenario's casualties at 0.25: V09, dead and at
+ambient so invisible to the thermal camera, is found in 96 % of the frames that show it. The
+weakest are the smallest: V20 and V23 leaning out of windows (0 of 5, 1 of 4), V21's hand
+(2 of 8), V18 seated with legs under rubble (33 %).

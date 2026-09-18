@@ -9,11 +9,13 @@ each condition, and how often it calls something a person that is not.
 
 A person counts as found when a detection overlaps their box with IoU >= MATCH_IOU, or the
 detection's centre falls inside their box (a 10-pixel person moved by one pixel already has a low
-IoU). Each detection finds at most one person; detections that find nobody are false positives.
-Prints and writes ml/models/evals/<model>.<dataset>.<split>.json.
+IoU). Each detection finds at most one person; detections that find nobody are false positives, and
+those not beside any person (BESIDE_PX) are stray false positives.
+Prints and writes ml/models/evals/<model>.<dataset>.<split>.conf<conf>.json.
 """
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -23,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 DATA = ROOT / "ml" / "datasets" / "aerial_people"
 EVALS = ROOT / "ml" / "models" / "evals"
 MATCH_IOU = 0.3
+#: A false positive this close to a real person's box is a second box on them, not a stray.
+BESIDE_PX = 25
 HEIGHT_BANDS_M = ((0, 15), (15, 25), (25, 40))
 IMGSZ = 960                                            # the frame's own width: shrinking loses 10-px people
 COCO_PERSON = 0
@@ -36,7 +40,7 @@ def iou(a, b) -> float:
 
 def matches(truth: list, detections: list) -> tuple:
     """(found flag per true box, unmatched detections): detections (x0, y0, x1, y1, conf), best first."""
-    found, false_positives = [False] * len(truth), 0
+    found, unmatched = [False] * len(truth), []
     for box in sorted(detections, key=lambda d: -d[4]):
         cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
         hits = [(iou(box, t), i) for i, t in enumerate(truth) if not found[i]]
@@ -45,8 +49,18 @@ def matches(truth: list, detections: list) -> tuple:
         if hits:
             found[max(hits)[1]] = True
         else:
-            false_positives += 1
-    return found, false_positives
+            unmatched.append(box)
+    return found, unmatched
+
+
+def stray(truth: list, unmatched: list) -> int:
+    """Unmatched detections not beside anyone: a second box on a person the rubble splits in two lands
+    where that person is, and the tracker folds it into them. These are the ones that send a drone
+    somewhere nobody is."""
+    def gap(d, t):
+        cx, cy = (d[0] + d[2]) / 2, (d[1] + d[3]) / 2
+        return math.hypot(max(t[0] - cx, 0, cx - t[2]), max(t[1] - cy, 0, cy - t[3]))
+    return sum(all(gap(d, t) >= BESIDE_PX for t in truth) for d in unmatched)
 
 
 def band(height: float) -> str:
@@ -60,20 +74,24 @@ def rate(hits: list) -> dict:
 
 def evaluate(model_path: Path, data: Path, split: str, conf: float, coco: bool) -> dict:
     model = YOLO(str(model_path))
+    frames = 0
     by_height, by_condition, every = {}, {}, []
-    false_positives, empty_frames_with_fp, empty_frames = 0, 0, 0
+    false_positives, strays, empty_frames_with_fp, empty_frames = 0, 0, 0, 0
     for meta_path in sorted((data / "meta").glob("*.json")):
         meta = json.loads(meta_path.read_text())
         if meta["split"] != split:
             continue
+        frames += 1
         result = model.predict(str(data / "images" / split / f"{meta['frame']}.jpg"), imgsz=IMGSZ, conf=conf,
                                classes=[COCO_PERSON] if coco else None, verbose=False)[0]
         detections = [(*b.xyxy[0].tolist(), float(b.conf)) for b in result.boxes]
-        found, extra = matches([p["box"] for p in meta["people"]], detections)
-        false_positives += extra
+        truth = [p["box"] for p in meta["people"]]
+        found, unmatched = matches(truth, detections)
+        false_positives += len(unmatched)
+        strays += stray(truth, unmatched)
         if not meta["people"]:
             empty_frames += 1
-            empty_frames_with_fp += extra > 0
+            empty_frames_with_fp += bool(unmatched)
         for person, hit in zip(meta["people"], found):
             every.append(hit)
             by_height.setdefault(band(meta["camera"]["height_m"]), []).append(hit)
@@ -81,7 +99,7 @@ def evaluate(model_path: Path, data: Path, split: str, conf: float, coco: bool) 
     detected = sum(every) + false_positives
     return {"model": str(model_path), "data": str(data), "split": split, "conf": conf,
             "recall": rate(every), "precision": round(sum(every) / detected, 3) if detected else None,
-            "false_positives": false_positives,
+            "false_positives": false_positives, "stray_false_positives": strays, "frames": frames,
             "empty_frames": empty_frames, "empty_frames_with_a_false_positive": empty_frames_with_fp,
             "by_height": {k: rate(v) for k, v in sorted(by_height.items(), key=lambda kv: int(kv[0].split("-")[0]))},
             "by_condition": {k: rate(v) for k, v in sorted(by_condition.items())}}
@@ -97,7 +115,7 @@ def main():
     args = parser.parse_args()
     report = evaluate(args.model, args.data, args.split, args.conf, args.coco)
     EVALS.mkdir(parents=True, exist_ok=True)
-    out = EVALS / f"{args.model.stem}.{args.data.name}.{args.split}.json"
+    out = EVALS / f"{args.model.stem}.{args.data.name}.{args.split}.conf{args.conf:.2f}.json"
     out.write_text(json.dumps(report, indent=1))
     print(json.dumps(report, indent=1))
 

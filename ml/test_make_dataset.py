@@ -36,3 +36,13 @@ def test_the_camera_never_flies_inside_the_radio_mast():
     x, y, radius, height = max(placer.structures, key=lambda s: s[3])      # the 44 m mast
     assert not placer.airspace(x, y, 20.0)
     assert placer.airspace(x, y, height + 5.0)
+
+
+def test_a_second_box_on_a_found_person_is_not_a_stray():
+    sys.path.insert(0, str(Path(__file__).parent))
+    import evaluate
+    truth = [[100, 100, 120, 110]]
+    found, unmatched = evaluate.matches(truth, [(101, 100, 121, 110, 0.9), (125, 104, 131, 110, 0.6),
+                                                (400, 300, 410, 306, 0.5)])
+    assert found == [True] and len(unmatched) == 2
+    assert evaluate.stray(truth, unmatched) == 1            # the legs beside them are not; the far one is
