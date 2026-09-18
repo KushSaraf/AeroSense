@@ -41,6 +41,7 @@ import json  # noqa: E402
 import math  # noqa: E402
 import os  # noqa: E402
 import random  # noqa: E402
+import signal  # noqa: E402
 import subprocess  # noqa: E402
 import threading  # noqa: E402
 import time  # noqa: E402
@@ -59,10 +60,13 @@ from aero_sense_bringup import worlds  # noqa: E402
 from aero_sense_description import render  # noqa: E402
 from aero_sense_perception import structure_map  # noqa: E402
 from aero_sense_scenario_manager import victim_models  # noqa: E402
+from aero_sense_scenario_manager import victims as victim_table  # noqa: E402
 
 PARTITION = "aerosense_dataset"
 os.environ["GZ_PARTITION"] = PARTITION                 # before gz.transport makes its node
-from gz.msgs10.clock_pb2 import Clock  # noqa: E402
+# discovery over loopback, not the network: when Wi-Fi drops, multicast on it is "unreachable" and
+# every service call fails. Inherited by the gz sim and gz CLI processes this starts.
+os.environ["GZ_IP"] = "127.0.0.1"
 from gz.msgs10.entity_factory_pb2 import EntityFactory  # noqa: E402
 from gz.msgs10.entity_pb2 import Entity  # noqa: E402
 from gz.msgs10.image_pb2 import Image as ImageMsg  # noqa: E402
@@ -72,6 +76,7 @@ from gz.transport13 import Node  # noqa: E402
 WORLD = ROOT / "src" / "aero_sense_gazebo" / "worlds" / "aero_sense_disaster.sdf"
 WORLD_NAME = "aero_sense_disaster"
 OUT = ROOT / "ml" / "datasets" / "aerial_people"
+SCENARIO_OUT = ROOT / "ml" / "datasets" / "scenario_test"
 QUALITY = "medium"                                     # the profile the drone flies
 LAYOUT_SEED = 26                                       # layout_world's --seed default: the valley the world has
 #: (x0, y0, x1, y1) of each sector (CLAUDE.md: search_evaluation's ranges)
@@ -111,7 +116,13 @@ AWAY_M = (45.0, 90.0)
 #: speck no detector (or annotator) could call a person.
 MIN_VISIBLE_PX = 6
 SETTLE_S = 0.4                                         # sim seconds after a camera move before a frame counts
+START_TIMEOUT_S = 300
+#: A fresh Gazebo every this many scenes: a long-lived one answers services ever more slowly
+#: (0.35 s at first, 30 s timeouts after ~20 scenes), although it still runs in real time.
+RESTART_EVERY = 8
 VAL_EVERY = 8
+#: The test set photographs each scenario casualty from these heights: SWOOP's close look to search height.
+SCENARIO_HEIGHTS_M = (8.0, 10.0, 14.0, 18.0, 22.0, 26.0, 30.0, 34.0)
 PREVIEWS = 80
 
 
@@ -150,22 +161,21 @@ class Sim:
 
     def __init__(self):
         env = {**os.environ, "GZ_SIM_RESOURCE_PATH": ":".join(map(str, worlds.resource_paths()))}
+        # its own process group: `gz` is a launcher, and killing it alone can orphan the server
         self.server = subprocess.Popen(["gz", "sim", "-s", "-r", "--headless-rendering", str(WORLD)], env=env,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
         self.node, self.lock = Node(), threading.Lock()
-        self.now, self.frames = 0.0, {"rgb": {}, "seg": {}}
-        self.node.subscribe(Clock, f"/world/{WORLD_NAME}/clock", self._on_clock)
+        self.after, self.frames = 0.0, {"rgb": {}, "seg": {}}
         self.node.subscribe(ImageMsg, "/dataset/rgb", lambda m: self._on_image("rgb", m))
         self.node.subscribe(ImageMsg, "/dataset/seg/labels_map", lambda m: self._on_image("seg", m))
-        deadline = time.time() + 180
-        while self.now == 0.0:
-            if time.time() > deadline or self.server.poll() is not None:
-                self.close()
-                raise SystemExit("gz sim did not start (is the workspace built and sourced?)")
-            time.sleep(0.5)
-
-    def _on_clock(self, msg):
-        self.now = msg.sim.sec + msg.sim.nsec * 1e-9
+        # the world's first clock tick, through the CLI: a Python subscription to it sometimes never
+        # hears one, and the world takes minutes to load when another simulation shares the CPU
+        try:
+            subprocess.run(["gz", "topic", "-e", "-n", "1", "-t", f"/world/{WORLD_NAME}/clock"],
+                           capture_output=True, timeout=START_TIMEOUT_S, check=True)
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            self.close()
+            raise SystemExit(f"gz sim did not start within {START_TIMEOUT_S} s (is the workspace built and sourced?)")
 
     def _on_image(self, kind, msg):
         stamp = msg.header.stamp.sec + msg.header.stamp.nsec * 1e-9
@@ -205,20 +215,26 @@ class Sim:
         qx, qy, qz, qw = rotation.as_quat()
         request.orientation.x, request.orientation.y, request.orientation.z, request.orientation.w = qx, qy, qz, qw
         self._call("set_pose", request)
+        # the pose is applied on the sim's next step: any frame SETTLE_S after the newest one now shows it
+        with self.lock:
+            self.after = max(self.frames["rgb"], default=0.0) + SETTLE_S
 
     def photograph(self, timeout_s=60.0):
-        """The first RGB and segmentation frames taken together, SETTLE_S of sim time after now."""
-        after, deadline = self.now + SETTLE_S, time.time() + timeout_s
+        """The first RGB and segmentation frames taken together since the camera's last move."""
+        deadline = time.time() + timeout_s
         while time.time() < deadline:
             with self.lock:
-                ready = [s for s in sorted(set(self.frames["rgb"]) & set(self.frames["seg"])) if s >= after]
+                ready = [s for s in sorted(set(self.frames["rgb"]) & set(self.frames["seg"])) if s >= self.after]
                 if ready:
                     return self.frames["rgb"][ready[0]], self.frames["seg"][ready[0]]
             time.sleep(0.05)
         raise RuntimeError("no camera frame: is the Sensors system rendering?")
 
     def close(self):
-        self.server.kill()
+        try:
+            os.killpg(self.server.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass                                                     # already gone
         self.server.wait()
 
 
@@ -307,11 +323,12 @@ def plan_scene(rng: random.Random, placer: Placer, scene: int) -> dict:
     return {"scene": scene, "sector": sector, "centre": (cx, cy), "people": people, "props": props}
 
 
-def camera_pose(rng: random.Random, placer: Placer, centre, away: bool) -> tuple:
+def camera_pose(rng: random.Random, placer: Placer, centre, away: bool, height: float = None) -> tuple:
     """A drone camera somewhere over the scene (or, `away`, over empty disaster nearby), looking
     down with a little tilt, where a drone could fly."""
+    fixed = height
     for _ in range(100):
-        height = rng.uniform(*HEIGHTS_M)
+        height = fixed or rng.uniform(*HEIGHTS_M)
         if away:
             bearing, distance = rng.uniform(-math.pi, math.pi), rng.uniform(*AWAY_M)
             x, y = centre[0] + distance * math.cos(bearing), centre[1] + distance * math.sin(bearing)
@@ -341,29 +358,29 @@ def boxes(labels: np.ndarray, people: list) -> list:
     return found
 
 
-def write_frame(frame: str, split: str, rgb: np.ndarray, found: list, meta: dict):
+def write_frame(out: Path, frame: str, split: str, rgb: np.ndarray, found: list, meta: dict):
     height, width = rgb.shape[:2]
     for sub in (f"images/{split}", f"labels/{split}", "meta"):
-        (OUT / sub).mkdir(parents=True, exist_ok=True)
-    Image.fromarray(rgb).save(OUT / "images" / split / f"{frame}.jpg", quality=92)
+        (out / sub).mkdir(parents=True, exist_ok=True)
+    Image.fromarray(rgb).save(out / "images" / split / f"{frame}.jpg", quality=92)
     lines = [f"0 {(x0 + x1) / 2 / width:.6f} {(y0 + y1) / 2 / height:.6f} {(x1 - x0) / width:.6f} {(y1 - y0) / height:.6f}\n"
              for x0, y0, x1, y1 in (f["box"] for f in found)]
-    (OUT / "labels" / split / f"{frame}.txt").write_text("".join(lines))
-    (OUT / "meta" / f"{frame}.json").write_text(json.dumps(meta, indent=1))
+    (out / "labels" / split / f"{frame}.txt").write_text("".join(lines))
+    (out / "meta" / f"{frame}.json").write_text(json.dumps(meta, indent=1))
 
 
-def shoot_scene(sim: Sim, placer: Placer, rng: random.Random, plan: dict):
-    split = "val" if plan["scene"] % VAL_EVERY == 0 else "train"
+def shoot(sim: Sim, out: Path, plan: dict, poses: list, split: str):
+    """One frame per camera pose, with a box for everyone in the plan the camera sees."""
     by_label = {p["label"]: p for p in plan["people"]}
-    for view in range(VIEWS_PER_SCENE):
-        position, rotation, height, tilt = camera_pose(rng, placer, plan["centre"], view % AWAY_EVERY == AWAY_EVERY - 1)
+    keys = ("id", "condition", "character", "pose", "x", "y", "z")
+    for view, (position, rotation, height, tilt) in enumerate(poses):
         sim.move("dataset_camera", position, rotation)
         rgb_msg, seg_msg = sim.photograph()
         found = boxes(pixels(seg_msg)[..., 0], plan["people"])
-        frame = f"s{plan['scene']:04d}_v{view:02d}"
-        people = [{**{k: round(by_label[f["label"]][k], 2) if k in "xyz" else by_label[f["label"]][k]
-                      for k in ("condition", "character", "pose", "x", "y", "z")}, **f} for f in found]
-        write_frame(frame, split, np.ascontiguousarray(pixels(rgb_msg)[..., :3]), found,
+        frame = f"{plan['frame_prefix']}_v{view:02d}"
+        people = [{**{k: round(v, 2) if k in "xyz" else v for k, v in by_label[f["label"]].items() if k in keys}, **f}
+                  for f in found]
+        write_frame(out, frame, split, np.ascontiguousarray(pixels(rgb_msg)[..., :3]), found,
                     {"frame": frame, "split": split, "scene": plan["scene"], "sector": plan["sector"],
                      "camera": {"position": [round(v, 2) for v in position], "height_m": round(height, 2),
                                 "tilt_deg": round(tilt, 1), "quaternion_xyzw": rotation.as_quat().round(5).tolist()},
@@ -371,9 +388,8 @@ def shoot_scene(sim: Sim, placer: Placer, rng: random.Random, plan: dict):
                      "in_scene": [{k: p[k] for k in ("condition", "character", "pose")} for p in plan["people"]]})
 
 
-def run_scene(sim: Sim, placer: Placer, seed: int, scene: int) -> dict:
-    rng = random.Random(seed * 100003 + scene)
-    plan = plan_scene(rng, placer, scene)
+def staged(sim: Sim, plan: dict, photograph):
+    """Spawn the plan's props and people, photograph them, and always clear them away again."""
     spawned = []
     try:
         for prop in plan["props"]:
@@ -384,43 +400,75 @@ def run_scene(sim: Sim, placer: Placer, seed: int, scene: int) -> dict:
                       person["x"], person["y"], person["z"], person["yaw"])
             spawned.append(person["name"])
         time.sleep(1.0)                                              # meshes load
-        shoot_scene(sim, placer, rng, plan)
+        photograph()
     finally:
         for name in spawned:
-            sim.remove(name)
+            sim.remove(name)                                         # fails loudly: leftovers would be unlabelled people
+
+
+def run_scene(sim: Sim, placer: Placer, out: Path, seed: int, scene: int) -> dict:
+    rng = random.Random(seed * 100003 + scene)
+    plan = {**plan_scene(rng, placer, scene), "frame_prefix": f"s{scene:04d}"}
+    poses = [camera_pose(rng, placer, plan["centre"], view % AWAY_EVERY == AWAY_EVERY - 1)
+             for view in range(VIEWS_PER_SCENE)]
+    staged(sim, plan, lambda: shoot(sim, out, plan, poses, "val" if scene % VAL_EVERY == 0 else "train"))
     return plan
 
 
-def summarise() -> dict:
+def run_scenario(sim: Sim, placer: Placer, out: Path, seed: int):
+    """The test set: the scenario's own casualties where the mission meets them, each photographed
+    from SCENARIO_HEIGHTS_M, with everyone else in view labelled too."""
+    rng = random.Random(seed)
+    people = []
+    for label, victim in enumerate(victim_table.load(), start=1):
+        x, y, z, _, _, yaw = victim_table.spawn_pose(victim)
+        condition = "/".join(filter(None, (victim.get("perch") or victim["visibility"], victim.get("exposed"))))
+        people.append({**victim, "condition": condition, "label": label, "name": victim_table.model_name(victim),
+                       "x": x, "y": y, "z": z, "yaw": yaw})
+    plan = {"scene": -1, "sector": "scenario", "people": people, "props": [], "frame_prefix": "scenario"}
+    poses = [camera_pose(rng, placer, (p["x"], p["y"]), False, height)
+             for p in people for height in SCENARIO_HEIGHTS_M]
+    staged(sim, plan, lambda: shoot(sim, out, plan, poses, "test"))
+
+
+def summarise(out: Path) -> dict:
     """data.yaml, summary.json and previews/, from whatever frames are on disk."""
-    metas = [json.loads(p.read_text()) for p in sorted((OUT / "meta").glob("*.json"))]
-    (OUT / "data.yaml").write_text(f"# ml/make_dataset.py: aerial views of people in a simulated disaster\n"
-                                   f"path: {OUT}\ntrain: images/train\nval: images/val\nnames:\n  0: person\n")
+    metas = [json.loads(p.read_text()) for p in sorted((out / "meta").glob("*.json"))]
+    splits = sorted({m["split"] for m in metas})
+    (out / "data.yaml").write_text("# ml/make_dataset.py: aerial views of people in a simulated disaster\n"
+                                   f"path: {out}\n" + "".join(f"{s}: images/{s}\n" for s in splits)
+                                   + "names:\n  0: person\n")
     by_condition, heights = {}, {}
     for meta in metas:
         for person in meta["people"]:
             by_condition[person["condition"]] = by_condition.get(person["condition"], 0) + 1
         low = int(meta["camera"]["height_m"] // 5 * 5)
         heights[f"{low}-{low + 5} m"] = heights.get(f"{low}-{low + 5} m", 0) + 1
-    summary = {"frames": {s: sum(m["split"] == s for m in metas) for s in ("train", "val")},
+    summary = {"frames": {s: sum(m["split"] == s for m in metas) for s in splits},
                "boxes": sum(len(m["people"]) for m in metas),
                "frames_without_people": sum(not m["people"] for m in metas),
                "boxes_by_condition": dict(sorted(by_condition.items())),
                "frames_by_height": dict(sorted(heights.items(), key=lambda kv: int(kv[0].split("-")[0]))),
                "visible_px_median": float(np.median([f["visible_px"] for m in metas for f in m["people"]] or [0]))}
-    (OUT / "summary.json").write_text(json.dumps(summary, indent=1))
-    previews = OUT / "previews"
+    (out / "summary.json").write_text(json.dumps(summary, indent=1))
+    previews = out / "previews"
     previews.mkdir(exist_ok=True)
     with_people = [m for m in metas if m["people"]]
     for meta in with_people[:: max(1, len(with_people) // PREVIEWS)][:PREVIEWS]:
-        image = Image.open(OUT / "images" / meta["split"] / f"{meta['frame']}.jpg")
+        image = Image.open(out / "images" / meta["split"] / f"{meta['frame']}.jpg")
         draw = ImageDraw.Draw(image)
         for person in meta["people"]:
             x0, y0, x1, y1 = person["box"]
             draw.rectangle((x0 - 2, y0 - 2, x1 + 1, y1 + 1), outline=(255, 40, 40), width=2)
-            draw.text((x0, max(0, y0 - 12)), person["condition"], fill=(255, 255, 0))
+            draw.text((x0, max(0, y0 - 12)), person.get("id", person["condition"]), fill=(255, 255, 0))
         image.save(previews / f"{meta['frame']}.jpg", quality=90)
     return summary
+
+
+def fresh_sim() -> Sim:
+    sim = Sim()
+    sim.spawn(camera_sdf(render.load(QUALITY)), "dataset_camera", 0.0, 0.0, 30.0)
+    return sim
 
 
 def main():
@@ -428,22 +476,39 @@ def main():
     parser.add_argument("--scenes", type=int, default=250, help="scenes to render (the last is --scenes - 1)")
     parser.add_argument("--start", type=int, default=0, help="first scene (resume a stopped run)")
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--scenario", action="store_true",
+                        help=f"render the test set instead: the scenario's casualties, into {SCENARIO_OUT.relative_to(ROOT)}")
     args = parser.parse_args()
     missing = sorted({f"{c}_{p}" for c in CHARACTERS for spec in CONDITIONS.values() for p in spec[1]}
                      - set(victim_models.people()))
     if missing:
         raise SystemExit(f"no posed people {missing}: run tools/make_people.py --all, then colcon build")
-    placer, sim = Placer(), Sim()
+    out = SCENARIO_OUT if args.scenario else OUT
+    placer, sim = Placer(), fresh_sim()
     try:
-        sim.spawn(camera_sdf(render.load(QUALITY)), "dataset_camera", 0.0, 0.0, 30.0)
-        for scene in range(args.start, args.scenes):
+        if args.scenario:
+            run_scenario(sim, placer, out, args.seed)
+        for scene in range(args.start, 0 if args.scenario else args.scenes):
+            if scene > args.start and (scene - args.start) % RESTART_EVERY == 0:
+                sim.close()
+                sim = fresh_sim()
             started = time.time()
-            plan = run_scene(sim, placer, args.seed, scene)
-            print(f"scene {scene}: {plan['sector']}, {len(plan['people'])} people, "
-                  f"{time.time() - started:.0f} s", flush=True)
+            for attempt in (1, 2):
+                try:
+                    plan = run_scene(sim, placer, out, args.seed, scene)
+                    print(f"scene {scene}: {plan['sector']}, {len(plan['people'])} people, "
+                          f"{time.time() - started:.0f} s", flush=True)
+                    break
+                except RuntimeError as error:
+                    # a stuck service: a fresh Gazebo, and the same scene again (same seed, same frames)
+                    print(f"scene {scene}: attempt {attempt} failed ({str(error)[:80]}), restarting gz", flush=True)
+                    sim.close()
+                    sim = fresh_sim()
+            else:
+                print(f"scene {scene}: skipped", flush=True)
     finally:
         sim.close()
-    print(json.dumps(summarise(), indent=1))
+    print(json.dumps(summarise(out), indent=1))
 
 
 if __name__ == "__main__":

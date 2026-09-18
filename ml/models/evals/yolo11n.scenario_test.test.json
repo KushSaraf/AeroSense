@@ -1,0 +1,106 @@
+{
+ "model": "/home/kushsaraf/sih_2026/legacy/prototype/yolo11n.pt",
+ "data": "/home/kushsaraf/sih_2026/ml/datasets/scenario_test",
+ "split": "test",
+ "conf": 0.25,
+ "recall": {
+  "people": 384,
+  "recall": 0.005
+ },
+ "precision": 0.5,
+ "false_positives": 2,
+ "empty_frames": 8,
+ "empty_frames_with_a_false_positive": 0,
+ "by_height": {
+  "0-15 m": {
+   "people": 83,
+   "recall": 0.024
+  },
+  "15-25 m": {
+   "people": 108,
+   "recall": 0.0
+  },
+  "25-40 m": {
+   "people": 193,
+   "recall": 0.0
+  }
+ },
+ "by_condition": {
+  "V01": {
+   "people": 27,
+   "recall": 0.0
+  },
+  "V02": {
+   "people": 23,
+   "recall": 0.0
+  },
+  "V03": {
+   "people": 19,
+   "recall": 0.0
+  },
+  "V04": {
+   "people": 39,
+   "recall": 0.0
+  },
+  "V05": {
+   "people": 17,
+   "recall": 0.059
+  },
+  "V06": {
+   "people": 16,
+   "recall": 0.0
+  },
+  "V07": {
+   "people": 17,
+   "recall": 0.0
+  },
+  "V08": {
+   "people": 26,
+   "recall": 0.0
+  },
+  "V09": {
+   "people": 54,
+   "recall": 0.0
+  },
+  "V10": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "V11": {
+   "people": 20,
+   "recall": 0.0
+  },
+  "V12": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "V15": {
+   "people": 25,
+   "recall": 0.0
+  },
+  "V18": {
+   "people": 24,
+   "recall": 0.0
+  },
+  "V19": {
+   "people": 27,
+   "recall": 0.037
+  },
+  "V20": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "V21": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "V22": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "V23": {
+   "people": 4,
+   "recall": 0.0
+  }
+ }
+}

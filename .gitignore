@@ -17,3 +17,6 @@ hardware/cad/
 datasets/
 # The RGB detector dataset (ml/make_dataset.py): large, regenerate from the simulation.
 ml/datasets/
+# Training runs (ml/train.py); the published weights in ml/models/yolo11n_aerial/ are committed.
+ml/models/runs/
+!ml/models/yolo11n_aerial/*.pt
