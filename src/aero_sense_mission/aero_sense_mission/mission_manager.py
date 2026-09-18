@@ -551,9 +551,7 @@ class MissionManager(Node):
         if goal != self._route_goal:
             # plan for the lower of where we are and where we are going: a descent to inspect
             # passes through altitudes the cruise never flies
-            obstacles = airspace.blocking(self._structures, min(here.z, altitude))
-            target = airspace.safe_goal((x, y), obstacles)
-            self._route, names = airspace.route((here.x, here.y), target, obstacles)
+            self._route, names = self._plan((here.x, here.y, here.z), x, y, altitude)
             self._route_goal = goal
             if names:
                 self._event(f"obstacle avoidance: routing round {', '.join(names)} "
@@ -566,6 +564,28 @@ class MissionManager(Node):
         self._fly_to(wx, wy, altitude, yaw if final else None)
         return final and self._distance_to(wx, wy, altitude) < REACHED_M
 
+    def _plan(self, here: tuple, x: float, y: float, altitude: float) -> tuple:
+        """Waypoints to (x, y) at `altitude` round everything tall, and the names gone round.
+
+        Planned for the lower of where we are and where we are going: a descent to inspect passes
+        through altitudes the cruise never flies. Low over a built-up block the clearance circles
+        can close every way round; then the drone first climbs where it is and plans at the leg's
+        height, and if even that is walled in it holds where it is rather than fly through.
+        """
+        low = airspace.blocking(self._structures, min(here[2], altitude))
+        try:
+            return airspace.route(here[:2], airspace.safe_goal((x, y), low), low)
+        except airspace.NoRoute:
+            pass
+        high = airspace.blocking(self._structures, altitude)
+        try:
+            rest, names = airspace.route(here[:2], airspace.safe_goal((x, y), high), high)
+        except airspace.NoRoute as exc:
+            self._event(f"obstacle avoidance: no way round to ({x:.0f}, {y:.0f}) at {altitude:.0f} m ({exc}): holding")
+            return ((here[0], here[1]),), ()
+        self._event(f"obstacle avoidance: walled in at {here[2]:.0f} m, climbing to {altitude:.0f} m first")
+        return ((here[0], here[1]), *rest), names
+
     def _clear_path_home(self):
         """Fly round anything tall between here and the pad before handing over to RTL.
 
@@ -577,8 +597,12 @@ class MissionManager(Node):
             return
         here = self._pose.pose.position
         altitude = max(here.z, self.get_parameter("search_altitude_m").value)
-        waypoints, names = airspace.route((here.x, here.y), self._base,
-                                          airspace.blocking(self._structures, altitude))
+        try:
+            waypoints, names = airspace.route((here.x, here.y), self._base,
+                                              airspace.blocking(self._structures, altitude))
+        except airspace.NoRoute as exc:
+            self._event(f"obstacle avoidance: no clear way home at {altitude:.0f} m ({exc}): handing straight to RTL")
+            return
         if not names:
             return
         self._event(f"obstacle avoidance: routing round {', '.join(names)} before returning")

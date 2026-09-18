@@ -161,5 +161,10 @@ theirs rather than accumulate. Compare trackers by replaying a bag of
   the casualty detector saw one thermal frame in 3.5 s.
 - **Radio mast:** 44 m at (-40, 60), taller than search altitude. Anything flying setpoints
   itself must route round it (`airspace.route`), or the y 65 leg hits it.
+- **Route planning (`airspace.py`):** grid A* round every clearance circle at once, then straightened.
+  A start or goal inside a circle moves to the nearest free point first; `NoRoute` means walled in
+  (low over a built-up block), and the mission then climbs where it is. The old box detours flew the
+  drone into the mast from a start just inside its circle, and a knocked drone is what diverged
+  OpenVINS; check `aero_sense/sim/ground_truth` for a frozen position before blaming OpenVINS.
 - **Heights:** the tallest society building is 16.4 m, so inspection flies at 22 m (the planner
   keeps 5 m clearance).

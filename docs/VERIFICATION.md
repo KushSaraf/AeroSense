@@ -82,6 +82,31 @@ purple, and the banner and the Navigation row follow what the drone flies on, no
 
 ![Dashboard with GPS jammed](images/dashboard-gps-denied.png)
 
+### Why OpenVINS was benched: the route planner flew into the mast (2026-09-19)
+
+Replayed against ground truth, the one recorded benching (`logs/flight_nav_none`) was not OpenVINS
+failing on its own: it tracked to 0.2-6.5 m for 250 s, then the drone froze in mid-air at
+(-34.2, 56.2, 20.8), 0.02 m from the 44 m radio mast's footprint, and OpenVINS diverged after the
+knock (5.2 m RMS, then kilometres). After inspecting V-007, 9 m from the mast, the drone hovered
+14.6 m from its centre, just inside the 14.7 m clearance circle; `airspace.route` then skipped the
+detour's entry corner and flew straight to the far corner, through the mast. The old planner also
+doubled back 36 m round overlapping building circles, `safe_goal` pushed goals from one circle into
+the next, and a successful mission (`flight_nav_none2`) passed 0.23 m from the industrial hall.
+
+`airspace.route` is now A* on a 2 m grid round all circles at once, straightened with the exact
+circles; starts and goals inside circles move to the nearest free point; `NoRoute` when walled in,
+and the mission climbs where it is first. Tested on 300 random layouts and the recorded cases.
+
+Earthquake mission (`logs/flight_astar`): MISSION_COMPLETE, 14 of 18, 0 false positives, mean
+error 0.83 m, 99.6 % searched, an inspection beside the mast (V-007) flown round it. Closest the
+true track came to any structure: 4.9 m from the industrial hall, passing 1.9 m above its roof
+(the planner keeps 5 m vertical or 8 m horizontal). OpenVINS fitted ground truth within
+0.2-1.0 m RMS throughout; 6 GPS losses, each handed to OpenVINS and back, never benched.
+
+The benching on the dashboard (drawn area, 12 s into the search) was not recorded: the old planner
+was then zig-zagging round three overlapping building circles at take-off height, which the new
+one flies as walled in, climbing first.
+
 ### No GPS and no vision: land in place, never follow a jammer (2026-09-18)
 
 GPS jammed by hand at 3.9 m/s with OpenVINS off (`vio:=false`, `logs/flight_jam_drift`), before and
