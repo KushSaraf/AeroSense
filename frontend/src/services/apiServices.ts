@@ -148,6 +148,10 @@ export const simulationControl = {
     post<{ opened: boolean; reason?: string }>(`/api/simulation/view/${kind}`, undefined, 15000),
 }
 
+/** Search a rectangle drawn on the map: two opposite corners in lat/lon; the bridge turns them into metres. */
+export const startCustomArea = (corners: Array<{ latitude: number; longitude: number }>) =>
+  post<{ success: boolean; message: string; missionId?: string }>('/api/missions/custom/start', { corners }, 30000)
+
 export const API_URL = API_BASE
 
 /** The drone's camera: the bridge's live MJPEG stream, or the recorded snapshot in a replay. */

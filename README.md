@@ -96,6 +96,16 @@ SWOOP makes sure the drone doesn't fly past it:
    climbs back and resumes the search where it left off (`aero_sense_mission/swoop.py`, state
    `VERIFYING`).
 
+### Searching an area drawn on the map
+
+On **Live map**, **Draw search area** lets an operator drag a rectangle (or click one corner, then
+the other) and press **Fly this area**. The corners go to the bridge as latitude and longitude
+(`POST /api/missions/custom/start`), which turns them into metres on the world origin, the same
+conversion the maps draw with, and the mission manager searches that rectangle (scenario
+`custom`). Everything on board is in metres, so a drawn area is flown the same with or without
+GPS. Each side must be 20-400 m and the whole area within 400 m of the base. The drone inspects
+casualties inside the area only; ones it passes on the way are reported, not visited.
+
 ### Tracking: one name per casualty (ByteTrack)
 
 The thermal detector reports warm blobs frame by frame; the tracker

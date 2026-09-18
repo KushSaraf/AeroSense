@@ -43,6 +43,8 @@ SCENARIO_AREAS = {
     "earthquake": Area(-180.0, 10.0, -20.0, 92.0),
     "flood": Area(20.0, 20.0, 180.0, 80.0),
 }
+#: The scenario that flies the area last set through set_search_area (drawn on the dashboard map).
+CUSTOM = "custom"
 STATE_RATE_HZ = 2.0
 COVERAGE_RATE_HZ = 1.0
 REACHED_M = 4.0
@@ -98,6 +100,7 @@ class MissionManager(Node):
         self._waypoints = ()
         self._waypoint_index = 0
         self._area = SCENARIO_AREAS["earthquake"]
+        self._custom_area = None
         self._coverage = None
         self._pose = None
         self._battery_percent = 100.0
@@ -194,24 +197,31 @@ class MissionManager(Node):
             response.success, response.message = False, f"a mission is already {self._state}"
             return response
         scenario = (request.scenario or "earthquake").lower()
-        if scenario not in SCENARIO_AREAS:
+        areas = {**SCENARIO_AREAS, CUSTOM: self._custom_area}
+        if scenario not in areas:
             response.success = False
-            response.message = f"unknown scenario {scenario!r}; try {sorted(SCENARIO_AREAS)}"
+            response.message = f"unknown scenario {scenario!r}; try {sorted(areas)}"
+            return response
+        if areas[scenario] is None:
+            response.success, response.message = False, "no search area set: draw one on the map first"
             return response
         self._scenario = scenario
-        self._area = SCENARIO_AREAS[scenario]
+        self._area = areas[scenario]
         self._begin(f"M-{time.strftime('%Y%m%d-%H%M%S')}")
         response.success, response.message = True, f"flying the {scenario} sector"
         response.mission_id = self._mission_id
         return response
 
     def _srv_area(self, request, response):
+        if self._state not in ("STANDBY", "MISSION_COMPLETE"):
+            response.success, response.message = False, f"a mission is {self._state}: its area cannot change"
+            return response
         points = [(p.x, p.y) for p in request.area.points]
         if len(points) < 2:
             response.success, response.message = False, "an area needs at least two corners"
             return response
         xs, ys = [p[0] for p in points], [p[1] for p in points]
-        self._area = Area(min(xs), min(ys), max(xs), max(ys))
+        self._area = self._custom_area = Area(min(xs), min(ys), max(xs), max(ys))
         if request.altitude_m > 0:
             self.set_parameters([rclpy.parameter.Parameter(
                 "search_altitude_m", rclpy.Parameter.Type.DOUBLE, float(request.altitude_m))])
@@ -337,11 +347,14 @@ class MissionManager(Node):
                             f"coverage {self._coverage.percent:.0f}%")
 
     def _next_inspection(self):
-        """The casualty most worth a closer look: never inspected, or inspected while uncertain."""
+        """The casualty most worth a closer look: never inspected, or inspected while uncertain.
+        Only inside the search area, like SWOOP's leads: one seen on the way there is reported but
+        not visited, or a drawn area sends the drone wherever it happened to look."""
         threshold = self.get_parameter("reinspect_below_confidence").value
         candidates = [v for v in self._victims.values()
-                      if v.victim_id not in self._inspected
-                      or (v.confidence < threshold and self._inspected[v.victim_id] < 2)]
+                      if self._area.contains(v.position.x, v.position.y)
+                      and (v.victim_id not in self._inspected
+                           or (v.confidence < threshold and self._inspected[v.victim_id] < 2))]
         if not candidates or self._pose is None:
             return None
         here = (self._pose.pose.position.x, self._pose.pose.position.y)

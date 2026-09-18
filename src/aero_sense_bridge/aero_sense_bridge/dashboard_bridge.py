@@ -8,6 +8,7 @@
   GET  /api/simulation           whether a simulation is running
   POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
   POST /api/simulation/gps       {"up": false} jams the drone's GPS everywhere, {"up": true} lifts it
+  POST /api/missions/custom/start {"corners": [{"latitude", "longitude"}, ...]} searches an area drawn on the map
   POST /api/simulation/view/gazebo | rviz   open a window onto the running simulation
   POST /api/simulation/start     start one (Gazebo, drone, autopilot, perception)
   POST /api/simulation/stop      stop everything
@@ -37,7 +38,7 @@ import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from geometry_msgs.msg import PoseStamped, TwistStamped
+from geometry_msgs.msg import Point32, Polygon, PoseStamped, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from sensor_msgs.msg import BatteryState, Image, NavSatFix
@@ -47,11 +48,11 @@ from std_srvs.srv import SetBool, Trigger
 
 from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, HazardArray, MissionStatus,
                                        VictimArray)
-from aero_sense_interfaces.srv import StartMission
+from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
 from aero_sense_mission import zones
 from aero_sense_mission.comms import NO_NETWORK_ZONES
-from aero_sense_mission.mission_manager import SCENARIO_AREAS
+from aero_sense_mission.mission_manager import CUSTOM, SCENARIO_AREAS
 
 from . import contracts, supervisor
 
@@ -109,6 +110,9 @@ class DashboardBridge(Node):
         self._network = self.create_client(SetBool, "aero_sense/sim/network")
         self._gps = self.create_client(SetBool, "aero_sense/sim/gps")
         self._start_mission = self.create_client(StartMission, "aero_sense/mission/start")
+        self._set_area = self.create_client(SetSearchArea, "aero_sense/mission/set_search_area")
+        #: The last drawn area the mission manager accepted, so the maps can draw what is flown.
+        self.custom_area = None
         self._mission_commands = {name: self.create_client(Trigger, f"aero_sense/mission/{name}")
                                   for name in ("pause", "resume", "abort", "return_to_base")}
         for name in ("rgb", "thermal"):
@@ -225,6 +229,28 @@ class DashboardBridge(Node):
                                                  "command not sent; the drone carries on with its mission on its own"}
         return self._call(client, request, "the mission manager is not running; start a simulation first",
                           lambda result: {"missionId": result.mission_id} if command == "start" else {})
+
+    def start_custom(self, corners) -> dict:
+        """Search an area drawn on the map: its lat/lon corners become metres on the world origin
+        (the same conversion the maps draw with), the mission manager takes it as its area, then
+        flies it. Without GPS the drone still knows where that is: the origin is surveyed, not a fix."""
+        try:
+            latitude, longitude, _ = contracts.world_origin()
+            area = contracts.area_from_latlon(corners, latitude, longitude)
+        except ValueError as exc:
+            return {"success": False, "message": str(exc)}
+        link = self.link()
+        if link["state"] == "OFFLINE" and supervisor.status().get("running"):
+            return {"success": False, "message": f"no network to the drone (silent for {link['silentSeconds']} s): "
+                                                 "area not sent"}
+        polygon = Polygon(points=[Point32(x=float(x), y=float(y)) for x, y in (
+            (area.min_x, area.min_y), (area.max_x, area.min_y), (area.max_x, area.max_y), (area.min_x, area.max_y))])
+        answer = self._call(self._set_area, SetSearchArea.Request(area=polygon),
+                            "the mission manager is not running; start a simulation first")
+        if not answer["success"]:
+            return answer
+        self.custom_area = area
+        return self.call_mission("start", CUSTOM)
 
     def set_network(self, up: bool) -> dict:
         """Simulator control, not a drone command: it works while the drone is unreachable."""
@@ -359,6 +385,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
         labels."""
         return contracts.scenario_catalogue(SCENARIO_AREAS, bridge.mission())
 
+    @app.post("/api/missions/custom/start")
+    def mission_start_custom(options: dict):
+        """Search the rectangle an operator drew on the map, given as lat/lon corners."""
+        return bridge.start_custom(options.get("corners"))
+
     @app.post("/api/missions/{scenario}/start")
     def mission_start_scenario(scenario: str):
         return bridge.call_mission("start", scenario)
@@ -384,7 +415,8 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
         The origin is the world's own <spherical_coordinates>, which is also SITL's home, so a
         position in metres and a GPS fix describe the same point."""
-        return contracts.world_json(SCENARIO_AREAS, NO_NETWORK_ZONES, zones.of_kind(zones.GPS))
+        areas = {**SCENARIO_AREAS, **({CUSTOM: bridge.custom_area} if bridge.custom_area else {})}
+        return contracts.world_json(areas, NO_NETWORK_ZONES, zones.of_kind(zones.GPS))
 
     @app.get("/api/hazards")
     def hazards():

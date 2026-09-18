@@ -331,3 +331,33 @@ def test_the_drone_says_what_it_navigates_on():
     assert (on_vision["navigation"], on_vision["gps"]) == ("VISION", "LOST")
     assert on_gps["navigation"] == "GPS" and on_gps["vio"] == "STANDBY"
     assert contracts.drone_json(None, None, None, None, 0.0)["navigation"] == "UNKNOWN"
+
+
+# -- an area drawn on the map --------------------------------------------------------------------
+
+def test_an_area_drawn_on_the_map_is_the_area_flown():
+    """Corners the map drew from metres come back as the same metres."""
+    world = contracts.world_json({"custom": _Area(-150.0, 20.0, -60.0, 70.0)})
+    origin = world["origin"]
+    area = contracts.area_from_latlon(world["sectors"][0]["corners"], origin["latitude"], origin["longitude"])
+    assert (area.min_x, area.min_y, area.max_x, area.max_y) == pytest.approx((-150.0, 20.0, -60.0, 70.0), abs=1e-6)
+
+
+def test_two_opposite_corners_are_enough_in_either_order():
+    ne, sw = {"latitude": 0.0005, "longitude": 0.0005}, {"latitude": 0.0, "longitude": 0.0}
+    area = contracts.area_from_latlon([ne, sw], 0.0, 0.0)
+    assert area.min_x == pytest.approx(0.0) and area.max_y == pytest.approx(0.0005 * contracts.METRES_PER_DEGREE_LAT)
+
+
+@pytest.mark.parametrize("corners, reason", [
+    (None, "two corners"),
+    ([{"latitude": 0.0, "longitude": 0.0}], "two corners"),
+    ([{"latitude": "north", "longitude": 0.0}, {"latitude": 0.001, "longitude": 0.001}], "numeric"),
+    ([{"latitude": float("nan"), "longitude": 0.0}, {"latitude": 0.001, "longitude": 0.001}], "numeric"),
+    ([{"latitude": 0.0, "longitude": 0.0}, {"latitude": 0.0001, "longitude": 0.001}], "at least"),   # 11 m tall
+    ([{"latitude": 0.0, "longitude": 0.0}, {"latitude": 0.001, "longitude": 0.005}], "at most"),     # 557 m wide
+    ([{"latitude": 0.01, "longitude": 0.0}, {"latitude": 0.011, "longitude": 0.001}], "beyond"),     # 1.1 km out
+])
+def test_what_is_not_a_searchable_area_is_refused_with_a_reason(corners, reason):
+    with pytest.raises(ValueError, match=reason):
+        contracts.area_from_latlon(corners, 0.0, 0.0)

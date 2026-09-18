@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useAreaDrawer } from '../components/AreaDrawer'
 import { LINK_COLOUR } from '../components/NetworkStatus'
 import { DeniedZones } from '../components/Zones'
 import { useFlightTrack } from '../hooks/useFlightTrack'
@@ -37,6 +38,7 @@ function MapPage() {
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
   const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true })
+  const area = useAreaDrawer(world)
   const latitude = drone?.latitude
   const longitude = drone?.longitude
   const track = useFlightTrack(latitude, longitude, mission?.id, mission?.elapsedSeconds, TRACK_LIMIT)
@@ -67,6 +69,9 @@ function MapPage() {
           <button key={label} type="button" onClick={act}
                   className={`rounded border px-3 py-2 transition ${on ? 'border-[#8ae0ff]/60 bg-[#8ae0ff]/20 text-text' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}>{label}</button>
         ))}
+        <span className="mx-1 h-5 w-px bg-white/15" />
+        <button type="button" onClick={area.start}
+                className={`rounded border px-3 py-2 transition ${area.drawing ? 'border-[#ffd166]/60 bg-[#ffd166]/20 text-text' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}>Draw search area</button>
         <span className="ml-auto normal-case tracking-[0.1em] text-text/50">
           {world ? `${world.world} · origin ${world.origin.latitude.toFixed(5)}, ${world.origin.longitude.toFixed(5)}` : error ?? 'loading world…'}
         </span>
@@ -88,6 +93,7 @@ function MapPage() {
           })}
 
           {layers.network && <DeniedZones world={world} />}
+          {area.layer}
 
           {layers.victims && victims.map((victim) => (
             <CircleMarker key={victim.id} center={[victim.latitude, victim.longitude]} radius={7}
@@ -114,6 +120,7 @@ function MapPage() {
           )}
         </MapContainer>
 
+        {area.panel}
         {!error && victims.length === 0 && (
           <div className="pointer-events-none absolute bottom-4 left-4 rounded border border-white/15 bg-[#202635]/90 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/60">
             No casualties detected yet

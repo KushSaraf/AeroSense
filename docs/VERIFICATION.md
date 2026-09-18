@@ -62,6 +62,19 @@ purple, and the banner and the Navigation row follow what the drone flies on, no
 
 ![Dashboard with GPS jammed](images/dashboard-gps-denied.png)
 
+### A search area drawn on the map (2026-09-18)
+
+Drawn on the Live map in the browser (102 x 56 m, x -138 to -36, y 13 to 69), sent as lat/lon and
+flown by the mission manager (`logs/flight_drawn_area`): MISSION_COMPLETE, 95 % of the drawn area
+searched, 11 casualties reported, and only the 5 inside the rectangle inspected. GPS was lost 4
+times and handed to OpenVINS and back each time; OpenVINS fitted GPS within 0.2-0.9 m RMS.
+
+Found on the way, the first try, from the dashboard: the drone inspected casualties it saw on the
+way in, outside the area, one at the edge of the north-west no-GPS zone. OpenVINS had been benched
+12 s into the search (5.3 m RMS), so with GPS jammed the EKF failsafe's landing drifted 150 m north.
+Inspections are now limited to the search area. **Open:** why OpenVINS was benched that early; it
+did not recur with the recording on (headless, no Gazebo window).
+
 ### Casualty tracker: ByteTrack's BYTE association (2026-09-18)
 
 Earthquake search (`tools/search_evaluation.py`, 30 m), its detections recorded

@@ -177,7 +177,7 @@ RUNNING_STATES = {"PRE_FLIGHT", "TAKEOFF", "TRANSIT", "SEARCHING", "VICTIM_DETEC
                   "HAZARD_DETECTED", "LOCAL_REPLAN", "GPS_DENIED", "OFFLINE_AUTONOMY",
                   "RETURNING", "LANDING"}
 SCENARIO_NAMES = {"earthquake": "Earthquake SAR", "flood": "Flood assessment",
-                  "full": "Full sector sweep"}
+                  "full": "Full sector sweep", "custom": "Drawn area"}
 
 
 def mission_events(events: list, mission_id: str | None) -> list:
@@ -285,17 +285,62 @@ METRES_PER_DEGREE_LAT = 111320.0
 WORLD_FILE = "aero_sense_disaster"
 
 
+#: A drawn search area: each side at least this long (one search leg's width), at most this long
+#: (a battery's worth), and every corner within this far of the origin (the world's extent).
+MIN_AREA_SIDE_M = 20.0
+MAX_AREA_SIDE_M = 400.0
+MAX_AREA_RANGE_M = 400.0
+
+
+def world_origin() -> tuple:
+    """(latitude, longitude, elevation) of the map frame's origin: the world's
+    <spherical_coordinates>, which is also SITL's home."""
+    from ament_index_python.packages import get_package_share_directory
+    from aero_sense_bringup import worlds
+
+    return worlds.origin(Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / f"{WORLD_FILE}.sdf")
+
+
+def area_from_latlon(corners, origin_lat: float, origin_lon: float):
+    """The map-frame rectangle (metres) spanning `corners`, each {"latitude", "longitude"}: the
+    inverse of world_json's conversion, so an area drawn on the map is the area flown.
+
+    Raises ValueError, with a message for the operator, for anything that is not a searchable area.
+    """
+    from aero_sense_mission.search_pattern import Area
+
+    if not isinstance(corners, list) or len(corners) < 2:
+        raise ValueError("an area needs at least two corners")
+    metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(origin_lat))
+    points = []
+    for corner in corners:
+        try:
+            lat, lon = float(corner["latitude"]), float(corner["longitude"])
+        except (TypeError, KeyError, ValueError):
+            raise ValueError("each corner needs a numeric latitude and longitude") from None
+        if not (math.isfinite(lat) and math.isfinite(lon)):
+            raise ValueError("each corner needs a numeric latitude and longitude")
+        points.append(((lon - origin_lon) * metres_per_degree_lon, (lat - origin_lat) * METRES_PER_DEGREE_LAT))
+    xs, ys = [p[0] for p in points], [p[1] for p in points]
+    area = Area(min(xs), min(ys), max(xs), max(ys))
+    if min(area.width, area.height) < MIN_AREA_SIDE_M:
+        raise ValueError(f"the area is {area.width:.0f} x {area.height:.0f} m: each side must be at least "
+                         f"{MIN_AREA_SIDE_M:.0f} m")
+    if max(area.width, area.height) > MAX_AREA_SIDE_M:
+        raise ValueError(f"the area is {area.width:.0f} x {area.height:.0f} m: each side must be at most "
+                         f"{MAX_AREA_SIDE_M:.0f} m")
+    if max(math.hypot(x, y) for x in (area.min_x, area.max_x) for y in (area.min_y, area.max_y)) > MAX_AREA_RANGE_M:
+        raise ValueError(f"the area reaches beyond {MAX_AREA_RANGE_M:.0f} m of the base: outside the simulated world")
+    return area
+
+
 def world_json(areas: dict, no_network: dict | None = None, no_gps: dict | None = None) -> dict:
     """The world origin, every sector's and dead zone's bounds, in metres and in degrees.
 
     The dashboard's map needs both: the simulation reasons in metres from the origin, an operator
     reads latitude and longitude. Converting here keeps one definition of where the sector is.
     """
-    from ament_index_python.packages import get_package_share_directory
-    from aero_sense_bringup import worlds
-
-    world = Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / f"{WORLD_FILE}.sdf"
-    latitude, longitude, elevation = worlds.origin(world)
+    latitude, longitude, elevation = world_origin()
     metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(latitude))
 
     def to_latlon(x: float, y: float) -> dict:
