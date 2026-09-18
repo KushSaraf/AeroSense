@@ -10,6 +10,7 @@ Nothing on the dashboard is produced anywhere except by the ROS nodes below.
 |---|---|---|
 | ROS 2 Jazzy | **ROS 2 Humble** | Jazzy needs Ubuntu 24.04; this machine is 22.04 with Humble installed |
 | PX4 SITL | **ArduPilot SITL (ArduCopter 4.8-dev)** | Installed in `~/uav_ws` and already flown; owner's choice. Autopilot access is isolated in `aero_sense_mission/autopilot.py` (MAVLink only), so PX4 is a contained swap |
+| Sensor fusion: PX4 EKF2 | **ArduPilot EKF3** | Same job (IMU, GPS, baro, compass, external vision into one state), and it switches GPS to OpenVINS in flight through its source sets, which GPS-denied flight uses. Owner's choice, 2026-09-18 |
 | Gazebo Harmonic | Gazebo Harmonic 8 | as briefed |
 | RTAB-Map / OctoMap / PCL / robot_localization | built-in mappers first, apt packages when installed | `sudo` needs a password; see *Dependencies*. Topic contracts are the same either way |
 | ORB-SLAM3 | **VIO abstraction**: RGB-D visual odometry (OpenCV features + depth, PnP) fused with IMU | ORB-SLAM3 has no Humble binary and needs Pangolin; the `aero_sense_localization` interface is the swap point |
