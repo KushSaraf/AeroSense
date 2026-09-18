@@ -12,11 +12,14 @@ import math
 import time
 
 import rclpy
+from ament_index_python.packages import get_package_share_directory
 from geometry_msgs.msg import PoseStamped
 from rclpy.qos import DurabilityPolicy, QoSProfile
 from std_srvs.srv import Trigger
 
 from aero_sense_interfaces.msg import VictimArray
+from aero_sense_mission import airspace
+from aero_sense_perception import structure_map
 
 #: A detection counts as the casualty if it lands within this far of the true position.
 MATCH_RADIUS_M = 12.0
@@ -100,12 +103,19 @@ def main():
     parser.add_argument("--y-range", type=float, nargs=2, default=(15.0, 90.0))
     args = parser.parse_args()
 
+    # round what reaches search altitude, as the mission does: flown straight, the y 65 leg clipped
+    # the 44 m radio mast and diverged OpenVINS (logs/flight_bytetrack)
+    world = f"{get_package_share_directory('aero_sense_gazebo')}/worlds/aero_sense_disaster.sdf"
+    obstacles = airspace.blocking(structure_map.load(world), args.altitude)
     rclpy.init()
     search = Search()
     search.spin(4)
     print("takeoff:", search.call("takeoff").message, flush=True)
     for index, (x, y) in enumerate(lawnmower(args.x_range, args.y_range, args.spacing)):
-        reached = search.goto(x, y, args.altitude)
+        waypoints, detoured = airspace.route((search.pose.x, search.pose.y), (x, y), obstacles)
+        if detoured:
+            print(f"leg{index} goes round {', '.join(detoured)}", flush=True)
+        reached = all([search.goto(wx, wy, args.altitude) for wx, wy in waypoints])
         seen = len(search.victims.victims) if search.victims else 0
         print(f"leg{index} -> ({x:.0f}, {y:.0f}) reached={reached} victims_so_far={seen}", flush=True)
     search.spin(5)

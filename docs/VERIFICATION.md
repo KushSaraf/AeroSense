@@ -67,7 +67,7 @@ purple, and the banner and the Navigation row follow what the drone flies on, no
 Earthquake search (`tools/search_evaluation.py`, 30 m), its detections recorded
 (`logs/flight_bytetrack`) and replayed through the old nearest-first tracker and BYTE.
 
-| Tracker | Recall (legs 0-5) | False positives | Duplicates |
+| Tracker | Recall (legs 0-5, first flight) | False positives | Duplicates |
 |---|---|---|---|
 | Nearest-first (before) | 12 of 23 | 0 | 0 |
 | BYTE, new track from 0.3 | 12 of 23 | 0 | 0 |
@@ -82,10 +82,17 @@ Found on the way:
 - **OpenVINS starved the casualty detector.** It published TF at the IMU's 200 Hz; the
   detector's TF listener spent its core parsing it and saw one thermal frame in 3.5 s. It found
   nobody on the first flight (`logs/flight_bytetrack_tfstarved`). OpenVINS no longer publishes TF.
-- **Open: OpenVINS diverges on the y 65 leg.** On both flights, flying west along y 65 past
-  x -45, its error went from 4 m to 34 m in 5 s. The health gate refused it, but GPS was then
-  jammed in the north-west zone and the EKF failsafe's landing, which does not brake, drifted
-  140 m west out of the world.
+- **The evaluation flew into the radio mast.** `search_evaluation.py` flew its legs straight, and
+  the y 65 leg at 30 m clipped the 44 m mast at (-40, 60). The knock diverged OpenVINS (4 m to
+  34 m off in 5 s), the health gate refused it, GPS was then jammed in the north-west zone, and
+  the EKF failsafe's landing, which does not brake, drifted 140 m west out of the world. The
+  script now goes round what reaches search altitude, as the mission does (`airspace.route`).
+
+The whole search again, round the mast (`logs/flight_bytetrack2`): 13 of the sector's 18
+casualties (the other 5 of the 23 are in the flood sector), 0 false positives, mean error 1.4 m;
+GPS jammed twice, OpenVINS took over and handed back both times. Replayed, both trackers give 13,
+and both keep V01 as two tracks: started more than 6 m apart, their averages later settle 3.2 m
+apart, and tracks are never merged.
 
 ### Real people as casualties (2026-09-17)
 
