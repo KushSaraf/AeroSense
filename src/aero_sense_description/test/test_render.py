@@ -228,3 +228,21 @@ def test_imu_noise_density_follows_its_rate():
     density = cfg["imu"]["gyro_stddev"] / math.sqrt(cfg["imu"]["rate_hz"])
     assert f"gyroscope_noise_density: {density:.6e}" in imu
     assert "update_rate: 200.0" in imu
+
+
+@pytest.mark.parametrize("quality", render.QUALITIES)
+def test_openvins_masks_the_skids_at_the_stereo_resolution(tmp_path, quality):
+    """OpenVINS exits if a mask's size differs from its camera's, and cam0 is the left camera."""
+    import numpy as np
+    from PIL import Image
+    _, _, cfg = render.generate(tmp_path, quality, "aero_sense_drone")
+    stereo = cfg["profile"]["stereo"]
+    openvins = tmp_path / "openvins"
+    assert "use_mask: true" in (openvins / "estimator_config.yaml").read_text()
+    masks = [np.asarray(Image.open(openvins / f"mask{i}.png")) for i in (0, 1)]
+    for mask in masks:
+        assert mask.shape == (stereo["height"], stereo["width"])
+        assert 0.05 < (mask > 0).mean() < 0.3                          # the skids, not the whole view
+    source = Path(get_package_share_directory("aero_sense_description")) / "config" / "openvins"
+    left = np.asarray(Image.open(source / "airframe_mask_left.png").resize((stereo["width"], stereo["height"]), Image.NEAREST))
+    assert np.array_equal(masks[0], left) and not np.array_equal(masks[1], left)

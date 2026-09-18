@@ -9,6 +9,7 @@ from pathlib import Path
 import jinja2
 import numpy as np
 import yaml
+from PIL import Image
 from ament_index_python.packages import get_package_share_directory
 
 PACKAGE = "aero_sense_description"
@@ -281,6 +282,14 @@ def openvins_calibration(cfg: dict, topic_prefix: str = "/") -> dict:
     return {"kalibr_imu_chain.yaml": imu_yaml, "kalibr_imucam_chain.yaml": "%YAML:1.0\n\n" + cams}
 
 
+def airframe_masks(width: int, height: int) -> dict:
+    """OpenVINS's mask0/mask1 (left, right) at the stereo resolution: white is the drone's own
+    skids, which move with the camera and must never be tracked (tools/vio_mask.py measures them)."""
+    source = share() / "config" / "openvins"
+    return {f"mask{i}.png": Image.open(source / f"airframe_mask_{cam.split('_')[1]}.png").resize((width, height), Image.NEAREST)
+            for i, cam in enumerate(STEREO)}
+
+
 def generate(out_dir: Path, quality: str, name: str, frame_prefix: str = "") -> tuple:
     """Write model.sdf, bridge.yaml and the OpenVINS config (openvins/) for one drone;
     returns (model_path, bridge_path, cfg)."""
@@ -294,4 +303,6 @@ def generate(out_dir: Path, quality: str, name: str, frame_prefix: str = "") -> 
     (openvins / "estimator_config.yaml").write_text((share() / "config" / "openvins" / "estimator_config.yaml").read_text())
     for filename, text in openvins_calibration(cfg, f"/{frame_prefix}").items():
         (openvins / filename).write_text(text)
+    for filename, mask in airframe_masks(cfg["profile"]["stereo"]["width"], cfg["profile"]["stereo"]["height"]).items():
+        mask.save(openvins / filename)
     return model, bridge, cfg

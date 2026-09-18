@@ -202,7 +202,7 @@ def generate_launch_description() -> LaunchDescription:
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
         DeclareLaunchArgument("vio", default_value="false", choices=["true", "false"],
-                              description="run OpenVINS on the stereo pair (needs ov_msckf built in ~/uav_ws); experimental: diverges in live flight, see tools/vio_drift.py"),
+                              description="run OpenVINS on the stereo pair (needs ov_msckf built in ~/uav_ws); drift vs ground truth: tools/vio_drift.py"),
         DeclareLaunchArgument("cruise_speed", default_value="4.0",
                               description="m/s between waypoints; raise it to fly a demo quickly"),
         OpaqueFunction(function=_launch),

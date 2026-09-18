@@ -136,6 +136,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `mission_evaluation.py` | start a mission (SWOOP, triage and all) on a running sim and score what it confirmed |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
 | `vio_drift.py` | record OpenVINS (`vio:=true`) against the GPS pose during a flight and report its drift |
+| `vio_mask.py` | measure OpenVINS's airframe masks (the skids in the stereo view) from a recorded flight |
 | `record_thermal_dataset.py` | save labelled thermal (16-bit, 0.01 K) + RGB frames for developing algorithms |
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |
 | `step_to_mesh.py` | turn a component's STEP CAD into a Gazebo mesh (see hardware/README.md) |

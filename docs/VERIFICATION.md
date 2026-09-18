@@ -87,6 +87,31 @@ Flown with `tools/mission_evaluation.py` against the same people, 22 m search wi
 found from 30 m (V03, V04), covered less and took longer. One casualty is within run-to-run
 variation, so the search stays at 30 m.
 
+### OpenVINS on the stereo pair (2026-09-18)
+
+Earthquake mission with `vio:=true`, OpenVINS drift measured against the GPS pose by
+`tools/vio_drift.py` (yaw and translation fitted over the first 60 s, error over the rest).
+
+| Run | Flown | Drift at the end | Worst |
+|---|---|---|---|
+| Before: four live flights, 2026-09-17 | 223–241 m | 13–15 km (diverged) | |
+| Replay, diagnostic flight | 223 m | 3.3 m | 5.7 m |
+| Replay, earlier flight (diverged every time before) | 253 m | 5.3 m | 6.4 m |
+| Live, 170 s measured | 367 m | 2.1 m (0.6 %) | 5.4 m |
+
+The mission itself: MISSION_COMPLETE, 13 of 18 casualties, 0 false positives, 96% searched.
+
+Two causes, both found by replaying recorded bags:
+- **The skids.** The down-looking stereo cameras see the landing gear. Over plain ground nearly all
+  the corners in view were on it, points that move with the camera while the IMU says the drone
+  flies at 6 m/s. Masked now (`tools/vio_mask.py`, `render.airframe_masks`).
+- **Initialisation.** The dynamic initialiser started the gyro bias 0.04 rad/s off (the sim's is
+  zero). Static init on the pad gets it right, with the threshold at 0.3: a SITL takeoff jerks the
+  accelerometer by 0.86 m/s², never the stock 1.5.
+
+Before these fixes the same bag diverged or tracked from run to run (thread timing). After them,
+two replays of each bag gave the same result.
+
 ### Network outage (2026-09-17)
 
 Mission M-20260917-154227 started from the dashboard bridge, earthquake sector, cruise 8 m/s, with the
