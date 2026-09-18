@@ -25,6 +25,10 @@ tracker:
   associate_radius_m: 6.0
   # A track is only published once seen this many times: one hot frame is not a casualty.
   confirm_hits: 3
+  # BYTE: only a detection at least this confident starts a casualty; weaker ones only extend one.
+  # Thermal confidence comes in gz's 2.6 K steps, 0.31 / 0.73 / 1.0, and every step starts one:
+  # from 0.4 up, a casualty seen only at 306 K (V05, flight_bytetrack) was never found.
+  new_track_confidence: 0.3
   # Tracks not seen again for this long stop being republished as current.
   forget_after_s: 60.0
 

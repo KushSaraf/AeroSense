@@ -125,6 +125,43 @@ def test_a_found_casualty_is_never_forgotten_but_stops_being_current():
     assert t.current(now_s=much_later) == ()
 
 
+
+WEAK = CFG["tracker"]["new_track_confidence"] / 2
+STRONG = 0.9
+
+
+def test_a_weak_look_never_starts_a_casualty():
+    t = tracker()
+    for i in range(CFG["tracker"]["confirm_hits"] + 2):
+        t.update([seen((10.0, 5.0, 0.0), WEAK, 305.0)], float(i))
+    assert t.tracks == ()
+
+
+def test_weak_looks_keep_a_casualty_going():
+    t = tracker()
+    t.update([seen((10.0, 5.0, 0.0), STRONG, 309.0)], 0.0)
+    for i in range(1, CFG["tracker"]["confirm_hits"]):
+        confirmed = t.update([seen((10.5, 5.0, 0.0), WEAK, 305.0)], float(i))
+    assert len(confirmed) == 1 and confirmed[0].hits == CFG["tracker"]["confirm_hits"]
+
+
+def test_neighbours_seen_together_each_get_their_own_look():
+    """A at 0 m, B at 7 m. Nearest-first sends both looks to B (3.4 m and 0.5 m off it); BYTE's
+    optimal matching gives A the look 3.6 m off it and B the other."""
+    t = tracker()
+    t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0), seen((7.0, 0.0, 0.0), STRONG, 309.0)], 0.0)
+    t.update([seen((3.6, 0.0, 0.0), STRONG, 309.0), seen((6.5, 0.0, 0.0), STRONG, 309.0)], 1.0)
+    assert [tr.hits for tr in t.tracks] == [2, 2]
+
+
+def test_a_body_split_by_rubble_stays_one_casualty():
+    t = tracker()
+    for i in range(CFG["tracker"]["confirm_hits"]):
+        confirmed = t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0), seen((4.3, 0.0, 0.0), STRONG, 309.0)],
+                             float(i))
+    assert len(t.tracks) == 1 and len(confirmed) == 1
+
+
 # -- SWOOP leads: faint heat that is not yet a casualty ------------------------------------------
 
 from aero_sense_perception import suspects  # noqa: E402

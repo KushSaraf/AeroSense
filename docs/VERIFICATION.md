@@ -62,6 +62,31 @@ purple, and the banner and the Navigation row follow what the drone flies on, no
 
 ![Dashboard with GPS jammed](images/dashboard-gps-denied.png)
 
+### Casualty tracker: ByteTrack's BYTE association (2026-09-18)
+
+Earthquake search (`tools/search_evaluation.py`, 30 m), its detections recorded
+(`logs/flight_bytetrack`) and replayed through the old nearest-first tracker and BYTE.
+
+| Tracker | Recall (legs 0-5) | False positives | Duplicates |
+|---|---|---|---|
+| Nearest-first (before) | 12 of 23 | 0 | 0 |
+| BYTE, new track from 0.3 | 12 of 23 | 0 | 0 |
+| BYTE, new track from 0.4 up | 11 of 23 (V05 lost: only ever seen at 306 K) | 0 | 0 |
+| BYTE, a split body's blobs kept apart beyond 2 m | 12 of 23 | 0 | 2 (blobs 3.2 and 4.3 m apart) |
+
+Thermal confidence comes in three steps (0.31, 0.73, 1.0) and the detector has no false
+positives, so on thermal alone BYTE's weak-detection stage has nothing to do: it matches the old
+tracker. It is there for the RGB detector's scores.
+
+Found on the way:
+- **OpenVINS starved the casualty detector.** It published TF at the IMU's 200 Hz; the
+  detector's TF listener spent its core parsing it and saw one thermal frame in 3.5 s. It found
+  nobody on the first flight (`logs/flight_bytetrack_tfstarved`). OpenVINS no longer publishes TF.
+- **Open: OpenVINS diverges on the y 65 leg.** On both flights, flying west along y 65 past
+  x -45, its error went from 4 m to 34 m in 5 s. The health gate refused it, but GPS was then
+  jammed in the north-west zone and the EKF failsafe's landing, which does not brake, drifted
+  140 m west out of the world.
+
 ### Real people as casualties (2026-09-17)
 
 The casualties became posed people (`tools/make_people.py`), rubble piles of slabs and brick, and
