@@ -17,6 +17,8 @@ from dataclasses import dataclass, replace
 import numpy as np
 from pymavlink import mavutil
 
+from .frames import METRES_PER_DEGREE_LAT
+
 HEARTBEAT_TIMEOUT_S = 30
 MODE_TIMEOUT_S = 20
 MODE_RESEND_S = 0.5
@@ -42,8 +44,14 @@ HOME_TIMEOUT_S = 10.0
 HOME_RESEND_S = 1.0
 #: How close the autopilot's reported home must be to where it was asked to put it.
 HOME_TOLERANCE_M = 2.0
-METRES_PER_DEGREE_LAT = 111320.0
 HOME_POSITION_ID = 242
+GPS_GLOBAL_ORIGIN_ID = 49
+MAV_CMD_SET_EKF_SOURCE_SET = 42007
+COMMAND_TIMEOUT_S = 3.0
+COMMAND_RESEND_S = 0.3
+#: VISION_POSITION_ESTIMATE's covariance is the upper triangle of 6x6 (x y z roll pitch yaw):
+#: these are the diagonal's places in it.
+COVARIANCE_DIAGONAL = (0, 6, 11, 15, 18, 20)
 
 
 def param_matches(expected: float, echoed: float) -> bool:
@@ -111,6 +119,9 @@ class VehicleState:
     home_lat: float = math.nan
     home_lon: float = math.nan
     home_alt_m: float = math.nan   # AMSL
+    origin_lat: float = math.nan   # the EKF's origin, where local NED (0, 0, 0) is
+    origin_lon: float = math.nan
+    origin_alt_m: float = math.nan  # AMSL
     last_heartbeat: float = 0.0
 
     @property
@@ -127,6 +138,7 @@ class Autopilot:
         self._attitudes = ()
         self._positions = ()
         self._params = {}
+        self._acks = {}
         self._lock = threading.Lock()
         self._running = False
 
@@ -199,6 +211,9 @@ class Autopilot:
         elif kind == "HOME_POSITION":
             self._update(home_lat=msg.latitude / 1e7, home_lon=msg.longitude / 1e7,
                          home_alt_m=msg.altitude / 1000.0)
+        elif kind == "GPS_GLOBAL_ORIGIN":
+            self._update(origin_lat=msg.latitude / 1e7, origin_lon=msg.longitude / 1e7,
+                         origin_alt_m=msg.altitude / 1000.0)
         elif kind == "VFR_HUD":
             self._update(ground_speed=msg.groundspeed)
         elif kind == "HEARTBEAT" and msg.get_srcComponent() == 1:
@@ -209,6 +224,9 @@ class Autopilot:
                          prearm_ok=bool(msg.onboard_control_sensors_health & PREARM_CHECK_BIT))
         elif kind == "STATUSTEXT":
             self._update(last_text=msg.text)
+        elif kind == "COMMAND_ACK":
+            with self._lock:
+                self._acks = {**self._acks, msg.command: msg.result}
         elif kind == "PARAM_VALUE":
             with self._lock:
                 self._params = {**self._params, msg.param_id: msg.param_value}
@@ -244,6 +262,34 @@ class Autopilot:
                 return
         raise ValueError(f"autopilot did not confirm {name}={value} within {PARAM_TIMEOUT_S:.0f}s "
                          f"(parameter name unknown to this firmware?)")
+
+    def request_origin(self) -> None:
+        """Ask for GPS_GLOBAL_ORIGIN; it arrives in state.origin_* once the EKF has set it."""
+        self._command(mavutil.mavlink.MAV_CMD_REQUEST_MESSAGE, GPS_GLOBAL_ORIGIN_ID)
+
+    def set_ekf_source(self, source_set: int) -> None:
+        """Fly on the EKF's source set EK3_SRC<source_set>_* from now on, confirmed by the ack."""
+        with self._lock:
+            self._acks = {cmd: result for cmd, result in self._acks.items() if cmd != MAV_CMD_SET_EKF_SOURCE_SET}
+        deadline = time.time() + COMMAND_TIMEOUT_S
+        while time.time() < deadline:
+            self._command(MAV_CMD_SET_EKF_SOURCE_SET, source_set)
+            time.sleep(COMMAND_RESEND_S)
+            with self._lock:
+                result = self._acks.get(MAV_CMD_SET_EKF_SOURCE_SET)
+            if result == mavutil.mavlink.MAV_RESULT_ACCEPTED:
+                return
+            if result is not None:
+                raise RuntimeError(f"autopilot refused EKF source set {source_set} (MAV_RESULT {result})")
+        raise TimeoutError(f"EKF source set {source_set} not acknowledged within {COMMAND_TIMEOUT_S:.0f}s")
+
+    def send_vision_position(self, usec: int, ned: tuple, rpy: tuple, variances: tuple) -> None:
+        """One visual-odometry pose for the EKF: local NED (m), FRD attitude in NED (rad), and the
+        estimator's variances (x, y, z, roll, pitch, yaw), which ArduPilot turns into its noise."""
+        covariance = [0.0] * 21
+        for index, variance in zip(COVARIANCE_DIAGONAL, variances):
+            covariance[index] = variance
+        self._conn.mav.vision_position_estimate_send(usec, *ned, *rpy, covariance=covariance)
 
     def set_mode(self, mode: str) -> None:
         """Resend until the autopilot reports the mode. A single set_mode goes unanswered when the

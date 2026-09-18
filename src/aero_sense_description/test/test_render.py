@@ -120,10 +120,20 @@ def test_hexa_x_matches_ardupilot_motor_order():
     assert all(a != b for a, b in zip(by_bearing, by_bearing[1:] + by_bearing[:1]))
 
 
-def test_sitl_frame_is_hexa_x():
-    params = dict(line.split() for line in (render.share() / "config" / "hexa.parm").read_text().splitlines()
-                  if line.strip() and not line.startswith("#"))
-    assert params == {"FRAME_CLASS": "2", "FRAME_TYPE": "1"}
+def _parm(name: str) -> dict:
+    return dict(line.split() for line in (render.share() / "config" / name).read_text().splitlines()
+                if line.strip() and not line.startswith("#"))
+
+
+def test_sitl_frame_is_hexa_x_flown_on_ekf3():
+    """EKF3, not SITL's perfect state (10), which the Gazebo plugin's no_time_sync would default to."""
+    assert _parm("hexa.parm") == {"FRAME_CLASS": "2", "FRAME_TYPE": "1", "AHRS_EKF_TYPE": "3"}
+
+
+def test_vio_parm_makes_openvins_the_second_ekf_source():
+    params = _parm("vio.parm")
+    assert params["VISO_TYPE"] == "1" and params["EK3_SRC2_POSXY"] == "6"      # MAVLink, ExtNav
+    assert int(params["ARMING_SKIPCHK"]) == 1 << 18                            # only the vision check
 
 
 @pytest.mark.parametrize("quality", render.QUALITIES)

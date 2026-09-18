@@ -35,3 +35,18 @@ def test_gps_classification():
     assert classify_gps(3, 8.0) == "DEGRADED"
     assert classify_gps(1, 1.0) == "LOST"
     assert classify_gps(3, math.nan) == "OK"          # accuracy unknown: trust the fix type
+
+
+def test_attitude_round_trips_between_ned_and_enu():
+    ned = (0.1, -0.2, 2.5)
+    q = frames.ned_attitude_to_enu_quaternion(*ned)
+    assert all(math.isclose(a, b, abs_tol=1e-9)
+               for a, b in zip(frames.enu_attitude_to_ned(*frames.quaternion_to_rpy(*q)), ned))
+
+
+def test_a_point_north_east_of_the_origin_lands_there_in_the_map():
+    origin = (23.0, 72.5, 50.0)
+    x, y, z = frames.geodetic_to_map(23.0 + 100.0 / frames.METRES_PER_DEGREE_LAT, 72.5, 53.0, origin)
+    assert (round(x, 6), round(y, 6), z) == (0.0, 100.0, 3.0)
+    x, _, _ = frames.geodetic_to_map(23.0, 72.5 + 0.001, 50.0, origin)
+    assert math.isclose(x, 0.001 * frames.METRES_PER_DEGREE_LAT * math.cos(math.radians(23.0)))

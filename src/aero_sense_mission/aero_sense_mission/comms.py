@@ -4,18 +4,13 @@ Pure logic, no ROS. Everything the ground sees goes over this link (`comms_link`
 outage is real for the dashboard: while the drone is out of coverage the ground hears nothing,
 the drone keeps searching, and on reconnect it sends what it held, casualties first.
 """
-import math
-
-from .search_pattern import Area
+from . import zones
+from .zones import nearest as zones_nearest
 
 CONNECTED, DEGRADED, OFFLINE = "CONNECTED", "DEGRADED", "OFFLINE"
 
-#: Where the network is down. The radio mast in the north-east blocks lost its antennas in the
-#: earthquake, so there is no coverage there; two search legs and three casualties lie inside.
-#: The red outline in Gazebo (aero_sense_zone_signs) is drawn from this (tested).
-NO_NETWORK_ZONES = {
-    "north_east_blocks": Area(-110.0, 50.0, -20.0, 92.0),
-}
+#: Where the network is down (zones.ZONES: alone in the north-east blocks, with GPS in the south).
+NO_NETWORK_ZONES = zones.of_kind(zones.NETWORK)
 #: Within this distance outside a zone the link is weak: telemetry gets through, video does not.
 DEGRADED_MARGIN_M = 10.0
 #: Once down, the link comes back only this far outside a zone: a drone hovering on the boundary
@@ -31,19 +26,12 @@ FLUSH_ORDER = ("victims", "mission_state", "events")
 PRIORITIES = ("P1", "P2", "P3")
 
 
-def distance_outside(area: Area, x: float, y: float) -> float:
-    """Metres from (x, y) to the area, 0 inside it."""
-    dx = max(area.min_x - x, 0.0, x - area.max_x)
-    dy = max(area.min_y - y, 0.0, y - area.max_y)
-    return math.hypot(dx, dy)
-
-
 def link_state(x: float, y: float, forced_down: bool = False, zones=NO_NETWORK_ZONES,
                was_offline: bool = False) -> str:
     """CONNECTED, DEGRADED near a dead zone, or OFFLINE inside one (or when cut by hand)."""
     if forced_down:
         return OFFLINE
-    nearest = min((distance_outside(area, x, y) for area in zones.values()), default=math.inf)
+    nearest = zones_nearest(zones, x, y)
     if nearest == 0.0 or (was_offline and nearest < RECONNECT_MARGIN_M):
         return OFFLINE
     return DEGRADED if nearest <= DEGRADED_MARGIN_M else CONNECTED

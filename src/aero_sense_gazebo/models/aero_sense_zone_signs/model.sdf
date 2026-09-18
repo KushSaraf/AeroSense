@@ -143,6 +143,64 @@
         <cast_shadows>false</cast_shadows>
         <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_no_network.glb</uri></mesh></geometry>
       </visual>
+      <visual name="no_gps_north_west_blocks_south">
+        <pose>-151.0 50.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>58.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.95 0.5 0.05 1</ambient><diffuse>0.95 0.5 0.05 1</diffuse><emissive>0.5 0.25 0.02 1</emissive></material>
+      </visual>
+      <visual name="no_gps_north_west_blocks_north">
+        <pose>-151.0 92.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>58.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.95 0.5 0.05 1</ambient><diffuse>0.95 0.5 0.05 1</diffuse><emissive>0.5 0.25 0.02 1</emissive></material>
+      </visual>
+      <visual name="no_gps_north_west_blocks_west">
+        <pose>-180.0 71.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 42.8 0.01</size></box></geometry>
+        <material><ambient>0.95 0.5 0.05 1</ambient><diffuse>0.95 0.5 0.05 1</diffuse><emissive>0.5 0.25 0.02 1</emissive></material>
+      </visual>
+      <visual name="no_gps_north_west_blocks_east">
+        <pose>-122.0 71.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 42.8 0.01</size></box></geometry>
+        <material><ambient>0.95 0.5 0.05 1</ambient><diffuse>0.95 0.5 0.05 1</diffuse><emissive>0.5 0.25 0.02 1</emissive></material>
+      </visual>
+      <visual name="no_gps_north_west_blocks_label">
+        <pose>-151.0 98.5 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_no_gps.glb</uri></mesh></geometry>
+      </visual>
+      <visual name="no_gps_network_south_lanes_south">
+        <pose>-110.0 10.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>100.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.55 0.2 0.8 1</ambient><diffuse>0.55 0.2 0.8 1</diffuse><emissive>0.28 0.1 0.4 1</emissive></material>
+      </visual>
+      <visual name="no_gps_network_south_lanes_north">
+        <pose>-110.0 38.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>100.8 0.8 0.01</size></box></geometry>
+        <material><ambient>0.55 0.2 0.8 1</ambient><diffuse>0.55 0.2 0.8 1</diffuse><emissive>0.28 0.1 0.4 1</emissive></material>
+      </visual>
+      <visual name="no_gps_network_south_lanes_west">
+        <pose>-160.0 24.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 28.8 0.01</size></box></geometry>
+        <material><ambient>0.55 0.2 0.8 1</ambient><diffuse>0.55 0.2 0.8 1</diffuse><emissive>0.28 0.1 0.4 1</emissive></material>
+      </visual>
+      <visual name="no_gps_network_south_lanes_east">
+        <pose>-60.0 24.0 0.45 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><box><size>0.8 28.8 0.01</size></box></geometry>
+        <material><ambient>0.55 0.2 0.8 1</ambient><diffuse>0.55 0.2 0.8 1</diffuse><emissive>0.28 0.1 0.4 1</emissive></material>
+      </visual>
+      <visual name="no_gps_network_south_lanes_label">
+        <pose>-110.0 3.5 0.012 0 0 0</pose>
+        <cast_shadows>false</cast_shadows>
+        <geometry><mesh><uri>model://aero_sense_zone_signs/meshes/ground_no_gps_network.glb</uri></mesh></geometry>
+      </visual>
       <visual name="outline_flood_south">
         <pose>100.0 20.0 0.62 0 0 0</pose>
         <cast_shadows>false</cast_shadows>

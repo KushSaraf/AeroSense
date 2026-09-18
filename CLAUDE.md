@@ -50,18 +50,37 @@ python3 tools/make_people.py                                   # the posed peopl
 - `tools/flood_valley.py` holds the terrain height field. The water level is 0.6 m
   (`victim_models.WATER_SURFACE_Z_M`), and the bank decides where the waterline shows.
 
+## Zones: no network, no GPS, or both (`aero_sense_mission/zones.py`)
+
+One table, `zones.ZONES`, in the earthquake sector: the north-east blocks lose the network, the
+north-west blocks lose GPS, the southern lanes lose both. The outlines in `aero_sense_zone_signs`
+(red, orange, purple, each with a ground label) must match it (tested).
+
 ## Network (comms_link)
 
 Everything the dashboard shows leaves the drone through `aero_sense_mission/comms_link.py`, which
 relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the downlink.
 
-- **Dead zones:** `comms.NO_NETWORK_ZONES`. The red outline in `aero_sense_zone_signs` must match
-  them (tested). Inside a zone the link is OFFLINE, within 10 m of one it is DEGRADED (no video).
+- **Dead zones:** `comms.NO_NETWORK_ZONES` (from `zones.ZONES`). Inside a zone the link is
+  OFFLINE, within 10 m of one it is DEGRADED (no video).
 - **Offline:** the drone keeps searching. Telemetry and the casualty list keep only the newest,
   events queue in order, frames are dropped. On reconnect casualties go first.
 - **By hand:** `/aero_sense/sim/network` (SetBool), or `POST /api/simulation/network {"up": false}`.
   The bridge refuses drone commands while it hears nothing.
 - **Markers:** RViz `/aero_sense/visualization/network`; the dashboard maps draw the zones red.
+
+## GPS-denied navigation (OpenVINS)
+
+- **Jamming (simulator side):** `gps_jammer` sets SITL's `SIM_GPS1_JAM` where Gazebo's ground truth
+  (`aero_sense/sim/ground_truth`) is in a no-GPS zone, or anywhere via `/aero_sense/sim/gps`
+  (SetBool). It talks to SITL on its own MAVProxy output (14553), never the drone's link.
+- **Onboard (`drone_interface` + `navigation.py`):** OpenVINS's track is fitted onto the EKF's while
+  GPS is good and streamed as VISION_POSITION_ESTIMATE. When GPS is not OK the EKF switches to
+  source set 2 (`vio.parm`); back to set 1 once GPS has been OK for 5 s. Vision is used only
+  while its track fits the GPS track within 5 m RMS.
+- **OpenVINS** runs by default (`vio:=true`). It initialises in a hover after take-off
+  (`try_zupt`); it could not on the pad (too few features) nor mid-climb (diverged).
+- **Scoring:** `tools/vio_drift.py` against ground truth.
 
 ## SWOOP (Suspect, Weigh, Observe Overhead, Prove)
 
@@ -96,5 +115,12 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
 - **`GZ_PARTITION`:** `export GZ_PARTITION=` (empty) is not the same as unset.
 - **Thermal:** gz quantises heat into about 2.6 K steps. Surfaces: ground 298 K, asphalt 301,
   galis 300, mud 294, water 291, buildings and rubble 293 (ambient). Bodies read 306–311 K.
+- **ArduPilot flies EKF3** (`AHRS_EKF_TYPE 3` in `hexa.parm`). The Gazebo plugin's `<no_time_sync>`
+  makes SITL default to 10, its perfect simulated state: every flight before 2026-09-18 flew on
+  that, not on its sensors.
+- **Spawn:** the drone is dropped 5 cm onto the pad (`SPAWN_DROP_M`). Placed at rest, Gazebo never
+  wrote the IMU link's pose and SITL believed it stood at the world origin until take-off.
+- **EKF origin:** EKF3 sets it at its first GPS fix, the pad. `drone_interface` places it in the
+  map from `GPS_GLOBAL_ORIGIN` and publishes nothing until it has it.
 - **Heights:** the tallest society building is 16.4 m, so inspection flies at 22 m (the planner
   keeps 5 m clearance).

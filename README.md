@@ -99,11 +99,19 @@ SWOOP makes sure the drone doesn't fly past it:
 ### Network: with and without it
 
 The drone reports to the ground only over its downlink (`comms_link`), so losing the network is
-real for the dashboard. The north-east blocks of the earthquake sector have no coverage, outlined
-in red in Gazebo, RViz and on the dashboard maps, and **CUT NETWORK** on the dashboard drops it
-anywhere. Without a network the drone keeps searching and holds its reports; the ground sees only
+real for the dashboard. The north-east blocks of the earthquake sector have no coverage (outlined
+in red in Gazebo, RViz and on the dashboard maps), nor do the southern lanes, which lose GPS too
+(purple), and **CUT NETWORK** on the dashboard drops it anywhere. Without a network the drone keeps searching and holds its reports; the ground sees only
 silence and cannot command it. On reconnect it sends casualties first, then the events it held,
 each marked with how long it waited on board.
+
+### GPS: with and without it
+
+The drone flies on ArduPilot's EKF3 with GPS, and on its OAK-D stereo cameras through OpenVINS
+when GPS is gone. The simulator jams SITL's GPS in the north-west blocks (orange outline) and in
+the southern lanes, which lose the network too (purple). The drone notices on its own, switches
+the EKF to OpenVINS, and switches back once GPS has been good for 5 s. OpenVINS is fitted onto
+the GPS track while it lasts and trusted only while the two agree.
 
 ### Casualties
 
@@ -135,7 +143,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `search_evaluation.py` | fly a search and score it against ground truth |
 | `mission_evaluation.py` | start a mission (SWOOP, triage and all) on a running sim and score what it confirmed |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
-| `vio_drift.py` | record OpenVINS (`vio:=true`) against the GPS pose during a flight and report its drift |
+| `vio_drift.py` | record OpenVINS against Gazebo's ground truth during a flight and report its drift |
 | `vio_mask.py` | measure OpenVINS's airframe masks (the skids in the stereo view) from a recorded flight |
 | `record_thermal_dataset.py` | save labelled thermal (16-bit, 0.01 K) + RGB frames for developing algorithms |
 | `camera_snapshot.py` | fly to a point, look at a target, save what the cameras see |

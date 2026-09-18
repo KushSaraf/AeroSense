@@ -43,7 +43,7 @@ def frames(prefix: str = "") -> dict:
 
 def gz_topics(name: str) -> dict:
     """Gazebo topics of the drone model `name` (its model name scopes them per drone)."""
-    topics = {"imu": f"/{name}/imu", "baro": f"/{name}/baro"}
+    topics = {"imu": f"/{name}/imu", "baro": f"/{name}/baro", "ground_truth": f"/{name}/ground_truth"}
     for cam in CAMERAS:
         topics[cam] = f"/{name}/{cam}/image"
         topics[f"{cam}_info"] = f"/{name}/{cam}/camera_info"
@@ -196,6 +196,8 @@ def bridge_config(name: str) -> list:
     return entries + [
         _gz_to_ros("aero_sense/imu", t["imu"], "sensor_msgs/msg/Imu", "gz.msgs.IMU"),
         _gz_to_ros("aero_sense/baro", t["baro"], "sensor_msgs/msg/FluidPressure", "gz.msgs.FluidPressure"),
+        # where the drone really is: the simulator's, for the GPS jammer and drift scoring, never onboard
+        _gz_to_ros("aero_sense/sim/ground_truth", t["ground_truth"], "nav_msgs/msg/Odometry", "gz.msgs.Odometry"),
     ]
 
 

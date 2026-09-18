@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=false]
+        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=true]
 
 Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
 for evaluation.
@@ -36,12 +36,18 @@ SITL_TCP_PORT = 5760
 GCS_OUT = "127.0.0.1:14550"
 ONBOARD_OUT = "127.0.0.1:14551"        # drone_interface
 DIAGNOSTICS_OUT = "127.0.0.1:14552"    # system_check
-MAVLINK_OUTS = (GCS_OUT, ONBOARD_OUT, DIAGNOSTICS_OUT)
+SIMULATOR_OUT = "127.0.0.1:14553"      # gps_jammer: the simulator's hand on SITL, not the drone's link
+MAVLINK_OUTS = (GCS_OUT, ONBOARD_OUT, DIAGNOSTICS_OUT, SIMULATOR_OUT)
 #: SITL must be listening on its TCP port before MAVProxy connects to it.
 MAVPROXY_DELAY_S = 3.0
 #: The Gazebo GUI asks the server for the scene once, at startup: started together they race,
 #: and the GUI loses often enough to come up as an empty window with a live real-time factor.
 GUI_DELAY_S = 5.0
+#: The drone is dropped onto the pad from this high. ArduPilot's Gazebo plugin reads the IMU link's
+#: world pose, which Gazebo writes only once the link moves: a drone placed exactly at rest told
+#: SITL it stood at the world origin facing east until it lifted off, then jumped 110 m and 90 deg
+#: (EKF3 failsafe at takeoff; with SITL's perfect-state estimator, home at the origin).
+SPAWN_DROP_M = 0.05
 SITL_DIR = Path.home() / ".ros" / "aero_sense" / "sitl"
 GENERATED_DIR = Path.home() / ".ros" / "aero_sense" / "generated"
 DEFAULT_DRONE = "aero_sense_drone"
@@ -132,8 +138,11 @@ def _launch(context, *args, **kwargs):
     model, bridge_config, cfg = render.generate(GENERATED_DIR / drone_name, quality, drone_name, frame_prefix)
     env = _gazebo_env()
     sitl_share = Path(get_package_share_directory("ardupilot_sitl")) / "config" / "default_params"
-    defaults = ",".join((str(sitl_share / "copter.parm"),
-                         str(Path(get_package_share_directory("aero_sense_description")) / "config" / "hexa.parm")))
+    description_config = Path(get_package_share_directory("aero_sense_description")) / "config"
+    vio = LaunchConfiguration("vio").perform(context).lower() in ("true", "1")
+    # vio.parm: OpenVINS as the EKF's second source, which drone_interface switches to without GPS
+    defaults = ",".join(str(f) for f in (sitl_share / "copter.parm", description_config / "hexa.parm",
+                                         *((description_config / "vio.parm",) if vio else ())))
     SITL_DIR.mkdir(parents=True, exist_ok=True)
 
     gz_server = ExecuteProcess(cmd=["gz", "sim", "-r", "-s", "-v2", str(world)],
@@ -157,11 +166,12 @@ def _launch(context, *args, **kwargs):
     x, y, z, yaw = worlds.spawn_pose(world)
     spawn = Node(package="aero_sense_bringup", executable="spawn", output="screen",
                  arguments=["-world", worlds.world_name(world), "-file", str(model), "-name", drone_name,
-                            "-x", str(x), "-y", str(y), "-z", str(z), "-Y", str(yaw)])
+                            "-x", str(x), "-y", str(y), "-z", str(z + SPAWN_DROP_M), "-Y", str(yaw)])
     bridge = Node(package="ros_gz_bridge", executable="parameter_bridge", namespace=namespace,
                   parameters=[{"config_file": str(bridge_config)}], output="screen")
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
                  parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}",
+                              "world_origin": [float(v) for v in worlds.origin(world)],
                               "base_frame": f"{frame_prefix}base_link",
                               "cruise_speed_mps": float(LaunchConfiguration("cruise_speed").perform(context))}],
                  output="screen")
@@ -181,9 +191,12 @@ def _launch(context, *args, **kwargs):
     # the only way reports leave the drone: the dashboard hears nothing inside a dead zone
     comms_link = Node(package="aero_sense_mission", executable="comms_link", namespace=namespace,
                       output="screen")
+    # the simulator jams GPS in the no-GPS zones (or by hand); the drone must notice on its own
+    gps_jammer = Node(package="aero_sense_mission", executable="gps_jammer", namespace=namespace,
+                      parameters=[{"mavlink_url": f"udpin:{SIMULATOR_OUT}"}], output="screen")
     actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission, comms_link,
-               *_static_tf_nodes(cfg, frame_prefix, namespace)]
-    if LaunchConfiguration("vio").perform(context).lower() in ("true", "1"):
+               gps_jammer, *_static_tf_nodes(cfg, frame_prefix, namespace)]
+    if vio:
         actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))
@@ -201,8 +214,8 @@ def generate_launch_description() -> LaunchDescription:
                               description="sensor quality profile (resolution / rate)"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
-        DeclareLaunchArgument("vio", default_value="false", choices=["true", "false"],
-                              description="run OpenVINS on the stereo pair (needs ov_msckf built in ~/uav_ws); drift vs ground truth: tools/vio_drift.py"),
+        DeclareLaunchArgument("vio", default_value="true", choices=["true", "false"],
+                              description="run OpenVINS on the stereo pair, which the drone navigates on without GPS (needs ov_msckf built in ~/uav_ws); drift vs ground truth: tools/vio_drift.py"),
         DeclareLaunchArgument("cruise_speed", default_value="4.0",
                               description="m/s between waypoints; raise it to fly a demo quickly"),
         OpaqueFunction(function=_launch),

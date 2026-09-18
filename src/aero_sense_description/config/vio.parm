@@ -1,0 +1,18 @@
+# OpenVINS as the EKF's second source set, loaded after hexa.parm with vio:=true (simulation.launch.py).
+# drone_interface switches to set 2 when GPS is lost and back to set 1 once it is good again
+# (aero_sense_mission/navigation.py). Set 1 stays copter.parm's: GPS position and velocity, baro, compass.
+#
+# OpenVINS arrives as MAVLink VISION_POSITION_ESTIMATE, already in the local NED frame.
+VISO_TYPE 1
+# The OAK-D's IMU (payload_link in sensors.yaml) sits 0.142 m below the centre of gravity (FRD +z).
+VISO_POS_Z 0.142
+# Set 2: position from OpenVINS, height from the barometer, heading from the compass.
+# OpenVINS reports velocity in its own IMU frame, so only its position is sent.
+EK3_SRC2_POSXY 6
+EK3_SRC2_VELXY 0
+EK3_SRC2_POSZ 1
+EK3_SRC2_VELZ 0
+EK3_SRC2_YAW 1
+# Skip only the vision arming check (bit 18): OpenVINS starts at the take-off jolt, after arming,
+# and the EKF does not use it until GPS is lost.
+ARMING_SKIPCHK 262144

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Measure how far OpenVINS drifts during a real flight, against the GPS-aided autopilot pose.
+"""Measure how far OpenVINS drifts during a real flight, against Gazebo's ground truth.
 
-    ros2 launch aero_sense_bringup simulation.launch.py gui:=false vio:=true
+    ros2 launch aero_sense_bringup simulation.launch.py gui:=false
     python3 tools/vio_drift.py [--fit-seconds 20] [--duration 600]   # Ctrl-C to stop early
     python3 tools/vio_drift.py --from-csv logs/vio_drift_<time>.csv [--fit-seconds 60]
 
@@ -11,8 +11,8 @@ heading and offset; gravity is shared), then reports the horizontal error over e
 Writes logs/vio_drift_<time>.csv (t_s, ov_x, ov_y, ov_z, map_x, map_y, map_z) row by row as
 samples arrive, so a stopped recorder never loses the flight.
 
-The reference is the autopilot's pose with GPS, not Gazebo's ground truth: SITL GPS is accurate to
-well under a metre, so errors of a few metres are the drift, not the reference.
+The reference is Gazebo's ground truth (aero_sense/sim/ground_truth), not the autopilot's pose:
+without GPS the autopilot flies on OpenVINS, so its pose is the thing being measured.
 ponytail: samples are paired by arrival time (both topics are live, ~50 ms apart); pair by
 sim-time stamps if sub-metre drift ever needs measuring.
 """
@@ -24,7 +24,6 @@ from pathlib import Path
 
 import numpy as np
 import rclpy
-from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from rclpy.node import Node
 from rclpy.signals import SignalHandlerOptions
@@ -38,13 +37,13 @@ COLUMNS = ("t_s", "ov_x", "ov_y", "ov_z", "map_x", "map_y", "map_z")
 
 
 class Recorder(Node):
-    def __init__(self, odometry_topic: str, pose_topic: str, writer):
+    def __init__(self, odometry_topic: str, truth_topic: str, writer):
         super().__init__("vio_drift")
         self.pose = None
         self.rows = []
         self.writer = writer
         self.start = time.monotonic()
-        self.create_subscription(PoseStamped, pose_topic, lambda m: setattr(self, "pose", m), 10)
+        self.create_subscription(Odometry, truth_topic, lambda m: setattr(self, "pose", m.pose), 10)
         self.create_subscription(Odometry, odometry_topic, self._on_odometry, 10)
 
     def _on_odometry(self, msg: Odometry):
@@ -86,7 +85,7 @@ def print_report(rows, fit_seconds: float):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--odometry", default="/ov_msckf/odomimu")
-    parser.add_argument("--pose", default="/aero_sense/drone/pose")
+    parser.add_argument("--truth", default="/aero_sense/sim/ground_truth")
     parser.add_argument("--fit-seconds", type=float, default=20.0)
     parser.add_argument("--duration", type=float, default=600.0)
     parser.add_argument("--from-csv", type=Path, help="recompute the report from a recorded file")
@@ -109,7 +108,7 @@ def main():
     with out.open("w", newline="", buffering=1) as handle:
         writer = csv.writer(handle)
         writer.writerow(COLUMNS)
-        node = Recorder(args.odometry, args.pose, writer)
+        node = Recorder(args.odometry, args.truth, writer)
         deadline = time.monotonic() + args.duration
         try:
             while time.monotonic() < deadline:

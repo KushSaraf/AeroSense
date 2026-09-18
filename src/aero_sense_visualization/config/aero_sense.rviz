@@ -54,6 +54,14 @@ Visualization Manager:
         Durability Policy: Transient Local
         Reliability Policy: Reliable
     - Class: rviz_default_plugins/MarkerArray
+      Name: GPS (no-GPS zones)
+      Enabled: true
+      Topic:
+        Value: /aero_sense/visualization/gps
+        Depth: 5
+        Durability Policy: Transient Local
+        Reliability Policy: Reliable
+    - Class: rviz_default_plugins/MarkerArray
       Name: Ground truth (evaluation only)
       Enabled: true
       Topic:

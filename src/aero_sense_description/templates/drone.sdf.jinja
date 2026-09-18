@@ -157,6 +157,14 @@
 {% endfor %}
 
     <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher"/>
+    <!-- Ground truth for the simulator's own use (GPS jammer, drift scoring), not a drone sensor -->
+    <plugin filename="gz-sim-odometry-publisher-system" name="gz::sim::systems::OdometryPublisher">
+      <odom_topic>{{ topics.ground_truth }}</odom_topic>
+      <odom_frame>map</odom_frame>
+      <robot_base_frame>ground_truth</robot_base_frame>
+      <dimensions>3</dimensions>
+      <odom_publish_frequency>20</odom_publish_frequency>
+    </plugin>
     <plugin name="ArduPilotPlugin" filename="ArduPilotPlugin">
       <fdm_addr>127.0.0.1</fdm_addr>
       <fdm_port_in>9002</fdm_port_in>

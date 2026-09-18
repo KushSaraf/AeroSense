@@ -2,3 +2,7 @@
 # Hexa X: motor order and spin in aero_sense_description/render.py HEXA_X.
 FRAME_CLASS 2
 FRAME_TYPE 1
+# Fly on EKF3, fed by the GPS, compass, baro and IMU, as the real drone does. The Gazebo plugin's
+# <no_time_sync> makes SITL default this to 10, its perfect simulated state: flown that way, the
+# drone knew where it was without any sensor, and losing GPS changed nothing.
+AHRS_EKF_TYPE 3

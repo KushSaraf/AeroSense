@@ -27,6 +27,34 @@ cd frontend && npx tsc -b && npm run build                           # type-chec
 
 ## Flight tests
 
+Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE` 10, see
+"GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
+their navigation never depended on GPS.
+
+### GPS-denied navigation on OpenVINS (2026-09-18)
+
+Earthquake mission on ArduPilot's EKF3 through all three zones (no network, no GPS, both), the
+EKF's position scored against Gazebo's ground truth once a second (`logs/flight_gps_zones6`).
+
+| What | Result |
+|---|---|
+| Mission | MISSION_COMPLETE, 13 of 18 casualties, 0 false positives, 94% searched |
+| GPS jammed | 165 s over 8 passes through the two no-GPS zones; every one switched to OpenVINS and back |
+| Flying on OpenVINS | 207 s, error at most 1.28 m (mean 0.65 m), SWOOP descents included |
+| Flying on GPS (airborne) | error at most 0.39 m |
+| OpenVINS alone | 0.98 m off after 1000 m (rmse 1.06 m), `tools/vio_drift.py` against ground truth |
+
+Found on the way, each flown before it was fixed:
+- **SITL's perfect state.** `AHRS_EKF_TYPE` was 10 (the Gazebo plugin's `<no_time_sync>` sets
+  that default), so jamming changed nothing and OpenVINS diverging 11 km went unnoticed. Now 3.
+- **The drone at the world origin.** Gazebo writes the IMU link's pose only once it moves, so on
+  the pad SITL was told the drone stood at the origin facing east; at take-off EKF3 saw a 110 m,
+  90 degree jump and failed safe. The drone is now dropped 5 cm onto the pad.
+- **OpenVINS started mid-climb.** An EKF3 take-off is too gentle for the jolt its static initialiser
+  waits for; it started moving and diverged. It now initialises in a hover after take-off.
+- **A diverged OpenVINS is never used:** with GPS jammed and vision not trusted (flown once), the
+  EKF failsafe landed the drone instead of following it.
+
 ### Real people as casualties (2026-09-17)
 
 The casualties became posed people (`tools/make_people.py`), rubble piles of slabs and brick, and
