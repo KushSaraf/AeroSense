@@ -4,6 +4,7 @@ the postures of a disaster (lying on the back, face down, sitting against a wall
 reaching out of rubble, standing on a roof, leaning out of a window) and baked into static meshes.
 
     python3 tools/make_people.py        # the character and pose of every casualty in victims.yaml
+    python3 tools/make_people.py --all  # every character in every pose, for ml/make_dataset.py
 
 Gazebo's thermal camera only sees visuals that carry a Thermal plugin, and animated actors carry
 none, so a casualty has to be a static mesh. This does the skinning an animation would have done:
@@ -20,6 +21,7 @@ The characters are Open Robotics / Luca models from fuel.gazebosim.org (CC-BY 4.
 with `gz fuel download` when not cached.
 """
 import subprocess
+import sys
 from pathlib import Path
 
 import collada
@@ -183,9 +185,12 @@ def build(character: str, name: str, rig: Rig) -> dict:
 
 
 def main():
-    """The meshes victims.yaml casts, and nothing else."""
-    victims = yaml.safe_load((CONFIG / "victims.yaml").read_text())["victims"]
-    cast = sorted({(v["character"], v["pose"]) for v in victims})
+    """The meshes victims.yaml casts; with --all every character in every pose (ml/make_dataset.py)."""
+    if "--all" in sys.argv[1:]:
+        cast = sorted((character, pose) for character in CHARACTERS for pose in POSES)
+    else:
+        victims = yaml.safe_load((CONFIG / "victims.yaml").read_text())["victims"]
+        cast = sorted({(v["character"], v["pose"]) for v in victims})
     table, rigs = {}, {}
     for character, name in cast:
         rig = rigs.setdefault(character, Rig(character))

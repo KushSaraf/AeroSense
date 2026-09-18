@@ -274,6 +274,21 @@ def intact_size(kind):
     return next((w, d, floors) for name, w, d, floors, _, _ in make_buildings.INTACT if name == kind)
 
 
+def perch_spot(kind: str, perch: str, person: dict) -> tuple:
+    """Where someone on a perch stands: the (x, y) offset in the perch model's frame and the floor
+    height above its base. `person` is their mesh's people.yaml entry. Also used by
+    ml/make_dataset.py, so the dataset's perched people stand exactly as the scenario's do."""
+    if perch == "car_roof":
+        return (0.0, 0.0), HATCHBACK_ROOF_M
+    w, d, floors = intact_size(kind)
+    if perch == "terrace":
+        return (0.0, -d / 2 + TERRACE_FROM_FRONT_M), make_buildings.PLINTH_M + floors * make_buildings.FLOOR_M + 0.02
+    head_x, _, head_z = person["points"]["head"]
+    inside = max(0.1, head_x - HEAD_OUT_OF_WINDOW_M)
+    step_up = max(0.0, HEAD_IN_WINDOW_M - head_z)
+    return (make_buildings.openings(w)[0], -d / 2 + inside), make_buildings.PLINTH_M + make_buildings.FLOOR_M + step_up
+
+
 def place_perched(layout, victims):
     """Build what each flood casualty waits on, and check they stand on it: their z must be the
     terrain under it plus its roof or floor height, so nobody floats or stands in the water."""
@@ -284,22 +299,14 @@ def place_perched(layout, victims):
         i = by_id[vid]
         v = victims[i]
         facing = math.radians(v.get("yaw_deg", 0.0))
+        offset, height = perch_spot(kind, v["perch"], people[f"{v['character']}_{v['pose']}"])
         if v["perch"] == "car_roof":
             yaw = facing - math.pi / 2                                  # the models run along their y
             hx, hy = LANDMARK_HALF_EXTENTS_M[kind]
             layout.add(f"s2_stranded_{vid.lower()}", kind, v["x"], v["y"], yaw, Box(v["x"], v["y"], yaw, hx, hy))
-            floor = layout.valley.height_at(v["x"], v["y"]) + HATCHBACK_ROOF_M
+            floor = layout.valley.height_at(v["x"], v["y"]) + height
         else:
-            w, d, floors = intact_size(kind)
             yaw = facing + math.pi / 2                                  # the front, model -y, faces where they look
-            if v["perch"] == "terrace":
-                offset, height = (0.0, -d / 2 + TERRACE_FROM_FRONT_M), make_buildings.PLINTH_M + floors * make_buildings.FLOOR_M + 0.02
-            else:
-                head_x, _, head_z = people[f"{v['character']}_{v['pose']}"]["points"]["head"]
-                inside = max(0.1, head_x - HEAD_OUT_OF_WINDOW_M)
-                step_up = max(0.0, HEAD_IN_WINDOW_M - head_z)
-                offset = (make_buildings.openings(w)[0], -d / 2 + inside)
-                height = make_buildings.PLINTH_M + make_buildings.FLOOR_M + step_up
             dx, dy = rotate(yaw, *offset)
             x, y = v["x"] - dx, v["y"] - dy
             if not layout.place_building(f"s2_refuge_{vid.lower()}", kind, x, y, yaw, 0.3, pinned_victim=i, on_road=False):
