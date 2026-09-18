@@ -96,6 +96,16 @@ SWOOP makes sure the drone doesn't fly past it:
    climbs back and resumes the search where it left off (`aero_sense_mission/swoop.py`, state
    `VERIFYING`).
 
+### Tracking: one name per casualty (ByteTrack)
+
+The thermal detector reports warm blobs frame by frame; the tracker
+(`aero_sense_perception/tracker.py`) turns them into casualties with names like `V-003`. It
+associates in the map frame with ByteTrack's BYTE scheme: confident detections are matched to
+casualties first (Hungarian, one-to-one), weak ones only to casualties already known, and only a
+confident one can start a new casualty. A casualty is published after 3 looks, never forgotten,
+and two tracks that settle within 6 m of each other are folded into the older one. ByteTrack's
+Kalman filter is left out: casualties do not move, and the map frame removes the drone's motion.
+
 ### Network: with and without it
 
 The drone reports to the ground only over its downlink (`comms_link`), so losing the network is
@@ -141,7 +151,7 @@ vital-sign and triage algorithms. Perception never reads either.
 |---|---|
 | `dashboard.sh` | start everything: bridge + frontend + simulation (`--stop` to stop) |
 | `demo.sh` | simulation + RViz + a scored search, no dashboard |
-| `search_evaluation.py` | fly a search and score it against ground truth |
+| `search_evaluation.py` | fly a search (round the radio mast, as the mission does) and score it against ground truth |
 | `mission_evaluation.py` | start a mission (SWOOP, triage and all) on a running sim and score what it confirmed |
 | `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
 | `vio_drift.py` | record OpenVINS against Gazebo's ground truth during a flight and report its drift |

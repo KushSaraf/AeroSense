@@ -178,10 +178,11 @@ class MissionManager(Node):
         self._battery_percent = msg.percentage * 100 if msg.percentage <= 1.0 else msg.percentage
 
     def _on_victims(self, msg: VictimArray):
+        """Every message is the whole list: a duplicate the tracker folds away drops out of it."""
+        known = self._victims
+        self._victims = {victim.victim_id: victim for victim in msg.victims}
         for victim in msg.victims:
-            known = self._victims.get(victim.victim_id)
-            self._victims[victim.victim_id] = victim
-            if known is None:
+            if victim.victim_id not in known:
                 self._event(f"casualty {victim.victim_id} confirmed at "
                             f"({victim.position.x:.0f}, {victim.position.y:.0f}), "
                             f"confidence {victim.confidence:.0%}")

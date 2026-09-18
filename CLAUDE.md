@@ -99,6 +99,16 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
 - **Tuning:** thresholds live in `perception.yaml` (`suspects:`) and the mission parameters
   `verify_*`.
 
+## Casualty tracker (`aero_sense_perception/tracker.py`)
+
+ByteTrack's BYTE association in the map frame: confident detections first (Hungarian), weak ones
+only extend tracks, only `tracker.new_track_confidence` starts one (0.3: thermal confidence comes
+in three steps, 0.31 / 0.73 / 1.0, and every step must start one or V05 is lost). A second blob
+within the association radius in one frame is the same body; tracks that settle within it are
+folded into the older name. `/aero_sense/victims` is always the whole list, so consumers replace
+theirs rather than accumulate. Compare trackers by replaying a bag of
+`/aero_sense/perception/detections` (`logs/flight_bytetrack*`), not by flying twice.
+
 ## Conventions and gotchas
 
 - **Commits:** never add a `Co-Authored-By` trailer. Commit only verified slices, and push
@@ -123,5 +133,9 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
   wrote the IMU link's pose and SITL believed it stood at the world origin until take-off.
 - **EKF origin:** EKF3 sets it at its first GPS fix, the pad. `drone_interface` places it in the
   map from `GPS_GLOBAL_ORIGIN` and publishes nothing until it has it.
+- **TF rate:** OpenVINS must not publish TF. At 200 Hz it starved every Python TF listener, and
+  the casualty detector saw one thermal frame in 3.5 s.
+- **Radio mast:** 44 m at (-40, 60), taller than search altitude. Anything flying setpoints
+  itself must route round it (`airspace.route`), or the y 65 leg hits it.
 - **Heights:** the tallest society building is 16.4 m, so inspection flies at 22 m (the planner
   keeps 5 m clearance).

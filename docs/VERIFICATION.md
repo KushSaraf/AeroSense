@@ -91,8 +91,13 @@ Found on the way:
 The whole search again, round the mast (`logs/flight_bytetrack2`): 13 of the sector's 18
 casualties (the other 5 of the 23 are in the flood sector), 0 false positives, mean error 1.4 m;
 GPS jammed twice, OpenVINS took over and handed back both times. Replayed, both trackers give 13,
-and both keep V01 as two tracks: started more than 6 m apart, their averages later settle 3.2 m
-apart, and tracks are never merged.
+and both kept V01 as two tracks: started more than 6 m apart, their averages later settled 3.2 m
+apart. Tracks that settle within 6 m are now folded into the older one; replayed, V01 is one track
+and recall is unchanged on both flights.
+
+The earthquake mission with the fold (`logs/flight_fold`): MISSION_COMPLETE, 13 of 18, 13 distinct
+names, 0 false positives, mean error 0.87 m, 98 % searched, 6 GPS jams each handed to OpenVINS and
+back.
 
 ### Real people as casualties (2026-09-17)
 

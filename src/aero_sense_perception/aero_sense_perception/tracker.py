@@ -83,7 +83,35 @@ class Tracker:
                 self._start(detection, now_s)
             else:
                 self._tracks[match.track_id] = self._merge(match, *detection, now_s)
+        self._fold_duplicates()
         return self.confirmed(now_s)
+
+    def _fold_duplicates(self) -> None:
+        """Two tracks whose averages settle within the association radius are one casualty: first
+        looks more than the radius apart start two, and they converge as looks add up (V01,
+        flight_bytetrack2, 3.2 m apart). The older keeps its name, which may already be out."""
+        folded = True
+        while folded:
+            folded = False
+            ordered = sorted(self._tracks.values(), key=lambda t: (t.first_seen_s, t.track_id))
+            for i, older in enumerate(ordered):
+                younger = next((t for t in ordered[i + 1:]
+                                if math.dist(older.position, t.position) <= self._radius), None)
+                if younger is not None:
+                    del self._tracks[younger.track_id]
+                    self._tracks[older.track_id] = self._combine(older, younger)
+                    folded = True
+                    break
+
+    def _combine(self, older: Track, younger: Track) -> Track:
+        hits = older.hits + younger.hits
+        position = tuple((a * older.hits + b * younger.hits) / hits
+                         for a, b in zip(older.position, younger.position))
+        clearer = younger if younger.exposure > older.exposure else older
+        return replace(older, position=position, hits=hits, peak_k=max(older.peak_k, younger.peak_k),
+                       confidence=self._corroborated(max(self._strength(older), self._strength(younger)), hits),
+                       last_seen_s=max(older.last_seen_s, younger.last_seen_s),
+                       exposure=clearer.exposure, surround_k=clearer.surround_k)
 
     def _associate(self, detections, unmatched: set, now_s: float) -> list:
         """Match `detections` one-to-one to the `unmatched` tracks within the association radius,

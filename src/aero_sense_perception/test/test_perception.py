@@ -146,11 +146,11 @@ def test_weak_looks_keep_a_casualty_going():
 
 
 def test_neighbours_seen_together_each_get_their_own_look():
-    """A at 0 m, B at 7 m. Nearest-first sends both looks to B (3.4 m and 0.5 m off it); BYTE's
-    optimal matching gives A the look 3.6 m off it and B the other."""
+    """A at 0 m, B at 9 m. Nearest-first sends both looks to B (4.4 m and 1 m off it); BYTE's
+    optimal matching gives A the look 4.6 m off it and B the other."""
     t = tracker()
-    t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0), seen((7.0, 0.0, 0.0), STRONG, 309.0)], 0.0)
-    t.update([seen((3.6, 0.0, 0.0), STRONG, 309.0), seen((6.5, 0.0, 0.0), STRONG, 309.0)], 1.0)
+    t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0), seen((9.0, 0.0, 0.0), STRONG, 309.0)], 0.0)
+    t.update([seen((4.6, 0.0, 0.0), STRONG, 309.0), seen((8.0, 0.0, 0.0), STRONG, 309.0)], 1.0)
     assert [tr.hits for tr in t.tracks] == [2, 2]
 
 
@@ -160,6 +160,19 @@ def test_a_body_split_by_rubble_stays_one_casualty():
         confirmed = t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0), seen((4.3, 0.0, 0.0), STRONG, 309.0)],
                              float(i))
     assert len(t.tracks) == 1 and len(confirmed) == 1
+
+
+
+def test_two_tracks_that_settle_on_one_casualty_become_one():
+    """First looks 7 m apart start two tracks; later looks in between pull them together, and the
+    older name survives."""
+    t = tracker()
+    t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0)], 0.0)
+    t.update([seen((7.0, 0.0, 0.0), STRONG, 309.0)], 1.0)
+    for i in range(2, 8):
+        confirmed = t.update([seen((5.5, 0.0, 0.0), STRONG, 309.0)], float(i))
+    assert [tr.track_id for tr in t.tracks] == ["V-001"]
+    assert confirmed[0].hits == 8
 
 
 # -- SWOOP leads: faint heat that is not yet a casualty ------------------------------------------
