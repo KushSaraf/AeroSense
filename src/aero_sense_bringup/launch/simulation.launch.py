@@ -113,11 +113,14 @@ def _victim_actions(world, gz_world: str) -> list:
 
 def _openvins(config: Path, namespace: str) -> Node:
     """OpenVINS on the OAK-D stereo pair and IMU (built in ~/uav_ws). Its calibration is rendered
-    with the drone, so it always matches the cameras actually fitted. Publishes ov_msckf/odomimu."""
+    with the drone, so it always matches the cameras actually fitted. Publishes ov_msckf/odomimu.
+    No TF: at the IMU's 200 Hz it swamped /tf, and every Python TF listener (victim_detector's
+    among them) spent its core parsing it, one thermal frame in 3.5 s instead of five a second."""
     return Node(package="ov_msckf", executable="run_subscribe_msckf", namespace=f"{namespace}/ov_msckf" if namespace else "ov_msckf",
                 output="screen",
                 parameters=[{"config_path": str(config), "use_stereo": True, "max_cameras": 2,
-                             "verbosity": "WARNING", "use_sim_time": True}])
+                             "verbosity": "WARNING", "use_sim_time": True,
+                             "publish_global_to_imu_tf": False, "publish_calibration_tf": False}])
 
 
 def _launch(context, *args, **kwargs):
