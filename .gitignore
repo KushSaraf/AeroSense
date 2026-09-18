@@ -15,3 +15,5 @@ reference/
 hardware/cad/
 # Recorded datasets (tools/record_thermal_dataset.py): large, regenerate from the simulation.
 datasets/
+# The RGB detector dataset (ml/make_dataset.py): large, regenerate from the simulation.
+ml/datasets/
