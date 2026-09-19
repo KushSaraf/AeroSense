@@ -3,7 +3,7 @@
     ros2 run aero_sense_bridge dashboard_bridge          # http://127.0.0.1:8000
 
   GET  /api/state      everything the dashboard needs, in one object
-  GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes
+  GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes | /api/teams
   WS   /ws             the same state pushed as it changes
   GET  /api/simulation           whether a simulation is running
   POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
@@ -296,6 +296,9 @@ class DashboardBridge(Node):
     def routes(self) -> list:
         return contracts.routes_json(self._routes, *self._origin)
 
+    def teams(self) -> dict:
+        return contracts.teams_json(self._routes, *self._origin)
+
     def state(self) -> dict:
         """Everything at once, so the dashboard can render a consistent frame."""
         return contracts.json_safe({
@@ -305,6 +308,7 @@ class DashboardBridge(Node):
             "mission": self.mission(),
             "victims": self.victims(),
             "routes": self.routes(),
+            "teams": self.teams(),
             "hazards": [],            # the hazard map arrives with its phase
             "alerts": [],             # likewise the alert engine
             "telemetry": list(self._telemetry),
@@ -430,6 +434,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
     def routes():
         """Ground teams' road routes from the base to each casualty (ground_routes)."""
         return bridge.routes()
+
+    @app.get("/api/teams")
+    def teams():
+        """Which ground team goes to which casualty, in order, and who no team reaches (ground_routes)."""
+        return bridge.teams()
 
     @app.get("/api/hazards")
     def hazards():

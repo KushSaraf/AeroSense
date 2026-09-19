@@ -31,6 +31,23 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
+### Ground teams: who goes to whom (2026-09-19)
+
+Earthquake mission through the mission manager (`tools/mission_evaluation.py earthquake`):
+MISSION_COMPLETE in 889 s, 13 of 18 casualties found, no false positives, 0.75 m mean position
+error. `ground_routes` routed all 13 by road and split them between the 4 teams with nothing
+unassigned (1 h shift, 5 min on site):
+
+| Team | Casualties in order | By road | With time on site |
+|---|---|---|---|
+| T1 | V-003 P1, V-013 P1, V-012 P2 | 759 m | 19.9 min |
+| T2 | V-005 P1, V-006 P1, V-004 P2 | 517 m | 18.6 min |
+| T3 | V-009 P1, V-010 P1, V-007 P2, V-008 P3 | 670 m | 23.4 min |
+| T4 | V-002 P1, V-001 P2, V-011 P2 | 758 m | 20.1 min |
+
+Every P1 is visited before any P2 on every tour. The priorities are the drone's triage, which got
+7 of the 13 wrong against the scenario (the triage section below); the tours follow whatever triage says.
+
 ### RGB people beside thermal: the deceased casualty found (2026-09-19)
 
 The fine-tuned RGB detector (`ml/models/yolo11n_aerial`, `rgb_detector`) feeding SWOOP leads and,

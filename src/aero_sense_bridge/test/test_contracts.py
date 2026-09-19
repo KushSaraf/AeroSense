@@ -382,3 +382,19 @@ def test_routes_reach_the_maps_in_latitude_and_longitude():
 
 def test_no_routes_yet_is_an_empty_list():
     assert contracts.routes_json(None, -35.0, 149.0) == []
+
+
+def test_team_tours_reach_the_maps_in_order_with_who_is_left():
+    from geometry_msgs.msg import PoseStamped as Pose
+    from aero_sense_interfaces.msg import SafeRouteArray, TeamRoute
+    tour = TeamRoute(team="T1", victim_ids=["V-002", "V-001"], distance_m=340.26, estimated_time_s=900.4)
+    pose = Pose()
+    pose.pose.position.y = 111.32
+    tour.path.poses.append(pose)
+
+    out = contracts.teams_json(SafeRouteArray(teams=[tour], unassigned=["V-003"]), -35.0, 149.0)
+
+    assert out["tours"][0]["victimIds"] == ["V-002", "V-001"] and out["tours"][0]["timeS"] == 900
+    assert out["tours"][0]["path"][0][0] == pytest.approx(-35.0 + 0.001)
+    assert out["unassigned"] == ["V-003"]
+    assert contracts.teams_json(None, -35.0, 149.0) == {"tours": [], "unassigned": []}

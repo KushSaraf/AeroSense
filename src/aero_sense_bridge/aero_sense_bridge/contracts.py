@@ -336,21 +336,41 @@ def area_from_latlon(corners, origin_lat: float, origin_lon: float):
     return area
 
 
+def _path_latlon(path, origin_lat: float, origin_lon: float) -> list:
+    metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(origin_lat))
+    return [[origin_lat + pose.pose.position.y / METRES_PER_DEGREE_LAT,
+             origin_lon + pose.pose.position.x / metres_per_degree_lon] for pose in path.poses]
+
+
 def routes_json(msg, origin_lat: float, origin_lon: float) -> list:
     """Ground routes (SafeRouteArray) for the maps: each path in latitude and longitude, converted
     on the same origin as every other map layer."""
     if msg is None:
         return []
-    metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(origin_lat))
     return [{
         "victimId": route.victim_id,
         "reachable": bool(route.reachable),
         "risk": route.risk,
         "distanceM": round(route.distance_m, 1),
         "timeS": round(route.estimated_time_s),
-        "path": [[origin_lat + pose.pose.position.y / METRES_PER_DEGREE_LAT,
-                  origin_lon + pose.pose.position.x / metres_per_degree_lon] for pose in route.path.poses],
+        "path": _path_latlon(route.path, origin_lat, origin_lon),
     } for route in msg.routes]
+
+
+def teams_json(msg, origin_lat: float, origin_lon: float) -> dict:
+    """Which ground team goes to whom, in order (SafeRouteArray.teams), and who no team reaches."""
+    if msg is None:
+        return {"tours": [], "unassigned": []}
+    return {
+        "tours": [{
+            "team": tour.team,
+            "victimIds": list(tour.victim_ids),
+            "distanceM": round(tour.distance_m, 1),
+            "timeS": round(tour.estimated_time_s),
+            "path": _path_latlon(tour.path, origin_lat, origin_lon),
+        } for tour in msg.teams],
+        "unassigned": list(msg.unassigned),
+    }
 
 
 def world_json(areas: dict, no_network: dict | None = None, no_gps: dict | None = None) -> dict:

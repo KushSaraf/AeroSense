@@ -140,6 +140,8 @@ it and `road_map.py` routes along it (same `catmull_rom`). Change a road there, 
 generator. `ground_routes` runs on the ground side: it plans from `aero_sense/downlink/victims` and
 `.../hazards` and publishes `aero_sense/ground/routes` (SafeRouteArray); the bridge serves them at
 `/api/routes` and in `/api/state`. No perception publishes hazards yet.
+`team_plan.py` assigns casualties to teams in the same message (`SafeRouteArray.teams`,
+`unassigned`; `/api/teams`): P1s first, greedy per priority class, each tour back within its shift.
 
 ## Conventions and gotchas
 

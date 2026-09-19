@@ -16,6 +16,9 @@ const TRACK_LIMIT = 600
 /** Ground routes by the worst hazard they cross. */
 const ROUTE_COLOUR: Record<string, string> = { SAFE: '#6ec6ff', MODERATE: '#ffb74d', HIGH: '#ef5350' }
 
+/** One colour per ground team's tour. */
+const TEAM_COLOUR = ['#ffd166', '#c792ea', '#4dd0e1', '#f78c6c', '#a5d6a7', '#ff80ab']
+
 const minutes = (seconds: number) => `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`
 const BASE_MAPS = {
   Satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
@@ -38,10 +41,10 @@ function Recentre({ centre }: { centre: [number, number] | null }) {
 }
 
 function MapPage() {
-  const { victims, routes, drone, mission, link } = useMission()
+  const { victims, routes, teams, drone, mission, link } = useMission()
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
-  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true, routes: true })
+  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true, teams: true, routes: false })
   const area = useAreaDrawer(world)
   const latitude = drone?.latitude
   const longitude = drone?.longitude
@@ -54,11 +57,18 @@ function MapPage() {
       ? toLatLng(world.sectors[0].centre)
       : null
 
+  const teamOf = (id: string) => {
+    const tour = teams.tours.find((t) => t.victimIds.includes(id))
+    if (tour) return `ground team ${tour.team}, stop ${tour.victimIds.indexOf(id) + 1}`
+    return teams.unassigned.includes(id) ? 'no ground team reaches them within a shift' : 'not yet planned'
+  }
+
   const toggles = [
     { label: 'Sectors', on: layers.sectors, act: () => setLayers((l) => ({ ...l, sectors: !l.sectors })) },
     { label: 'No network', on: layers.network, act: () => setLayers((l) => ({ ...l, network: !l.network })) },
     { label: 'Casualties', on: layers.victims, act: () => setLayers((l) => ({ ...l, victims: !l.victims })) },
     { label: 'Flight track', on: layers.track, act: () => setLayers((l) => ({ ...l, track: !l.track })) },
+    { label: 'Team tours', on: layers.teams, act: () => setLayers((l) => ({ ...l, teams: !l.teams })) },
     { label: 'Ground routes', on: layers.routes, act: () => setLayers((l) => ({ ...l, routes: !l.routes })) },
   ]
 
@@ -110,6 +120,16 @@ function MapPage() {
             </Polyline>
           ))}
 
+          {layers.teams && teams.tours.filter((tour) => tour.path.length > 1).map((tour, i) => (
+            <Polyline key={`team-${tour.team}`} positions={tour.path}
+                      pathOptions={{ color: TEAM_COLOUR[i % TEAM_COLOUR.length], weight: 4, opacity: 0.85 }}>
+              <Popup>
+                Team <strong>{tour.team}</strong>: {tour.victimIds.join(' → ')}, back to base<br />
+                {tour.distanceM.toFixed(0)} m by road, about {minutes(tour.timeS)} with time on site
+              </Popup>
+            </Polyline>
+          ))}
+
           {layers.victims && victims.map((victim) => (
             <CircleMarker key={victim.id} center={[victim.latitude, victim.longitude]} radius={7}
                           pathOptions={{ color: PRIORITY_COLOUR[victim.priority] ?? '#8ae0ff',
@@ -118,6 +138,7 @@ function MapPage() {
                 <strong>{victim.id}</strong> · {victim.priority}<br />
                 {(victim.confidence * 100).toFixed(0)}% confident, {victim.thermalStrength} thermal<br />
                 {victim.rationale}<br />
+                {teamOf(victim.id)}<br />
                 found {victim.timestamp}
               </Popup>
             </CircleMarker>

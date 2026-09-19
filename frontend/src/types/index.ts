@@ -176,6 +176,21 @@ export interface GroundRoute {
   path: [number, number][]
 }
 
+/** Which ground team goes to whom, in order, and who no team reaches within its shift (team_plan). */
+export interface TeamTour {
+  team: string
+  victimIds: string[]
+  distanceM: number
+  /** travel, time on site with each casualty, and back to base */
+  timeS: number
+  path: [number, number][]
+}
+
+export interface TeamPlan {
+  tours: TeamTour[]
+  unassigned: string[]
+}
+
 export interface LiveState {
   connected: boolean
   /** Absent in recordings made before the link model. */
@@ -185,6 +200,8 @@ export interface LiveState {
   victims: Victim[]
   /** Absent in recordings made before ground routing. */
   routes?: GroundRoute[]
+  /** Absent in recordings made before team planning. */
+  teams?: TeamPlan
   hazards: Hazard[]
   alerts: AlertItem[]
   telemetry: TelemetryPoint[]

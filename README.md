@@ -119,6 +119,16 @@ last stretch to someone lying off the road is on foot. Hazards come from `/aero_
 over the downlink; nothing maps them yet (SegFormer-B0 is to come), so today every route is the
 shortest by road. Times assume driving the asphalt at 5.5 m/s and walking galis at 1.2 m/s.
 
+**Which team goes to whom** (`team_plan.py`, team orienteering): the ground station also splits the
+casualties between the teams on hand. Every tour leaves the base, spends `on_site_s` with each
+casualty and is back within the team's `shift_s`. Every reachable P1 is placed before any P2, and
+every P2 before any P3; within a class, the team that would arrive soonest takes its nearest
+casualty. Whoever fits no shift is listed as unassigned, not dropped. The Live map draws each tour in
+its team's colour (**Team tours**, on by default; the single routes are under **Ground routes**),
+and a casualty's popup says which team reaches them and at which stop. `teams` (4), `shift_s`
+(3600) and `on_site_s` (300) are `ground_routes` parameters: planning figures for the incident
+commander, not measurements.
+
 ### Tracking: one name per casualty (ByteTrack)
 
 The thermal detector reports warm blobs frame by frame; the tracker
