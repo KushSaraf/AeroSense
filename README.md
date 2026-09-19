@@ -18,6 +18,7 @@ sih_2026/
 ├── src/              ROS 2 packages — the drone system (one folder per package, below)
 ├── frontend/         React dashboard (live, or replay on the website) — see frontend/README.md
 ├── tools/            launch scripts and helper tools (start here to run anything)
+├── ml/               the RGB person detector: rendered aerial dataset, YOLO11n fine-tuning, scores — see ml/README.md
 ├── hardware/         real parts: manufacturer CAD, parts list, what is still needed
 ├── docs/             ARCHITECTURE.md (design), VERIFICATION.md (test + flight results), images/
 ├── legacy/prototype/ the first single-process version, superseded by src/ — kept for reference
