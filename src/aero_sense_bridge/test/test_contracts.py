@@ -361,3 +361,24 @@ def test_two_opposite_corners_are_enough_in_either_order():
 def test_what_is_not_a_searchable_area_is_refused_with_a_reason(corners, reason):
     with pytest.raises(ValueError, match=reason):
         contracts.area_from_latlon(corners, 0.0, 0.0)
+
+
+def test_routes_reach_the_maps_in_latitude_and_longitude():
+    """A route's path comes out on the same origin conversion as every other layer."""
+    from geometry_msgs.msg import PoseStamped as Pose
+    from aero_sense_interfaces.msg import SafeRoute, SafeRouteArray
+    route = SafeRoute(victim_id="V-001", reachable=True, risk="SAFE", distance_m=120.04, estimated_time_s=61.6)
+    for x, y in ((0.0, 0.0), (0.0, 111.32)):
+        pose = Pose()
+        pose.pose.position.x, pose.pose.position.y = x, y
+        route.path.poses.append(pose)
+
+    [out] = contracts.routes_json(SafeRouteArray(routes=[route]), -35.0, 149.0)
+
+    assert out["victimId"] == "V-001" and out["distanceM"] == 120.0 and out["timeS"] == 62
+    assert out["path"][0] == [-35.0, 149.0]
+    assert out["path"][1][0] == pytest.approx(-35.0 + 0.001)
+
+
+def test_no_routes_yet_is_an_empty_list():
+    assert contracts.routes_json(None, -35.0, 149.0) == []

@@ -19,6 +19,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/DroneStatus.msg"
   "msg/MissionStatus.msg"
   "msg/SafeRoute.msg"
+  "msg/SafeRouteArray.msg"
   "msg/CommunicationStatus.msg"
   "msg/LocalizationStatus.msg"
   "srv/StartMission.srv"

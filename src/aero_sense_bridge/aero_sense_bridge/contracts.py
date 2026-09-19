@@ -336,6 +336,23 @@ def area_from_latlon(corners, origin_lat: float, origin_lon: float):
     return area
 
 
+def routes_json(msg, origin_lat: float, origin_lon: float) -> list:
+    """Ground routes (SafeRouteArray) for the maps: each path in latitude and longitude, converted
+    on the same origin as every other map layer."""
+    if msg is None:
+        return []
+    metres_per_degree_lon = METRES_PER_DEGREE_LAT * math.cos(math.radians(origin_lat))
+    return [{
+        "victimId": route.victim_id,
+        "reachable": bool(route.reachable),
+        "risk": route.risk,
+        "distanceM": round(route.distance_m, 1),
+        "timeS": round(route.estimated_time_s),
+        "path": [[origin_lat + pose.pose.position.y / METRES_PER_DEGREE_LAT,
+                  origin_lon + pose.pose.position.x / metres_per_degree_lon] for pose in route.path.poses],
+    } for route in msg.routes]
+
+
 def world_json(areas: dict, no_network: dict | None = None, no_gps: dict | None = None) -> dict:
     """The world origin, every sector's and dead zone's bounds, in metres and in degrees.
 

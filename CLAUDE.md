@@ -133,6 +133,14 @@ crashed the detector. `/aero_sense/victims` is always the whole list, so consume
 theirs rather than accumulate. Compare trackers by replaying a bag of
 `/aero_sense/perception/detections` (`logs/flight_bytetrack*`), not by flying twice.
 
+## Ground routes (`aero_sense_mission/road_map.py`, `ground_routes.py`)
+
+One road network, `aero_sense_gazebo/config/roads.yaml`: `tools/layout_world.py` lays the roads from
+it and `road_map.py` routes along it (same `catmull_rom`). Change a road there, never in the
+generator. `ground_routes` runs on the ground side: it plans from `aero_sense/downlink/victims` and
+`.../hazards` and publishes `aero_sense/ground/routes` (SafeRouteArray); the bridge serves them at
+`/api/routes` and in `/api/state`. No perception publishes hazards yet.
+
 ## Conventions and gotchas
 
 - **Commits:** never add a `Co-Authored-By` trailer. Commit only verified slices, and push

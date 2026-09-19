@@ -1,0 +1,16 @@
+# The society's road network: the world's roads (tools/layout_world.py draws them as Catmull-Rom
+# curves through these control points) and the ground teams' road map (aero_sense_mission/road_map.py).
+# A casualty lying in a street or gali is one of its control points, so the curve passes through them.
+roads:
+  - {name: spine, surface: asphalt, width_m: 8.0, points: [[1, -132], [0, -104], [-3, -62], [3, -28], [0, 0], [-3, 38], [4, 72], [0, 106]]}
+  - {name: south_avenue, surface: asphalt, width_m: 8.0, points: [[-206, -1], [-150, 3], [-100, -1], [-50, 2], [0, 0], [60, -3], [120, 2], [206, -1]]}
+  - {name: north_avenue, surface: asphalt, width_m: 8.0, points: [[-206, 101], [-140, 97], [-80, 103], [-20, 98], [40, 102], [110, 97], [206, 100]]}
+  - {name: s1_main_street, surface: asphalt, width_m: 7.0, points: [[-200, 54], [-175, 50], [-155, 44], [-135, 47], [-116, 52.5], [-95, 50], [-82, 45], [-70, 46], [-55, 53], [-40, 50], [-20, 44], [0, 47]]}
+  - {name: s1_cross_street, surface: asphalt, width_m: 6.5, points: [[-100, 0], [-105, 18], [-110, 38], [-112, 50], [-109, 64], [-104, 82], [-99, 100]]}
+  - {name: gali_west, surface: lane, width_m: 3.5, points: [[-199, 28], [-176, 21.5], [-156, 31], [-136, 21.5], [-122, 26], [-108, 29]]}   # V01, V03, V02
+  - {name: gali_market, surface: lane, width_m: 3.5, points: [[-62, 1], [-75, 12], [-78, 25], [-80, 38], [-82, 45]]}   # V04
+  - {name: gali_fire_station, surface: lane, width_m: 3.5, points: [[-146, 45], [-147, 60], [-148, 75], [-143, 88], [-138, 99]]}   # V06
+  - {name: gali_mast, surface: lane, width_m: 3.5, points: [[-22, 45], [-26, 58], [-33, 66], [-45, 78], [-57, 88], [-54, 99]]}   # V08, V07
+  - {name: gali_tower, surface: lane, width_m: 3.5, points: [[-24, 2], [-19, 20], [-12, 40], [-5, 47]]}   # V05
+  - {name: s2_track_north, surface: track, width_m: 4.0, points: [[30, 2], [45, 25], [55, 32], [80, 48], [100, 60], [122, 76], [128, 98]]}   # V10 on it
+  - {name: s2_track_east, surface: track, width_m: 4.0, points: [[198, 52], [170, 49], [150, 45], [125, 35], [100, 28], [78, 18], [62, 2]]}

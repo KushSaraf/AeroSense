@@ -23,7 +23,7 @@ from std_msgs.msg import String
 from std_srvs.srv import SetBool
 from visualization_msgs.msg import Marker, MarkerArray
 
-from aero_sense_interfaces.msg import CommunicationStatus, DroneStatus, MissionStatus, VictimArray
+from aero_sense_interfaces.msg import CommunicationStatus, DroneStatus, HazardArray, MissionStatus, VictimArray
 
 from . import comms
 
@@ -38,6 +38,7 @@ ROUTES = {
     "aero_sense/drone/battery": ("battery", BatteryState, comms.LATEST),
     "aero_sense/gps/fix": ("fix", NavSatFix, comms.LATEST),
     "aero_sense/victims": ("victims", VictimArray, comms.LATEST),
+    "aero_sense/hazards": ("hazards", HazardArray, comms.LATEST),
     "aero_sense/mission/state": ("mission_state", MissionStatus, comms.LATEST),
     "aero_sense/perception/detections": ("detections", VictimArray, comms.DROP),
     "aero_sense/camera/rgb/image_raw": ("rgb", Image, comms.DROP),

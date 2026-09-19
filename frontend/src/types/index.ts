@@ -165,6 +165,17 @@ export interface LinkStatus {
   queued: { P1: number; P2: number; P3: number } | null
 }
 
+/** A ground team's road route from the command base to one casualty (ground_routes). */
+export interface GroundRoute {
+  victimId: string
+  reachable: boolean
+  /** worst hazard crossed: SAFE | MODERATE | HIGH; CRITICAL when no route is open */
+  risk: string
+  distanceM: number
+  timeS: number
+  path: [number, number][]
+}
+
 export interface LiveState {
   connected: boolean
   /** Absent in recordings made before the link model. */
@@ -172,6 +183,8 @@ export interface LiveState {
   drone: Drone
   mission: LiveMission | null
   victims: Victim[]
+  /** Absent in recordings made before ground routing. */
+  routes?: GroundRoute[]
   hazards: Hazard[]
   alerts: AlertItem[]
   telemetry: TelemetryPoint[]

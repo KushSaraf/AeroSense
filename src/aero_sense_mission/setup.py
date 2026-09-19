@@ -21,5 +21,6 @@ setup(
         f"mission_manager = {PACKAGE}.mission_manager:main",
         f"comms_link = {PACKAGE}.comms_link:main",
         f"gps_jammer = {PACKAGE}.gps_jammer:main",
+        f"ground_routes = {PACKAGE}.ground_routes:main",
     ]},
 )

@@ -13,6 +13,10 @@ const PRIORITY_COLOUR: Record<string, string> = {
   P1: '#ef5350', P2: '#ff9f43', P3: '#43d17b', UNTRIAGED: '#8ae0ff',
 }
 const TRACK_LIMIT = 600
+/** Ground routes by the worst hazard they cross. */
+const ROUTE_COLOUR: Record<string, string> = { SAFE: '#6ec6ff', MODERATE: '#ffb74d', HIGH: '#ef5350' }
+
+const minutes = (seconds: number) => `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`
 const BASE_MAPS = {
   Satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   Street: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -34,10 +38,10 @@ function Recentre({ centre }: { centre: [number, number] | null }) {
 }
 
 function MapPage() {
-  const { victims, drone, mission, link } = useMission()
+  const { victims, routes, drone, mission, link } = useMission()
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
-  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true })
+  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true, routes: true })
   const area = useAreaDrawer(world)
   const latitude = drone?.latitude
   const longitude = drone?.longitude
@@ -55,6 +59,7 @@ function MapPage() {
     { label: 'No network', on: layers.network, act: () => setLayers((l) => ({ ...l, network: !l.network })) },
     { label: 'Casualties', on: layers.victims, act: () => setLayers((l) => ({ ...l, victims: !l.victims })) },
     { label: 'Flight track', on: layers.track, act: () => setLayers((l) => ({ ...l, track: !l.track })) },
+    { label: 'Ground routes', on: layers.routes, act: () => setLayers((l) => ({ ...l, routes: !l.routes })) },
   ]
 
   return (
@@ -94,6 +99,16 @@ function MapPage() {
 
           {layers.network && <DeniedZones world={world} />}
           {area.layer}
+
+          {layers.routes && routes.filter((route) => route.reachable && route.path.length > 1).map((route) => (
+            <Polyline key={`route-${route.victimId}`} positions={route.path}
+                      pathOptions={{ color: ROUTE_COLOUR[route.risk] ?? '#6ec6ff', weight: 3, opacity: 0.8, dashArray: '10 6' }}>
+              <Popup>
+                Ground route to <strong>{route.victimId}</strong> from the command base<br />
+                {route.distanceM.toFixed(0)} m by road, about {minutes(route.timeS)} · risk {route.risk.toLowerCase()}
+              </Popup>
+            </Polyline>
+          ))}
 
           {layers.victims && victims.map((victim) => (
             <CircleMarker key={victim.id} center={[victim.latitude, victim.longitude]} radius={7}

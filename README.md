@@ -107,6 +107,18 @@ conversion the maps draw with, and the mission manager searches that rectangle (
 GPS. Each side must be 20-400 m and the whole area within 400 m of the base. The drone inspects
 casualties inside the area only; ones it passes on the way are reported, not visited.
 
+### Ground routes: from the command base to each casualty
+
+The ground station (`aero_sense_mission/ground_routes.py`) plans a road route for a rescue team to
+every casualty the downlink reports, and the Live map draws them (**Ground routes**). The road map
+is the world's own network (`aero_sense_gazebo/config/roads.yaml`, which `tools/layout_world.py`
+also builds the roads from); `road_map.py` samples it into a graph and runs A* from the base.
+Each road costs its length times the worst hazard it crosses (MODERATE 3x, HIGH 10x) and a
+CRITICAL hazard closes it, so a route is `reachable: false` only when every way is closed. The
+last stretch to someone lying off the road is on foot. Hazards come from `/aero_sense/hazards`
+over the downlink; nothing maps them yet (SegFormer-B0 is to come), so today every route is the
+shortest by road. Times assume driving the asphalt at 5.5 m/s and walking galis at 1.2 m/s.
+
 ### Tracking: one name per casualty (ByteTrack)
 
 The thermal detector reports warm blobs frame by frame; the tracker

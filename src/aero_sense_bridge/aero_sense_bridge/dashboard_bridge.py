@@ -3,7 +3,7 @@
     ros2 run aero_sense_bridge dashboard_bridge          # http://127.0.0.1:8000
 
   GET  /api/state      everything the dashboard needs, in one object
-  GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts
+  GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes
   WS   /ws             the same state pushed as it changes
   GET  /api/simulation           whether a simulation is running
   POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
@@ -47,7 +47,7 @@ from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
 
 from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, HazardArray, MissionStatus,
-                                       VictimArray)
+                                       SafeRouteArray, VictimArray)
 from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
 from aero_sense_mission import zones
@@ -76,7 +76,8 @@ class DashboardBridge(Node):
         self._status = self._pose = self._velocity = self._battery = self._fix = None
         self._status_at = None          # monotonic time of the last DroneStatus
         self._comms = self._comms_at = None
-        self._victims = self._hazards = None
+        self._victims = self._hazards = self._routes = None
+        self._origin = contracts.world_origin()[:2]
         self._mission_state = None
         self._alerts = deque(maxlen=50)
         self._events = deque(maxlen=200)
@@ -101,6 +102,9 @@ class DashboardBridge(Node):
                                  lambda m: setattr(self, "_victims", m), 10)
         self.create_subscription(HazardArray, DOWNLINK + "hazards",
                                  lambda m: setattr(self, "_hazards", m), 10)
+        # planned on the ground (ground_routes), not relayed from the drone
+        self.create_subscription(SafeRouteArray, "aero_sense/ground/routes", lambda m: setattr(self, "_routes", m),
+                                 QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
         self.create_subscription(MissionStatus, DOWNLINK + "mission/state",
                                  lambda m: setattr(self, "_mission_state", m), latched)
         self.create_subscription(Alert, DOWNLINK + "alerts", self._alerts.appendleft, 10)
@@ -289,6 +293,9 @@ class DashboardBridge(Node):
         ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
         return buffer.tobytes() if ok else None
 
+    def routes(self) -> list:
+        return contracts.routes_json(self._routes, *self._origin)
+
     def state(self) -> dict:
         """Everything at once, so the dashboard can render a consistent frame."""
         return contracts.json_safe({
@@ -297,6 +304,7 @@ class DashboardBridge(Node):
             "drone": self.drone(),
             "mission": self.mission(),
             "victims": self.victims(),
+            "routes": self.routes(),
             "hazards": [],            # the hazard map arrives with its phase
             "alerts": [],             # likewise the alert engine
             "telemetry": list(self._telemetry),
@@ -417,6 +425,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
         position in metres and a GPS fix describe the same point."""
         areas = {**SCENARIO_AREAS, **({CUSTOM: bridge.custom_area} if bridge.custom_area else {})}
         return contracts.world_json(areas, NO_NETWORK_ZONES, zones.of_kind(zones.GPS))
+
+    @app.get("/api/routes")
+    def routes():
+        """Ground teams' road routes from the base to each casualty (ground_routes)."""
+        return bridge.routes()
 
     @app.get("/api/hazards")
     def hazards():
