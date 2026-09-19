@@ -4,26 +4,26 @@
  "split": "val",
  "conf": 0.25,
  "recall": {
-  "people": 2011,
+  "people": 2790,
   "recall": 0.003
  },
- "precision": 0.353,
- "false_positives": 11,
+ "precision": 0.368,
+ "false_positives": 12,
  "stray_false_positives": 10,
- "frames": 512,
- "empty_frames": 99,
+ "frames": 800,
+ "empty_frames": 139,
  "empty_frames_with_a_false_positive": 3,
  "by_height": {
   "0-15 m": {
-   "people": 297,
-   "recall": 0.02
+   "people": 457,
+   "recall": 0.015
   },
   "15-25 m": {
-   "people": 730,
+   "people": 1052,
    "recall": 0.0
   },
   "25-40 m": {
-   "people": 984,
+   "people": 1281,
    "recall": 0.0
   }
  },
@@ -838,6 +838,422 @@
   },
   "D0248_6": {
    "people": 13,
+   "recall": 0.0
+  },
+  "D0256_0": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0256_1": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0256_2": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0256_3": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0256_4": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0256_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0256_6": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0256_7": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0256_8": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0264_1": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0264_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0272_0": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0272_1": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0272_2": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0272_3": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0272_4": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0272_5": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0280_0": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0280_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0280_3": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0280_4": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0280_6": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0280_7": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0280_8": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0280_9": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0288_0": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0288_1": {
+   "people": 15,
+   "recall": 0.0
+  },
+  "D0288_2": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0288_3": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0288_4": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0288_5": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0288_6": {
+   "people": 4,
+   "recall": 0.0
+  },
+  "D0288_7": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0288_8": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0296_0": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0296_1": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0296_2": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0296_3": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0296_4": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0296_5": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0296_7": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0304_0": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0312_0": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0312_2": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0312_3": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0312_4": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0312_5": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0312_6": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0312_7": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0320_0": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0320_1": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0320_3": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0320_4": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0320_5": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0320_6": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0320_8": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0320_9": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0328_0": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0328_2": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0328_3": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0328_4": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0328_5": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0328_6": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0328_7": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0336_10": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0336_8": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0344_10": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0344_5": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0344_8": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0352_0": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0352_2": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0352_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0352_6": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0352_7": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0360_0": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0360_2": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0360_3": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0360_4": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0360_5": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0360_6": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0360_7": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0368_0": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0368_1": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0368_2": {
+   "people": 8,
+   "recall": 0.0
+  },
+  "D0368_3": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0368_4": {
+   "people": 1,
+   "recall": 0.0
+  },
+  "D0368_5": {
+   "people": 13,
+   "recall": 0.0
+  },
+  "D0376_0": {
+   "people": 10,
+   "recall": 0.0
+  },
+  "D0376_1": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0376_10": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0376_7": {
+   "people": 9,
+   "recall": 0.0
+  },
+  "D0376_9": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0384_1": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0384_10": {
+   "people": 11,
+   "recall": 0.091
+  },
+  "D0384_3": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0384_4": {
+   "people": 7,
+   "recall": 0.0
+  },
+  "D0384_5": {
+   "people": 6,
+   "recall": 0.0
+  },
+  "D0384_8": {
+   "people": 12,
+   "recall": 0.0
+  },
+  "D0392_0": {
+   "people": 2,
+   "recall": 0.0
+  },
+  "D0392_1": {
+   "people": 5,
+   "recall": 0.0
+  },
+  "D0392_2": {
+   "people": 14,
+   "recall": 0.0
+  },
+  "D0392_3": {
+   "people": 3,
+   "recall": 0.0
+  },
+  "D0392_4": {
+   "people": 11,
+   "recall": 0.0
+  },
+  "D0392_5": {
+   "people": 9,
    "recall": 0.0
   },
   "feet_out_of_rubble": {

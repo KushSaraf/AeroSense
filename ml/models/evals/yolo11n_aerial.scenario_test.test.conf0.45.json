@@ -5,44 +5,44 @@
  "conf": 0.45,
  "recall": {
   "people": 384,
-  "recall": 0.51
+  "recall": 0.549
  },
- "precision": 0.929,
- "false_positives": 15,
- "stray_false_positives": 6,
+ "precision": 0.917,
+ "false_positives": 19,
+ "stray_false_positives": 11,
  "frames": 184,
  "empty_frames": 8,
- "empty_frames_with_a_false_positive": 0,
+ "empty_frames_with_a_false_positive": 1,
  "by_height": {
   "0-15 m": {
    "people": 83,
-   "recall": 0.602
+   "recall": 0.651
   },
   "15-25 m": {
    "people": 108,
-   "recall": 0.509
+   "recall": 0.5
   },
   "25-40 m": {
    "people": 193,
-   "recall": 0.472
+   "recall": 0.534
   }
  },
  "by_condition": {
   "V01": {
    "people": 27,
-   "recall": 0.37
+   "recall": 0.444
   },
   "V02": {
    "people": 23,
-   "recall": 0.261
+   "recall": 0.304
   },
   "V03": {
    "people": 19,
-   "recall": 0.053
+   "recall": 0.105
   },
   "V04": {
    "people": 39,
-   "recall": 0.436
+   "recall": 0.564
   },
   "V05": {
    "people": 17,
@@ -54,7 +54,7 @@
   },
   "V07": {
    "people": 17,
-   "recall": 0.412
+   "recall": 0.588
   },
   "V08": {
    "people": 26,
@@ -62,7 +62,7 @@
   },
   "V09": {
    "people": 54,
-   "recall": 0.833
+   "recall": 0.907
   },
   "V10": {
    "people": 14,
@@ -78,15 +78,15 @@
   },
   "V15": {
    "people": 25,
-   "recall": 0.28
+   "recall": 0.2
   },
   "V18": {
    "people": 24,
-   "recall": 0.0
+   "recall": 0.042
   },
   "V19": {
    "people": 27,
-   "recall": 0.889
+   "recall": 0.852
   },
   "V20": {
    "people": 5,
@@ -98,7 +98,7 @@
   },
   "V22": {
    "people": 10,
-   "recall": 0.1
+   "recall": 0.2
   },
   "V23": {
    "people": 4,

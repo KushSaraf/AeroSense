@@ -48,6 +48,24 @@ unassigned (1 h shift, 5 min on site):
 Every P1 is visited before any P2 on every tour. The priorities are the drone's triage, which got
 7 of the 13 wrong against the scenario (the triage section below); the tours follow whatever triage says.
 
+### yolo11n_aerial retrained on focused scenes (2026-09-19)
+
+The RGB model retrained with 150 more rendered scenes weighted to windows, hands and legs under
+rubble (`ml/README.md`: 77.1 % to 81.2 % of the scenario's casualties at 0.25). Flown with
+`tools/mission_evaluation.py`, fresh headless simulation each, 30 m search.
+
+| Sector | Found | False positives | Time, searched | SWOOP |
+|---|---|---|---|---|
+| Earthquake, RGB confirmation up to 15 m | 13 of 18 | 0 | 796 s, 98 % | V04 proven; V09's lead ruled out from 16 m |
+| Earthquake, up to 20 m | **14 of 18** | 0 | 762 s, 96.5 % | V04 proven from 30 m, **V09 proven from 16 m** |
+| Flood, up to 20 m | **5 of 5** | 0 | 446 s, 99.5 % | none needed |
+
+The first earthquake flight lost V09, and not to the model: its lead came up 2 m further west than
+before, inside a building's clearance circle, so SWOOP stopped 5.5 m above that building at 16 m,
+and RGB could confirm only from 15 m (`rgb.confirm_max_height_m`, now 20: still below the 22 m
+inspection and 30 m search heights). Still missed: V13 and V14 inside collapse cracks, V16 and V17
+buried, which no camera sees.
+
 ### RGB people beside thermal: the deceased casualty found (2026-09-19)
 
 The fine-tuned RGB detector (`ml/models/yolo11n_aerial`, `rgb_detector`) feeding SWOOP leads and,

@@ -69,7 +69,9 @@ rgb:
   # every person this confident is published, and is a SWOOP lead once seen min_looks times
   # (suspects:) in one place: the descent then proves it or rules it out
   lead_confidence: 0.35
-  # and a casualty for the tracker when this confident, seen from this low (SWOOP's 10 m close look;
-  # the fewer false positives come from nearer): three such looks confirm someone with no heat at all
+  # and a casualty for the tracker when this confident, seen from this low (SWOOP's close look; the
+  # fewer false positives come from nearer): three such looks confirm someone with no heat at all.
+  # 20 m, not 10: beside a building SWOOP stops 5.5 m above it (V09's lead verified from 16 m and
+  # 15 m ruled them out); still below inspection (22 m) and search (30 m)
   confirm_confidence: 0.5
-  confirm_max_height_m: 15.0
+  confirm_max_height_m: 20.0

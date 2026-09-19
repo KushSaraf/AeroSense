@@ -115,7 +115,8 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
 
 - **Leads:** any RGB person at `rgb.lead_confidence` (0.35) or more becomes a SWOOP lead, from any
   height, once seen `suspects.min_looks` times in one place.
-- **Casualties:** only a confident look (0.5) from 15 m or lower, i.e. SWOOP's close look. RGB carries no
+- **Casualties:** only a confident look (0.5) from 20 m or lower, i.e. SWOOP's close look (beside a
+  building it stops 5.5 m above it; 15 m ruled V09 out from 16 m). RGB carries no
   heat, so someone only RGB sees is triaged P3 "no live thermal signature" (the deceased V09).
 - **Near nadir only** (`rgb.max_off_nadir_deg` 35): the camera sees 127 deg across, and at its edges
   walls, and people 5 m up on terraces projected onto z 0, made leads nobody was at.

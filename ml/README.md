@@ -86,9 +86,11 @@ After a suspend the NVIDIA driver can leave CUDA unusable (`cuInit` returns 999)
 
 ## Results
 
-The dataset as rendered (`--scenes 250`, seed 2026): 4,000 frames (3,488 train, 512 val), 13,795
-people boxed, 648 frames with nobody in them, median 26 visible pixels a person. The test set:
-184 frames of the scenario's casualties, 384 boxes (the two buried casualties show nothing).
+The dataset as rendered (seed 2026): 250 scenes (`--scenes 250`), then 150 more with `--focus window
+hand_out_of_rubble legs_under_rubble` for what the first model missed. 6,400 frames (5,600 train,
+800 val), 20,035 people boxed (278 at windows, 1,248 hands, 3,030 with legs under rubble), 1,080
+frames with nobody in them, median 25 visible pixels a person. The test set: 184 frames of the
+scenario's casualties, 384 boxes (the two buried casualties show nothing).
 
 Scored at 960 px (`models/evals/*.json`). Stock YOLO11n keeps only COCO's person class. Stray false
 positives are detections not beside any person; the rest are a second box on someone already found
@@ -96,15 +98,27 @@ positives are detections not beside any person; the rest are a second box on som
 
 | Model | Confidence | Split | People found | below 15 m | 15-25 m | 25-40 m | False positives (stray) |
 |---|---|---|---|---|---|---|---|
-| stock YOLO11n | 0.25 | validation, 512 frames | 0.3 % of 2,011 | 2 % | 0 % | 0 % | 11 (10) |
+| stock YOLO11n | 0.25 | validation, 800 frames | 0.3 % of 2,790 | 2 % | 0 % | 0 % | 12 (10) |
 | stock YOLO11n | 0.25 | scenario casualties, 184 frames | 0.5 % of 384 | 2 % | 0 % | 0 % | 2 (2) |
-| **yolo11n_aerial** | 0.25 | validation | **87.2 %** | 90 % | 90 % | 85 % | 292 (77) |
-| **yolo11n_aerial** | 0.25 | scenario casualties | **77.1 %** | 84 % | 76 % | 75 % | 121 (55) |
-| yolo11n_aerial | 0.45 | validation | 67.1 % | 74 % | 73 % | 61 % | 25 (7) |
-| yolo11n_aerial | 0.45 | scenario casualties | 51.0 % | 60 % | 51 % | 47 % | 15 (6) |
+| **yolo11n_aerial** | 0.25 | validation | **84.9 %** | 88 % | 86 % | 83 % | 475 (133) |
+| **yolo11n_aerial** | 0.25 | scenario casualties | **81.2 %** | 87 % | 77 % | 81 % | 109 (50) |
+| yolo11n_aerial | 0.45 | validation | 62.8 % | 71 % | 67 % | 57 % | 32 (9) |
+| yolo11n_aerial | 0.45 | scenario casualties | 54.9 % | 65 % | 50 % | 53 % | 19 (11) |
 
-Trained 60 epochs in 1.9 h on an RTX 2050 (batch 8, 960 px); validation mAP50 0.76 at the end
-(`models/yolo11n_aerial/results.csv`). On the scenario's casualties at 0.25: V09, dead and at
-ambient so invisible to the thermal camera, is found in 96 % of the frames that show it. The
-weakest are the smallest: V20 and V23 leaning out of windows (0 of 5, 1 of 4), V21's hand
-(2 of 8), V18 seated with legs under rubble (33 %).
+Trained 60 epochs in 1.9 h on an RTX 2050 (batch 8, 960 px); validation mAP50 0.73
+(`models/yolo11n_aerial/results.csv`, the plots beside it).
+
+The focused scenes against the first model (250 scenes only), same test set:
+
+| Confidence | First model | yolo11n_aerial | |
+|---|---|---|---|
+| 0.25 | 77.1 %, 121 FP (55 stray) | 81.2 %, 109 FP (50 stray) | |
+| 0.35 (`rgb.lead_confidence`) | 66.9 %, 40 FP (17 stray) | 69.8 %, 46 FP (28 stray) | more leads, some of them stray |
+| 0.5 (`rgb.confirm_confidence`) | 47.7 %, 8 FP (4 stray) | 48.7 %, 9 FP (3 stray) | |
+| V18, legs under rubble, 0.25 | 33 % | 54 % | |
+| V20 and V23 at windows, 0.25 | 0 of 5, 1 of 4 | 1 of 5, 1 of 4 | |
+| V21's hand, 0.25 | 2 of 8 | 2 of 8 | |
+
+V09, dead and at ambient so invisible to the thermal camera, is found in 98 % of the frames that show
+them. A hand and someone leaning out of a window stay the hardest: from overhead the roof hides most
+of a person at a window, and a hand is a few pixels.
