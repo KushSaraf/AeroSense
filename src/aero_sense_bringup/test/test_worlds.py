@@ -252,3 +252,22 @@ def test_the_earthquake_left_no_building_intact():
                 and not include.findtext("uri").startswith(("model://aero_sense_building_damaged_",
                                                             "model://aero_sense_building_collapsed_"))]
     assert not standing
+
+
+def test_stop_sim_leaves_another_gazebo_partition_alone():
+    """A dataset render on its own GZ_PARTITION lost its server to a stop_sim meant for the drone's
+    simulation."""
+    import subprocess
+    import sys
+    from aero_sense_bringup import stop_sim
+    assert stop_sim.gz_partition(b"HOME=/h\0GZ_PARTITION=aerosense_dataset\0") == "aerosense_dataset"
+    assert stop_sim.gz_partition(b"GZ_PARTITION=\0") == "" and stop_sim.gz_partition(b"HOME=/h\0") is None
+    env = {**os.environ, "GZ_PARTITION": (os.environ.get("GZ_PARTITION") or "") + "_other"}
+    other = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"], env=env)
+    same = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        pids = {pid for pid, _ in stop_sim.running_processes()}
+        assert same.pid in pids and other.pid not in pids
+    finally:
+        other.kill()
+        same.kill()

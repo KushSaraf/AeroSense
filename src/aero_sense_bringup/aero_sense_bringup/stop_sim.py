@@ -7,6 +7,9 @@ autopilot flies. This stops the lot and says whether the port came free.
 Processes are matched on the program being run, never on a command line that merely mentions
 one: a shell whose arguments contain "gz sim" is not a simulation, and killing it would take the
 caller down with it.
+
+Only this Gazebo partition's: a process whose GZ_PARTITION differs from the caller's belongs to
+another world (a dataset render, a preview), and killing it broke that run mid-scene.
 """
 import os
 import signal
@@ -57,13 +60,26 @@ def simulation_pids(processes, exclude=()) -> list:
     return [pid for pid, argv in processes if pid not in excluded and _is_simulation(argv)]
 
 
+def gz_partition(environ: bytes):
+    """GZ_PARTITION in a /proc environ block; None when unset (gz treats empty and unset apart)."""
+    for entry in environ.split(b"\0"):
+        if entry.startswith(b"GZ_PARTITION="):
+            return entry[len(b"GZ_PARTITION="):].decode()
+    return None
+
+
 def running_processes():
+    """(pid, argv) of every process in the caller's Gazebo partition."""
+    ours = os.environ.get("GZ_PARTITION")
     for entry in Path("/proc").iterdir():
         if not entry.name.isdigit():
             continue
         try:
             argv = (entry / "cmdline").read_bytes().decode().split("\0")
-        except OSError:                            # it exited while we looked
+            environ = (entry / "environ").read_bytes()
+        except OSError:                            # it exited while we looked, or is not ours to read
+            continue
+        if gz_partition(environ) != ours:
             continue
         yield int(entry.name), [part for part in argv if part]
 
