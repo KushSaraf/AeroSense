@@ -294,13 +294,39 @@ MAX_AREA_SIDE_M = 400.0
 MAX_AREA_RANGE_M = 400.0
 
 
+def world_file() -> Path:
+    from ament_index_python.packages import get_package_share_directory
+
+    return Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / f"{WORLD_FILE}.sdf"
+
+
 def world_origin() -> tuple:
     """(latitude, longitude, elevation) of the map frame's origin: the world's
     <spherical_coordinates>, which is also SITL's home."""
-    from ament_index_python.packages import get_package_share_directory
     from aero_sense_bringup import worlds
 
-    return worlds.origin(Path(get_package_share_directory("aero_sense_gazebo")) / "worlds" / f"{WORLD_FILE}.sdf")
+    return worlds.origin(world_file())
+
+
+def structures_json(structures) -> list:
+    """The structure footprints the drone plans round (structure_map), for the 3D view: plan
+    centre, radius and height in the map frame (metres)."""
+    return [{"name": s.name, "kind": s.kind, "x": round(s.x, 2), "y": round(s.y, 2),
+             "radiusM": round(s.radius_m, 2), "heightM": round(s.height_m, 2)} for s in structures]
+
+
+#: Point coordinates go to the browser at this resolution (metres): a 0.5 m voxel map needs no more.
+POINT_DECIMALS = 1
+
+
+def points_json(cloud) -> list:
+    """OpenVINS's feature points (PointCloud2, map frame) as [[x, y, z], ...]; [] before any."""
+    if cloud is None:
+        return []
+    from sensor_msgs_py import point_cloud2
+
+    xyz = point_cloud2.read_points_numpy(cloud, field_names=("x", "y", "z"), skip_nans=True)
+    return xyz.astype(float).round(POINT_DECIMALS).tolist()
 
 
 def area_from_latlon(corners, origin_lat: float, origin_lon: float):

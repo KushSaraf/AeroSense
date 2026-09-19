@@ -8,7 +8,7 @@
  */
 import { IS_REPLAY, replayCameraSrc, respond } from './replay'
 import type {
-  AlertItem, Drone, Hazard, LiveState, Mission, TelemetryPoint, Victim,
+  AlertItem, Drone, Hazard, LiveState, Mission, Scene3d, TelemetryPoint, Victim,
 } from '../types'
 
 const API_BASE: string =
@@ -46,6 +46,7 @@ export const apiService = {
   getHazards: () => request<Hazard[]>('/api/hazards'),
   getTelemetry: () => request<TelemetryPoint[]>('/api/telemetry'),
   getAlerts: () => request<AlertItem[]>('/api/alerts'),
+  getScene: () => request<Scene3d>('/api/scene'),
   getSimulationState: async () => ({ gpsLoss: false, commLoss: false, running: true }),
   toggleGpsLoss: async () => undefined,
 }

@@ -144,6 +144,15 @@ generator. `ground_routes` runs on the ground side: it plans from `aero_sense/do
 `team_plan.py` assigns casualties to teams in the same message (`SafeRouteArray.teams`,
 `unassigned`; `/api/teams`): P1s first, greedy per priority class, each tour back within its shift.
 
+## Local 3D view (`vio_map.py`, `ScenePage.tsx`, three.js)
+
+`drone_interface` folds OpenVINS's `points_slam`/`points_msckf` into a 0.5 m voxel map (kept 120 s,
+at most 4000 points) through the same alignment its track uses, only while that fit is healthy,
+and publishes `aero_sense/perception/vio_points` (PointCloud2, map) at 1 Hz. comms_link relays it
+like camera frames (dropped on a weak link). The bridge serves it with the structure footprints at
+`/api/scene`; the dashboard's **3D VIEW** draws them with the drone, its track and the casualties.
+three.js is y-up: map (x, y, z) is three (x, z, -y).
+
 ## Video (`aero_sense_bridge/webrtc.py`)
 
 The dashboard's cameras are WebRTC (aiortc): the browser POSTs an SDP offer to

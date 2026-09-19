@@ -7,31 +7,35 @@ Publishes (relative names; launching under namespace drone_01 prefixes them):
   aero_sense/drone/status     aero_sense_interfaces/DroneStatus
   aero_sense/gps/fix          sensor_msgs/NavSatFix        the autopilot's GPS as it sees it
   aero_sense/mission/events   std_msgs/String              GPS lost / back, what it navigates on
+  aero_sense/perception/vio_points  sensor_msgs/PointCloud2  OpenVINS's feature points in the map (vio_map.py)
   TF map -> base_link
 Services (std_srvs/Trigger): aero_sense/drone/takeoff, /land, /return_to_base
 Subscribes: aero_sense/drone/setpoint (PoseStamped, map) -> GUIDED position + yaw target
             ov_msckf/odomimu (Odometry, OpenVINS) -> VISION_POSITION_ESTIMATE, in the local NED
             frame once fitted to the GPS track (navigation.py); the EKF flies on it when GPS goes
+            ov_msckf/points_slam, points_msckf (PointCloud2) -> vio_points, through the same fit
 """
 import math
 import threading
 import time
 from collections import deque
 
+import numpy as np
 import rclpy
 from geometry_msgs.msg import PoseStamped, TransformStamped, TwistStamped
 from nav_msgs.msg import Odometry
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
-from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus
-from std_msgs.msg import String
+from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus, PointCloud2
+from sensor_msgs_py import point_cloud2
+from std_msgs.msg import Header, String
 from std_srvs.srv import Trigger
 from tf2_ros import TransformBroadcaster
 
 from aero_sense_interfaces.msg import DroneStatus
 
-from . import navigation
+from . import navigation, vio_map
 from .autopilot import Autopilot, classify_gps
 from .comms_link import EVENTS_TOPIC
 from .frames import (enu_attitude_to_ned, enu_yaw_to_ned, geodetic_to_map, map_to_ned,
@@ -50,6 +54,9 @@ PAIR_MIN_ALTITUDE_M = 3.0
 #: After take-off the drone hovers until OpenVINS has initialised (it needs a still view full of
 #: features: on the pad it sees little but the pad, and a climb is not still), at most this long.
 VIO_INIT_TIMEOUT_S = 20.0
+#: OpenVINS's feature clouds are folded into the 3D map at most this often, and published this often.
+VIO_POINTS_PERIOD_S = 0.5
+VIO_MAP_PUBLISH_S = 1.0
 
 
 class DroneInterface(Node):
@@ -81,7 +88,10 @@ class DroneInterface(Node):
             "status": self.create_publisher(DroneStatus, "aero_sense/drone/status", 10),
             "fix": self.create_publisher(NavSatFix, "aero_sense/gps/fix", 10),
             "events": self.create_publisher(String, EVENTS_TOPIC, 20),
+            "vio_points": self.create_publisher(PointCloud2, "aero_sense/perception/vio_points", 1),
         }
+        self._vio_map = vio_map.VoxelMap()
+        self._last_points = 0.0
         # navigation source: shared between the OpenVINS callback and the switching timer
         self._nav_lock = threading.Lock()
         self._source = GPS
@@ -98,6 +108,11 @@ class DroneInterface(Node):
         self.create_subscription(Odometry, self._vio_topic, self._on_vio, 10,
                                  callback_group=MutuallyExclusiveCallbackGroup())
         self.create_timer(NAVIGATE_PERIOD_S, self._navigate, callback_group=MutuallyExclusiveCallbackGroup())
+        points = MutuallyExclusiveCallbackGroup()
+        vio_ns = self._vio_topic.rsplit("/", 1)[0]
+        for cloud in ("points_slam", "points_msckf"):
+            self.create_subscription(PointCloud2, f"{vio_ns}/{cloud}", self._on_vio_points, 1, callback_group=points)
+        self.create_timer(VIO_MAP_PUBLISH_S, self._publish_vio_map, callback_group=points)
         self.create_subscription(PoseStamped, "aero_sense/drone/setpoint", self._on_setpoint, 1,
                                  callback_group=commands)
         for name, handler in (("takeoff", self._takeoff), ("land", self._land),
@@ -200,6 +215,26 @@ class DroneInterface(Node):
         return msg
 
     # -- navigation: GPS, or OpenVINS when GPS is gone ------------------------------------
+
+    def _on_vio_points(self, msg: PointCloud2) -> None:
+        """Fold OpenVINS's features into the 3D map once its track fits GPS; before that its frame
+        is not placed in the map."""
+        now = time.monotonic()
+        with self._nav_lock:
+            alignment = self._alignment
+        if alignment is None or not alignment.healthy or now - self._last_points < VIO_POINTS_PERIOD_S:
+            return
+        self._last_points = now
+        xyz = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
+        if len(xyz):
+            self._vio_map.add(vio_map.to_map(xyz.astype(float), alignment), now)
+
+    def _publish_vio_map(self) -> None:
+        points = self._vio_map.points()
+        if not len(points):
+            return
+        header = Header(stamp=self.get_clock().now().to_msg(), frame_id=self._map_frame)
+        self._pubs["vio_points"].publish(point_cloud2.create_cloud_xyz32(header, points.astype(np.float32)))
 
     def _on_vio(self, msg: Odometry) -> None:
         if not self._connected or self._home is None:

@@ -191,6 +191,13 @@ export interface TeamPlan {
   unassigned: string[]
 }
 
+/** The 3D view's slow layers (/api/scene), in the map frame (metres, ENU). */
+export interface Scene3d {
+  structures: { name: string; kind: string; x: number; y: number; radiusM: number; heightM: number }[]
+  /** OpenVINS's feature points, [x, y, z] */
+  points: [number, number, number][]
+}
+
 export interface LiveState {
   connected: boolean
   /** Absent in recordings made before the link model. */

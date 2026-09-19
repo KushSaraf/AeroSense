@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './layouts/AppShell'
 import HomePage from './pages/HomePage'
 import DashboardPage from './pages/DashboardPage'
+import ScenePage from './pages/ScenePage'
 import MissionsPage from './pages/MissionsPage'
 import MapPage from './pages/MapPage'
 import AlertsPage from './pages/AlertsPage'
@@ -28,6 +29,7 @@ function App() {
           <Route path="/dashboard/alerts" element={<AlertsPage />} />
           <Route path="/dashboard/ai" element={<AiPerceptionPage />} />
           <Route path="/dashboard/telemetry" element={<TelemetryPage />} />
+          <Route path="/dashboard/scene" element={<ScenePage />} />
           <Route path="/dashboard/reports" element={<ReportsPage />} />
           <Route path="/dashboard/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />

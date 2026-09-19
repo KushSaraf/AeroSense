@@ -398,3 +398,14 @@ def test_team_tours_reach_the_maps_in_order_with_who_is_left():
     assert out["tours"][0]["path"][0][0] == pytest.approx(-35.0 + 0.001)
     assert out["unassigned"] == ["V-003"]
     assert contracts.teams_json(None, -35.0, 149.0) == {"tours": [], "unassigned": []}
+
+
+def test_the_3d_view_gets_points_and_structures_in_metres():
+    import numpy as np
+    from std_msgs.msg import Header
+    from sensor_msgs_py import point_cloud2
+    from aero_sense_perception.structure_map import Structure
+    cloud = point_cloud2.create_cloud_xyz32(Header(frame_id="map"), np.array([[1.234, -5.0, 12.06]], np.float32))
+    assert contracts.points_json(cloud) == [[1.2, -5.0, 12.1]] and contracts.points_json(None) == []
+    [mast] = contracts.structures_json([Structure("mast", "radio_tower", -40.0, 60.0, 6.7, 44.2)])
+    assert mast == {"name": "mast", "kind": "radio_tower", "x": -40.0, "y": 60.0, "radiusM": 6.7, "heightM": 44.2}

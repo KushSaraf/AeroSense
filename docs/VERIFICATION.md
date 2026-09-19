@@ -31,6 +31,14 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
+### Local 3D view: OpenVINS's feature points in the map (2026-09-19)
+
+Earthquake mission on the dashboard sim, 3D VIEW open: 1134 feature points reached the bridge
+along the flown track (x -197 to 4, y -120 to 26), ground points at z 0.2-0.4 m and roofs up to
+7.6 m, beside the structure cylinders and a confirmed casualty. With the voxel map running onboard,
+full missions (flown by the RGB retraining session) scored earthquake 14 of 18 and flood 5 of 5,
+both with no false positives: no drop in detection.
+
 ### Ground teams: who goes to whom (2026-09-19)
 
 Earthquake mission through the mission manager (`tools/mission_evaluation.py earthquake`):

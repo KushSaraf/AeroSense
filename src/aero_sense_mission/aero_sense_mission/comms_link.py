@@ -18,7 +18,7 @@ import rclpy
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
-from sensor_msgs.msg import BatteryState, Image, NavSatFix
+from sensor_msgs.msg import BatteryState, Image, NavSatFix, PointCloud2
 from std_msgs.msg import String
 from std_srvs.srv import SetBool
 from visualization_msgs.msg import Marker, MarkerArray
@@ -43,6 +43,7 @@ ROUTES = {
     "aero_sense/perception/detections": ("detections", VictimArray, comms.DROP),
     "aero_sense/camera/rgb/image_raw": ("rgb", Image, comms.DROP),
     "aero_sense/camera/thermal/image_raw": ("thermal", Image, comms.DROP),
+    "aero_sense/perception/vio_points": ("vio_points", PointCloud2, comms.DROP),
 }
 EVENTS_TOPIC = "aero_sense/mission/events"
 LATCHED_KEYS = {"mission_state"}

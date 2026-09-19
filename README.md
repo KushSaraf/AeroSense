@@ -129,6 +129,14 @@ and a casualty's popup says which team reaches them and at which stop. `teams` (
 (3600) and `on_site_s` (300) are `ground_routes` parameters: planning figures for the incident
 commander, not measurements.
 
+### Local 3D view (three.js)
+
+The dashboard's **3D VIEW** shows what the drone has seen in 3D: the feature points OpenVINS
+triangulates from the stereo cameras, placed in the map by the same fit it navigates on
+(`aero_sense_mission/vio_map.py`: one per 0.5 m voxel, the last two minutes), coloured by height,
+with the structures it plans round, the casualties it has confirmed and its own track. Points
+appear once OpenVINS has initialised after take-off and its track fits GPS.
+
 ### Tracking: one name per casualty (ByteTrack)
 
 The thermal detector reports warm blobs frame by frame; the tracker

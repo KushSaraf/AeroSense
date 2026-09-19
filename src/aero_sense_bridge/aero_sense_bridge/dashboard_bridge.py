@@ -5,6 +5,7 @@
   GET  /api/state      everything the dashboard needs, in one object
   GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes | /api/teams
   WS   /ws             the same state pushed as it changes
+  GET  /api/scene      the 3D view: structures, and OpenVINS's feature points in the map
   POST /api/camera/rgb|thermal/webrtc  {"sdp", "type": "offer"} -> the answer: the camera over WebRTC
   GET  /api/camera/rgb|thermal         the same camera as MJPEG (replays, fallback)
   GET  /api/simulation           whether a simulation is running
@@ -44,7 +45,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from geometry_msgs.msg import Point32, Polygon, PoseStamped, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
-from sensor_msgs.msg import BatteryState, Image, NavSatFix
+from sensor_msgs.msg import BatteryState, Image, NavSatFix, PointCloud2
 
 from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
@@ -81,7 +82,8 @@ class DashboardBridge(Node):
         self._status = self._pose = self._velocity = self._battery = self._fix = None
         self._status_at = None          # monotonic time of the last DroneStatus
         self._comms = self._comms_at = None
-        self._victims = self._hazards = self._routes = None
+        self._victims = self._hazards = self._routes = self._vio_points = None
+        self._structures = None          # loaded on the first /api/scene
         self._origin = contracts.world_origin()[:2]
         self._mission_state = None
         self._alerts = deque(maxlen=50)
@@ -124,6 +126,8 @@ class DashboardBridge(Node):
         self.custom_area = None
         self._mission_commands = {name: self.create_client(Trigger, f"aero_sense/mission/{name}")
                                   for name in ("pause", "resume", "abort", "return_to_base")}
+        self.create_subscription(PointCloud2, DOWNLINK + "perception/vio_points",
+                                 lambda m: setattr(self, "_vio_points", m), 1)
         for name in ("rgb", "thermal"):
             self.create_subscription(Image, f"{DOWNLINK}camera/{name}/image_raw",
                                      lambda msg, which=name: self._on_frame(which, msg), 1)
@@ -310,6 +314,13 @@ class DashboardBridge(Node):
     def teams(self) -> dict:
         return contracts.teams_json(self._routes, *self._origin)
 
+    def scene(self) -> dict:
+        """The 3D view's static and slow layers: structures and OpenVINS's feature points."""
+        if self._structures is None:
+            from aero_sense_perception import structure_map
+            self._structures = contracts.structures_json(structure_map.load(contracts.world_file()))
+        return {"structures": self._structures, "points": contracts.points_json(self._vio_points)}
+
     def state(self) -> dict:
         """Everything at once, so the dashboard can render a consistent frame."""
         return contracts.json_safe({
@@ -465,6 +476,11 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
     def routes():
         """Ground teams' road routes from the base to each casualty (ground_routes)."""
         return bridge.routes()
+
+    @app.get("/api/scene")
+    def scene():
+        """The 3D view: structure footprints (map frame) and OpenVINS's feature points."""
+        return bridge.scene()
 
     @app.get("/api/teams")
     def teams():

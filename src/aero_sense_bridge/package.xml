@@ -11,6 +11,8 @@
   <exec_depend>aero_sense_interfaces</exec_depend>
   <exec_depend>aero_sense_bringup</exec_depend>
   <exec_depend>aero_sense_mission</exec_depend>
+  <exec_depend>aero_sense_perception</exec_depend>
+  <exec_depend>sensor_msgs_py</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>python3-fastapi</exec_depend>

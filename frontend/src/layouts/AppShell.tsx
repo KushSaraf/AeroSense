@@ -6,6 +6,7 @@ import { IS_REPLAY } from '../services/replay'
 import {
   Activity,
   Bell,
+  Box,
   Cpu,
   FileText,
   Gauge,
@@ -36,6 +37,7 @@ const missionNav = [
   { label: 'LIVE DASHBOARD', to: '/dashboard', icon: Gauge },
   { label: 'AI PERCEPTION', to: '/dashboard/ai', icon: Cpu },
   { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Activity },
+  { label: '3D VIEW', to: '/dashboard/scene', icon: Box },
 ]
 
 
@@ -48,6 +50,7 @@ const pageTitles: Record<string, string> = {
   '/dashboard/alerts': 'Alert Center',
   '/dashboard/ai': 'AI Perception',
   '/dashboard/telemetry': 'Telemetry',
+  '/dashboard/scene': 'Local 3D View',
   '/dashboard/reports': 'Mission Reports',
   '/dashboard/settings': 'System Settings',
 }
