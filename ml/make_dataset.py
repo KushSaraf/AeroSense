@@ -108,6 +108,10 @@ HEIGHTS_M = (8.0, 35.0)
 MAX_TILT_RAD = math.radians(15)
 #: The camera keeps this far from anything taller than it flies (the radio mast's lattice).
 CAMERA_CLEARANCE_M = 2.0
+#: With --focus, the share of people drawn from the focus conditions.
+FOCUS_SHARE = 0.5
+#: Room a house with someone at its window or on its terrace needs round its centre.
+HOUSE_FOOTPRINT_M = 7.5
 #: Every AWAY_EVERY-th view looks at the disaster AWAY_M from the scene's people: rubble, cars,
 #: water and roofs with nobody on them, what the detector must not call a person.
 AWAY_EVERY = 8
@@ -284,20 +288,30 @@ class Placer:
         return depth < 0.0                                           # lying or sitting in the open: dry ground
 
 
-def plan_scene(rng: random.Random, placer: Placer, scene: int) -> dict:
-    """People (and the cars and houses they are perched on) round a random spot in one sector."""
+def plan_scene(rng: random.Random, placer: Placer, scene: int, focus: tuple = ()) -> dict:
+    """People (and the cars and houses they are perched on) round a random spot in one sector.
+    With `focus`, half of them (on average) are in one of those conditions: more of what the model
+    misses, without dropping the rest."""
     sector = rng.choice(tuple(SECTORS))
     x0, y0, x1, y1 = SECTORS[sector]
-    cx, cy = rng.uniform(x0, x1), rng.uniform(y0, y1)
+    # a house fits on only 1.5 % of the flood sector: focused on windows or terraces, centre the
+    # scene where one does and offer that spot first, or random spots place almost none
+    roomy = any(CONDITIONS[name][0] == sector and CONDITIONS[name][4] in ("terrace", "window") for name in focus)
+    for _ in range(500 if roomy else 1):
+        cx, cy = rng.uniform(x0, x1), rng.uniform(y0, y1)
+        if not roomy or placer.clearance(cx, cy) >= HOUSE_FOOTPRINT_M:
+            break
     choices = [name for name, spec in CONDITIONS.items() if spec[0] in (None, sector)]
     people, props, taken = [], [], []
     for k in range(rng.randint(*PEOPLE_PER_SCENE)):
-        condition = rng.choice(choices)
+        focused = [name for name in focus if name in choices]
+        condition = rng.choice(focused if focused and rng.random() < FOCUS_SHARE else choices)
         _, poses, visibility, exposed, perch = CONDITIONS[condition]
         character, pose = rng.choice(CHARACTERS), rng.choice(poses)
-        footprint = {"car_roof": 2.4, "terrace": 7.5, "window": 7.5}.get(perch, 0.6)
-        for _ in range(300):
-            x, y = cx + rng.uniform(-SCENE_RADIUS_M, SCENE_RADIUS_M), cy + rng.uniform(-SCENE_RADIUS_M, SCENE_RADIUS_M)
+        footprint = {"car_roof": 2.4, "terrace": HOUSE_FOOTPRINT_M, "window": HOUSE_FOOTPRINT_M}.get(perch, 0.6)
+        for attempt in range(300):
+            x, y = (cx, cy) if roomy and attempt == 0 else \
+                (cx + rng.uniform(-SCENE_RADIUS_M, SCENE_RADIUS_M), cy + rng.uniform(-SCENE_RADIUS_M, SCENE_RADIUS_M))
             if all(math.dist((x, y), (tx, ty)) >= max(PERSON_GAP_M, r + footprint) for tx, ty, r in taken) \
                     and placer.fits(perch, x, y, footprint):
                 break
@@ -406,9 +420,9 @@ def staged(sim: Sim, plan: dict, photograph):
             sim.remove(name)                                         # fails loudly: leftovers would be unlabelled people
 
 
-def run_scene(sim: Sim, placer: Placer, out: Path, seed: int, scene: int) -> dict:
+def run_scene(sim: Sim, placer: Placer, out: Path, seed: int, scene: int, focus: tuple = ()) -> dict:
     rng = random.Random(seed * 100003 + scene)
-    plan = {**plan_scene(rng, placer, scene), "frame_prefix": f"s{scene:04d}"}
+    plan = {**plan_scene(rng, placer, scene, focus), "frame_prefix": f"s{scene:04d}"}
     poses = [camera_pose(rng, placer, plan["centre"], view % AWAY_EVERY == AWAY_EVERY - 1)
              for view in range(VIEWS_PER_SCENE)]
     staged(sim, plan, lambda: shoot(sim, out, plan, poses, "val" if scene % VAL_EVERY == 0 else "train"))
@@ -476,6 +490,8 @@ def main():
     parser.add_argument("--scenes", type=int, default=250, help="scenes to render (the last is --scenes - 1)")
     parser.add_argument("--start", type=int, default=0, help="first scene (resume a stopped run)")
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--focus", nargs="+", default=(), choices=tuple(CONDITIONS),
+                        help="put half the people in these conditions (extra scenes for what the model misses)")
     parser.add_argument("--scenario", action="store_true",
                         help=f"render the test set instead: the scenario's casualties, into {SCENARIO_OUT.relative_to(ROOT)}")
     args = parser.parse_args()
@@ -495,7 +511,7 @@ def main():
             started = time.time()
             for attempt in (1, 2):
                 try:
-                    plan = run_scene(sim, placer, out, args.seed, scene)
+                    plan = run_scene(sim, placer, out, args.seed, scene, tuple(args.focus))
                     print(f"scene {scene}: {plan['sector']}, {len(plan['people'])} people, "
                           f"{time.time() - started:.0f} s", flush=True)
                     break

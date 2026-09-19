@@ -33,6 +33,8 @@ ml/
 source /opt/ros/humble/setup.bash && source ~/uav_ws/install/setup.bash && source install/setup.bash
 python3 tools/make_people.py --all && colcon build --base-paths src && source install/setup.bash
 python3 ml/make_dataset.py --scenes 250           # ~20 s a scene; --start N resumes
+python3 ml/make_dataset.py --start 250 --scenes 350 --focus window hand_out_of_rubble legs_under_rubble
+                                                  # extra scenes, half the people in what the model misses
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 python3 -m pytest ml -q
 ```
 

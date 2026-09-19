@@ -46,3 +46,18 @@ def test_a_second_box_on_a_found_person_is_not_a_stray():
                                                 (400, 300, 410, 306, 0.5)])
     assert found == [True] and len(unmatched) == 2
     assert evaluate.stray(truth, unmatched) == 1            # the legs beside them are not; the far one is
+
+
+def test_focus_puts_about_half_the_people_in_the_focus_conditions():
+    placer = md.Placer()
+    people = [p for scene in range(12) for p in md.plan_scene(md.random.Random(scene), placer, scene,
+                                                               ("window", "hand_out_of_rubble"))["people"]]
+    share = sum(p["condition"] in ("window", "hand_out_of_rubble") for p in people) / len(people)
+    assert 0.35 < share < 0.75, share
+
+
+def test_focus_on_windows_places_window_people_in_flood_scenes():
+    placer = md.Placer()
+    plans = [md.plan_scene(md.random.Random(scene), placer, scene, ("window",)) for scene in range(20)]
+    flood = [p for plan in plans if plan["sector"] == "flood" for p in plan["people"]]
+    assert sum(p["condition"] == "window" for p in flood) >= len([1 for plan in plans if plan["sector"] == "flood"])
