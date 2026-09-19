@@ -143,6 +143,14 @@ generator. `ground_routes` runs on the ground side: it plans from `aero_sense/do
 `team_plan.py` assigns casualties to teams in the same message (`SafeRouteArray.teams`,
 `unassigned`; `/api/teams`): P1s first, greedy per priority class, each tour back within its shift.
 
+## Video (`aero_sense_bridge/webrtc.py`)
+
+The dashboard's cameras are WebRTC (aiortc): the browser POSTs an SDP offer to
+`/api/camera/{rgb|thermal}/webrtc` and plays the answer's VP8 track (10 fps of the latest downlink
+frame, host candidates only). `CameraView.tsx` falls back to the MJPEG `/api/camera/{camera}` when
+WebRTC fails, and replays always use it. Keep `cryptography` at the version installed
+(`pip install aiortc "cryptography==46.0.7"`): aiortc would otherwise upgrade it.
+
 ## Conventions and gotchas
 
 - **Commits:** never add a `Co-Authored-By` trailer. Commit only verified slices, and push
@@ -153,6 +161,8 @@ generator. `ground_routes` runs on the ground side: it plans from `aero_sense/do
   - OBJ meshes with an SDF `albedo_map` need `v/vt/vn` on every face, or the gz 8 thermal camera
     aborts (tested).
   - Textures must have no alpha channel.
+- **`stop_sim` and other partitions:** it stops only processes in the caller's `GZ_PARTITION`, so
+  a dataset render or preview on its own partition survives it (and `dashboard.sh`/`demo.sh`).
 - **Preview renders:** a headless `gz sim` on its own `GZ_PARTITION`, with frames read via
   `gz topic -e --json-output`.
   - Kill stale preview sims by PID first, or you get old frames.

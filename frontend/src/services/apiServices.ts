@@ -154,6 +154,10 @@ export const startCustomArea = (corners: Array<{ latitude: number; longitude: nu
 
 export const API_URL = API_BASE
 
+/** WebRTC: send the browser's SDP offer for one camera, get the bridge's answer. */
+export const webrtcAnswer = (camera: 'rgb' | 'thermal', offer: { sdp: string; type: RTCSdpType }) =>
+  post<RTCSessionDescriptionInit>(`/api/camera/${camera}/webrtc`, offer, 10000)
+
 /** The drone's camera: the bridge's live MJPEG stream, or the recorded snapshot in a replay. */
 export const cameraSrc = (camera: 'rgb' | 'thermal'): string =>
   IS_REPLAY ? replayCameraSrc(camera) : `${API_BASE}/api/camera/${camera}`

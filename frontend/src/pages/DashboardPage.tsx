@@ -5,7 +5,8 @@ import { GpsBanner, GpsSwitch } from '../components/GpsStatus'
 import { LINK_COLOUR, NetworkBanner, NetworkSwitch } from '../components/NetworkStatus'
 import { DeniedZones } from '../components/Zones'
 import StatusPill from '../components/StatusPill'
-import { API_URL, cameraSrc, simulationControl } from '../services/apiServices'
+import CameraView from '../components/CameraView'
+import { API_URL, simulationControl } from '../services/apiServices'
 import { useFlightTrack } from '../hooks/useFlightTrack'
 import { useMission } from '../hooks/useMission'
 import { useWorld } from '../hooks/useWorld'
@@ -129,12 +130,7 @@ function Panel({ title, icon, children, action }: {
 function CameraFeed() {
   const [camera, setCamera] = useState<'rgb' | 'thermal' | 'both'>('rgb')
   const feed = (which: 'rgb' | 'thermal') => (
-    <img
-      key={which}
-      src={cameraSrc(which)}
-      alt={`${which} camera`}
-      className="h-28 w-full rounded border border-white/15 object-cover"
-    />
+    <CameraView key={which} camera={which} className="h-28 w-full rounded border border-white/15 object-cover" />
   )
   return (
     <>

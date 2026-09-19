@@ -5,6 +5,8 @@
   GET  /api/state      everything the dashboard needs, in one object
   GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes | /api/teams
   WS   /ws             the same state pushed as it changes
+  POST /api/camera/rgb|thermal/webrtc  {"sdp", "type": "offer"} -> the answer: the camera over WebRTC
+  GET  /api/camera/rgb|thermal         the same camera as MJPEG (replays, fallback)
   GET  /api/simulation           whether a simulation is running
   POST /api/simulation/network   {"up": false} cuts the drone's network, {"up": true} restores it
   POST /api/simulation/gps       {"up": false} jams the drone's GPS everywhere, {"up": true} lifts it
@@ -29,6 +31,7 @@ empty, and unknown fields say so.
 import threading
 import time
 from collections import deque
+from contextlib import asynccontextmanager
 
 import cv2
 import numpy as np
@@ -37,7 +40,7 @@ import rclpy
 import uvicorn
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from geometry_msgs.msg import Point32, Polygon, PoseStamped, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
@@ -55,12 +58,14 @@ from aero_sense_mission.comms import NO_NETWORK_ZONES
 from aero_sense_mission.mission_manager import CUSTOM, SCENARIO_AREAS
 
 from . import contracts, supervisor
+from .webrtc import WebRtcCameras
 
 #: LWIR is scaled over the band that matters for search, so ground, water and body heat are all
 #: visible: below this is cold water, above it is a body.
 THERMAL_SCALE_K = (290.0, 320.0)
 JPEG_QUALITY = 70
 STREAM_PERIOD_S = 0.15
+CAMERAS = ("rgb", "thermal")
 TELEMETRY_SAMPLES = 120           # two minutes at 1 Hz
 TELEMETRY_PERIOD_S = 1.0
 PUSH_PERIOD_S = 0.5
@@ -277,8 +282,9 @@ class DashboardBridge(Node):
             return {"success": False, "message": "the simulation did not answer"}
         return {"success": bool(result.success), "message": result.message, **extra(result)}
 
-    def jpeg(self, camera: str):
-        """The latest frame as JPEG, or None if that camera has not produced one yet."""
+    def image(self, camera: str):
+        """The latest frame as a BGR image (thermal in the inferno palette), or None if that camera
+        has not produced one yet."""
         msg = self._frames.get(camera)
         if msg is None:
             return None
@@ -286,10 +292,15 @@ class DashboardBridge(Node):
             kelvin = np.frombuffer(msg.data, np.uint16).reshape(msg.height, msg.width) * 0.01
             low, high = THERMAL_SCALE_K
             grey = np.clip((kelvin - low) / (high - low) * 255, 0, 255).astype(np.uint8)
-            image = cv2.applyColorMap(grey, cv2.COLORMAP_INFERNO)
-        else:
-            rgb = np.frombuffer(msg.data, np.uint8).reshape(msg.height, msg.width, 3)
-            image = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            return cv2.applyColorMap(grey, cv2.COLORMAP_INFERNO)
+        rgb = np.frombuffer(msg.data, np.uint8).reshape(msg.height, msg.width, 3)
+        return cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+
+    def jpeg(self, camera: str):
+        """The latest frame as JPEG, or None if that camera has not produced one yet."""
+        image = self.image(camera)
+        if image is None:
+            return None
         ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
         return buffer.tobytes() if ok else None
 
@@ -316,7 +327,14 @@ class DashboardBridge(Node):
 
 
 def build_app(bridge: DashboardBridge) -> FastAPI:
-    app = FastAPI(title="Aero Sense dashboard bridge")
+    cameras = WebRtcCameras(bridge.image)
+
+    @asynccontextmanager
+    async def lifespan(_app):
+        yield
+        await cameras.close()
+
+    app = FastAPI(title="Aero Sense dashboard bridge", lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"],
                        allow_headers=["*"])
 
@@ -409,7 +427,7 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
     @app.get("/api/camera/{camera}")
     def camera_stream(camera: str):
         """The drone's own view, as an MJPEG stream an <img> tag can show directly."""
-        if camera not in ("rgb", "thermal"):
+        if camera not in CAMERAS:
             return {"error": f"unknown camera {camera!r}"}
 
         def frames():
@@ -420,6 +438,19 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
                 time.sleep(STREAM_PERIOD_S)
 
         return StreamingResponse(frames(), media_type="multipart/x-mixed-replace; boundary=frame")
+
+    @app.post("/api/camera/{camera}/webrtc")
+    async def camera_webrtc(camera: str, offer: dict):
+        """WebRTC: the browser's SDP offer in, the bridge's answer with the camera's video track out."""
+        if camera not in CAMERAS:
+            return JSONResponse({"error": f"unknown camera {camera!r}"}, status_code=404)
+        if not isinstance(offer.get("sdp"), str) or offer.get("type") != "offer":
+            return JSONResponse({"error": "expected {sdp, type: 'offer'}"}, status_code=400)
+        try:
+            return await cameras.answer(camera, offer["sdp"], offer["type"])
+        except ValueError as error:           # an SDP aiortc cannot parse or negotiate
+            bridge.get_logger().warning(f"WebRTC offer for {camera} refused: {error}")
+            return JSONResponse({"error": f"WebRTC offer refused: {error}"}, status_code=400)
 
     @app.get("/api/world")
     def world():

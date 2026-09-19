@@ -284,7 +284,7 @@ clean OBJs.
 Installed: ROS 2 Humble (rclpy, sensor_msgs, nav2_msgs/map_server, rosbag2, rviz2,
 rqt_image_view), Gazebo Harmonic 8 + ros_gz (built in `~/uav_ws`), ArduPilot SITL,
 pymavlink, OpenCV, numpy/scipy, shapely, torch + ultralytics + transformers, FastAPI,
-uvicorn, websockets, reportlab, matplotlib, jinja2.
+uvicorn, websockets, aiortc (WebRTC video; installed with `pip install aiortc`), reportlab, matplotlib, jinja2.
 
 Needs `sudo` (run once when ready; the system works without them, using built-in mappers):
 

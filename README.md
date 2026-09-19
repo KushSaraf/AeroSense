@@ -41,7 +41,7 @@ Generated, gitignored: `build/`, `install/`, `log/` (colcon), `logs/` (run logs)
 | `aero_sense_navigation` | obstacle field for detours around structures |
 | `aero_sense_scenario_manager` | casualty placement (`config/victims.yaml`) and ground truth |
 | `aero_sense_visualization` | RViz config and markers |
-| `aero_sense_bridge` | HTTP bridge from ROS to the dashboard (:8000), process supervisor |
+| `aero_sense_bridge` | HTTP bridge from ROS to the dashboard (:8000), cameras over WebRTC (MJPEG fallback), process supervisor |
 
 ### The drone
 
