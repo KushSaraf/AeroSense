@@ -30,8 +30,12 @@ case "${1:-}" in
     docker exec "$NAME" bash -lc 'colcon build --base-paths src && cd frontend && npm ci'
     ;;
   fly)
-    # tmux inside the container, bound so the published ports reach it
-    docker exec -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace -e AERO_SENSE_LAUNCH_ARGS=vio:=false "$NAME" \
+    # A display for Ogre 1. Ogre 2 renders headless through EGL, but its GPU-rays path segfaults
+    # under llvmpipe (the rangefinders), and Ogre 1 only speaks GLX, so it needs an X server even
+    # with no screen. tmux is bound so the published ports reach it.
+    docker exec "$NAME" bash -lc 'pgrep -x Xvfb >/dev/null || (nohup Xvfb :99 -screen 0 1280x720x24 >/dev/null 2>&1 & sleep 3)'
+    docker exec -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace \
+                -e AERO_SENSE_LAUNCH_ARGS=vio:=false -e DISPLAY=:99 "$NAME" \
       bash -lc 'tools/dashboard.sh --headless --no-browser --quality low'
     ;;
   shell) docker exec -it -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace -e AERO_SENSE_LAUNCH_ARGS=vio:=false "$NAME" bash ;;
