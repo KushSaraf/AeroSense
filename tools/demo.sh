@@ -64,11 +64,14 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 
-SETUP="source /opt/ros/humble/setup.bash && source \$HOME/uav_ws/install/setup.bash && source $ROOT/install/setup.bash"
+# UAV_WS from the environment, so a container (or anyone keeping ArduPilot elsewhere) is not
+# forced to ~/uav_ws
+UAV_WS="${UAV_WS:-$HOME/uav_ws}"
+SETUP="source /opt/ros/humble/setup.bash && source $UAV_WS/install/setup.bash && source $ROOT/install/setup.bash"
 
 mkdir -p "$LOG_DIR"
 source /opt/ros/humble/setup.bash
-source "$HOME/uav_ws/install/setup.bash"
+source "$UAV_WS/install/setup.bash"
 
 if [[ $BUILD == 1 || ! -f "$ROOT/install/setup.bash" ]]; then
   echo "building..."
