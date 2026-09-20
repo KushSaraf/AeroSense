@@ -333,6 +333,22 @@ p {
   border-radius: 12px;
 }
 
+/* the simulated sectors name themselves on the map, rather than only in a popup */
+.leaflet-tooltip.sector-label {
+  background: rgba(32, 38, 53, 0.82);
+  border: 1px solid rgba(138, 224, 255, 0.35);
+  color: #e6edf7;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: none;
+  white-space: nowrap;
+}
+
+.leaflet-tooltip.sector-label::before {
+  display: none;
+}
+
 .map-watermark {
   position: absolute;
   inset: 0;

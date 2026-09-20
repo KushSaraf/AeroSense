@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
+import { CircleMarker, MapContainer, Polygon, Polyline, Popup, TileLayer, Tooltip, useMap } from 'react-leaflet'
+import { useSearchParams } from 'react-router-dom'
 import { useAreaDrawer } from '../components/AreaDrawer'
 import { LINK_COLOUR } from '../components/NetworkStatus'
 import { DeniedZones } from '../components/Zones'
@@ -48,6 +49,14 @@ function MapPage() {
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
   const [layers, setLayers] = useState({ sectors: true, network: true, hazards: true, victims: true, track: true, teams: true, routes: false })
   const area = useAreaDrawer(world)
+  // Mission command sends the operator here to draw a new area; one shot, so a reload does not redraw
+  const [params, setParams] = useSearchParams()
+  const startDrawing = area.start
+  useEffect(() => {
+    if (params.get('draw') !== '1') return
+    startDrawing()
+    setParams({}, { replace: true })
+  }, [params, setParams, startDrawing])
   const latitude = drone?.latitude
   const longitude = drone?.longitude
   const track = useFlightTrack(latitude, longitude, mission?.id, mission?.elapsedSeconds, TRACK_LIMIT)
@@ -105,6 +114,7 @@ function MapPage() {
               <Polygon key={sector.id} positions={sector.corners.map(toLatLng)}
                        pathOptions={{ color: active ? '#86e2a4' : '#8ae0ff', fillColor: active ? '#86e2a4' : '#8ae0ff',
                                       fillOpacity: active ? 0.12 : 0.05, weight: 2, dashArray: active ? undefined : '6 6' }}>
+                <Tooltip permanent direction="center" className="sector-label">{sector.name}</Tooltip>
                 <Popup>{sector.name}{active ? ' · being searched' : ''}</Popup>
               </Polygon>
             )
