@@ -117,7 +117,7 @@ rangefinders:                 # obstacle avoidance: one beam out of each side, l
   rendered: false
   mount_radius_m: 0.18        # out to the edge of the plates, clear of the battery and camera tray
   # Masses and beam angles are the manufacturer's (Benewake product pages and manuals); the
-  # meshes are built to their constructional drawings by tools/make_rangefinder.py.
+  # meshes are the vendor STEP files in hardware/cad, tessellated by tools/step_to_mesh.py.
   beams:                      # yaw in base_link (FLU): 0 forward, +90 left
     - {name: front, yaw_deg: 0,   part: TFmini Plus,    mesh: tfmini_plus.glb, mass_kg: 0.012, beam_rad: 0.0628}
     - {name: left,  yaw_deg: 90,  part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}

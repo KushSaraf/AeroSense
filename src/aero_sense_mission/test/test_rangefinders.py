@@ -67,3 +67,19 @@ def test_the_guard_holds_only_when_a_beam_faces_the_way_we_are_going():
     assert backed == pytest.approx((0.0, -2.0, 10.0))
     # already standing off: stay put
     assert obstacle.hold_at(here, north, distance_m=5.0, standoff_m=3.0) == (0.0, 0.0, 10.0)
+
+
+def test_a_beam_return_is_mapped_where_the_beam_was_looking():
+    """The guard stops for what a beam sees; the obstacle map records where it was, so the
+    planner can go round it next time instead of stopping again."""
+    import math
+    from aero_sense_mission import obstacle
+
+    here = (10.0, 20.0, 8.0)
+    # facing east, something 5 m ahead: due east of the drone, at the drone's own height
+    assert obstacle.hit_point(here, 0.0, "front", 5.0) == pytest.approx((15.0, 20.0, 8.0))
+    # facing north, the right beam looks east
+    x, y, z = obstacle.hit_point(here, math.pi / 2, "right", 4.0)
+    assert (round(x, 6), round(y, 6), z) == (14.0, 20.0, 8.0)
+    # the sensor sits off the centre of the drone: the return is that much farther out
+    assert obstacle.hit_point(here, 0.0, "front", 5.0, 0.18)[0] == pytest.approx(15.18)

@@ -45,6 +45,18 @@ function pointCloud(points: [number, number, number][]): THREE.Points {
   return new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.6, vertexColors: true }))
 }
 
+/** A beam return: a small red marker where the drone found something its map did not have. */
+function obstacleMarkers(points: [number, number, number][]): THREE.Points {
+  const positions = new Float32Array(points.length * 3)
+  points.forEach(([x, y, z], i) => {
+    const v = toThree(x, y, z)
+    positions.set([v.x, v.y, v.z], i * 3)
+  })
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  return new THREE.Points(geometry, new THREE.PointsMaterial({ size: 2.0, color: 0xef5350 }))
+}
+
 function structureMeshes(scene: Scene3d): THREE.Mesh[] {
   return scene.structures.filter((s) => s.heightM > 0).map((s) => {
     const mesh = new THREE.Mesh(
@@ -64,7 +76,7 @@ function structureMeshes(scene: Scene3d): THREE.Mesh[] {
 function ScenePage() {
   const { drone, victims } = useMission()
   const mount = useRef<HTMLDivElement>(null)
-  const layers = useRef<{ points: THREE.Group; structures: THREE.Group; victims: THREE.Group; trail: THREE.Line; drone: THREE.Mesh } | null>(null)
+  const layers = useRef<{ points: THREE.Group; obstacles: THREE.Group; structures: THREE.Group; victims: THREE.Group; trail: THREE.Line; drone: THREE.Mesh } | null>(null)
   const controls = useRef<OrbitControls | null>(null)
   const trail = useRef<THREE.Vector3[]>([])
   const [scene, setScene] = useState<Scene3d | null>(null)
@@ -88,7 +100,7 @@ function ScenePage() {
     world.add(new THREE.GridHelper(600, 60, 0x3b4a66, 0x283247))
     world.add(new THREE.AxesHelper(10))
 
-    const groups = { points: new THREE.Group(), structures: new THREE.Group(), victims: new THREE.Group() }
+    const groups = { points: new THREE.Group(), obstacles: new THREE.Group(), structures: new THREE.Group(), victims: new THREE.Group() }
     Object.values(groups).forEach((group) => world.add(group))
     const trailLine = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: 0xa6d9e7 }))
     const droneMesh = new THREE.Mesh(new THREE.SphereGeometry(1.2, 16, 12), new THREE.MeshBasicMaterial({ color: 0xffffff }))
@@ -141,6 +153,8 @@ function ScenePage() {
     if (!l || !scene) return
     if (l.structures.children.length === 0) refill(l.structures, structureMeshes(scene))
     refill(l.points, scene.points.length ? [pointCloud(scene.points)] : [])
+    const obstacles = scene.obstacles ?? []
+    refill(l.obstacles, obstacles.length ? [obstacleMarkers(obstacles)] : [])
   }, [scene])
 
   useEffect(() => {
@@ -177,6 +191,7 @@ function ScenePage() {
   }, [position, follow])
 
   const points = scene?.points.length ?? 0
+  const obstacles = scene?.obstacles?.length ?? 0
   return (
     <div className="relative h-full overflow-hidden bg-[#1b2130]">
       <div ref={mount} className="absolute inset-0" />
@@ -186,6 +201,7 @@ function ScenePage() {
           ? `${points} feature points OpenVINS has triangulated from the stereo cameras, coloured by height`
           : 'No feature points yet: OpenVINS starts in the hover after take-off, and its points are placed once its track fits GPS')}
         <br />Cylinders: structures the drone plans round · spheres: casualties by priority · white: the drone and its track
+        {obstacles > 0 && <><br />{`Red: ${obstacles} obstacle${obstacles === 1 ? '' : 's'} the rangefinder beams found, which the mission now routes round`}</>}
       </div>
       <button type="button" onClick={() => setFollow((f) => !f)}
               className={`absolute right-4 top-4 rounded border px-3 py-2 text-[10px] uppercase tracking-[0.16em] ${follow ? 'border-[#8ae0ff]/60 bg-[#8ae0ff]/20 text-white' : 'border-white/15 bg-white/5 text-white/70'}`}>

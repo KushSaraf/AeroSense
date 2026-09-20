@@ -196,6 +196,8 @@ export interface Scene3d {
   structures: { name: string; kind: string; x: number; y: number; radiusM: number; heightM: number }[]
   /** OpenVINS's feature points, [x, y, z] */
   points: [number, number, number][]
+  /** Where the avoidance beams hit something, [x, y, z]; absent in recordings made before them. */
+  obstacles?: [number, number, number][]
 }
 
 export interface LiveState {

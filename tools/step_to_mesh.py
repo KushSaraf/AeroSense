@@ -19,26 +19,35 @@ once. The output is in metres, one sub-mesh per colour, in the drone's body conv
     --drop NAME    leave out parts whose name starts with NAME (e.g. an IDD field-of-view cone)
     --colour N=RGB colour for parts whose name starts with N (CAD files often carry none)
 
-Needs OpenCascade's Python bindings, only for this tool: pip install cadquery-ocp trimesh
+Tessellates with OpenCascade's Python bindings (pip install cadquery-ocp) when they are installed,
+and with cascadio (the same OCCT, packaged as a wheel: pip install cascadio) when they are not.
+cascadio reads the STEP's own part colours but not its part names, so --drop and --colour then
+match the glTF mesh names it writes ("<part> ", "<part>_1", ...).
 """
 import argparse
+import tempfile
 from pathlib import Path
 
 import numpy as np
 import trimesh
-from OCP.BRep import BRep_Tool
-from OCP.BRepMesh import BRepMesh_IncrementalMesh
-from OCP.Quantity import Quantity_Color
-from OCP.STEPCAFControl import STEPCAFControl_Reader
-from OCP.TCollection import TCollection_ExtendedString
-from OCP.TDataStd import TDataStd_Name
-from OCP.TDF import TDF_Label, TDF_LabelSequence
-from OCP.TDocStd import TDocStd_Document
-from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
-from OCP.TopExp import TopExp_Explorer
-from OCP.TopLoc import TopLoc_Location
-from OCP.TopoDS import TopoDS
-from OCP.XCAFDoc import XCAFDoc_ColorType, XCAFDoc_DocumentTool
+
+try:
+    from OCP.BRep import BRep_Tool
+except ImportError:                                    # cascadio backend below
+    BRep_Tool = None
+if BRep_Tool is not None:
+    from OCP.BRepMesh import BRepMesh_IncrementalMesh
+    from OCP.Quantity import Quantity_Color
+    from OCP.STEPCAFControl import STEPCAFControl_Reader
+    from OCP.TCollection import TCollection_ExtendedString
+    from OCP.TDataStd import TDataStd_Name
+    from OCP.TDF import TDF_Label, TDF_LabelSequence
+    from OCP.TDocStd import TDocStd_Document
+    from OCP.TopAbs import TopAbs_FACE, TopAbs_REVERSED
+    from OCP.TopExp import TopExp_Explorer
+    from OCP.TopLoc import TopLoc_Location
+    from OCP.TopoDS import TopoDS
+    from OCP.XCAFDoc import XCAFDoc_ColorType, XCAFDoc_DocumentTool
 
 MM_TO_M = 0.001
 #: Tessellation tolerance: coarse enough that three simulated cameras render it cheaply,
@@ -124,8 +133,8 @@ def triangles(shape) -> tuple:
     return np.array(vertices, dtype=float).reshape(-1, 3), np.array(faces, dtype=np.int64).reshape(-1, 3)
 
 
-def convert(step: Path, out: Path, drop: list, overrides: dict, origin_mm=None) -> None:
-    """origin_mm None: camera convention, origin at the front face. Otherwise Y-up airframe."""
+def occ_parts(step: Path, drop: list, overrides: dict) -> dict:
+    """colour -> meshes (mm), tessellated by OpenCascade, which also gives each part's name."""
     doc, shapes, colours = load(step)
     roots = TDF_LabelSequence()
     shapes.GetFreeShapes(roots)
@@ -139,6 +148,36 @@ def convert(step: Path, out: Path, drop: list, overrides: dict, origin_mm=None) 
             if len(faces):
                 by_colour.setdefault(part_colour(colours, shape, names, overrides), []).append(
                     trimesh.Trimesh(vertices, faces, process=False))
+    return by_colour
+
+
+def cascadio_parts(step: Path, drop: list, overrides: dict) -> dict:
+    """The same, through cascadio: OCCT tessellates the STEP straight into a glTF, in metres."""
+    import cascadio
+    with tempfile.TemporaryDirectory() as tmp:
+        glb = Path(tmp) / "step.glb"
+        cascadio.step_to_glb(str(step), str(glb), LINEAR_DEFLECTION_MM, ANGULAR_DEFLECTION_RAD)
+        scene = trimesh.load(glb, merge_primitives=False)
+    by_colour = {}
+    for node in scene.graph.nodes_geometry:
+        transform, name = scene.graph[node]
+        if any(matches({name}, prefix) for prefix in drop):
+            print(f"  dropped {name}")
+            continue
+        mesh = scene.geometry[name].copy()
+        mesh.apply_transform(transform)
+        mesh.vertices /= MM_TO_M                       # the rest of this tool works in millimetres
+        colour = tuple(c / 255 for c in mesh.visual.material.baseColorFactor[:3])
+        for prefix, rgb in overrides.items():
+            colour = rgb if name.startswith(prefix) else colour
+        by_colour.setdefault(colour, []).append(mesh)
+    return by_colour
+
+
+def convert(step: Path, out: Path, drop: list, overrides: dict, origin_mm=None) -> None:
+    """origin_mm None: camera convention, origin at the front face. Otherwise Y-up airframe."""
+    by_colour = occ_parts(step, drop, overrides) if BRep_Tool is not None else \
+        cascadio_parts(step, drop, overrides)
     if not by_colour:
         raise SystemExit("nothing left to export")
     lo, hi = trimesh.util.concatenate([m for meshes in by_colour.values() for m in meshes]).bounds

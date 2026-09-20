@@ -44,6 +44,7 @@ ROUTES = {
     "aero_sense/camera/rgb/image_raw": ("rgb", Image, comms.DROP),
     "aero_sense/camera/thermal/image_raw": ("thermal", Image, comms.DROP),
     "aero_sense/perception/vio_points": ("vio_points", PointCloud2, comms.DROP),
+    "aero_sense/perception/obstacle_points": ("obstacle_points", PointCloud2, comms.LATEST),
 }
 EVENTS_TOPIC = "aero_sense/mission/events"
 LATCHED_KEYS = {"mission_state"}

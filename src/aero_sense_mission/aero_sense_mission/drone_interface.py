@@ -8,6 +8,7 @@ Publishes (relative names; launching under namespace drone_01 prefixes them):
   aero_sense/gps/fix          sensor_msgs/NavSatFix        the autopilot's GPS as it sees it
   aero_sense/mission/events   std_msgs/String              GPS lost / back, what it navigates on
   aero_sense/perception/vio_points  sensor_msgs/PointCloud2  OpenVINS's feature points in the map (vio_map.py)
+  aero_sense/perception/obstacle_points  sensor_msgs/PointCloud2  where the avoidance beams hit something
 Subscribes: aero_sense/rangefinder/{front,left,back,right} (LaserScan, the TF beams) -> MAVLink
             DISTANCE_SENSOR, which ArduPilot's proximity library and avoidance fly on
   TF map -> base_link
@@ -70,6 +71,12 @@ BEAM_ORIENTATION = {"front": 0, "right": 2, "back": 4, "left": 6}
 #: OpenVINS's feature clouds are folded into the 3D map at most this often, and published this often.
 VIO_POINTS_PERIOD_S = 0.5
 VIO_MAP_PUBLISH_S = 1.0
+#: What the beams have hit, kept as a coarse point map so the mission can route round what the
+#: structure map never held (a pole, a parked bus). One point per 2 m cube, for a whole sortie:
+#: an obstacle the drone stopped for once is still there when it comes back that way.
+OBSTACLE_VOXEL_M = 2.0
+OBSTACLE_KEEP_S = 3600.0
+OBSTACLE_MAX_POINTS = 300
 
 
 class DroneInterface(Node):
@@ -102,8 +109,10 @@ class DroneInterface(Node):
             "fix": self.create_publisher(NavSatFix, "aero_sense/gps/fix", 10),
             "events": self.create_publisher(String, EVENTS_TOPIC, 20),
             "vio_points": self.create_publisher(PointCloud2, "aero_sense/perception/vio_points", 1),
+            "obstacle_points": self.create_publisher(PointCloud2, "aero_sense/perception/obstacle_points", 1),
         }
         self._vio_map = vio_map.VoxelMap()
+        self._obstacle_map = vio_map.VoxelMap(OBSTACLE_VOXEL_M, OBSTACLE_KEEP_S, OBSTACLE_MAX_POINTS)
         self._last_points = 0.0
         self._beams = {}                 # side -> (metres, sensor range) from the rangefinders
         self._last_obstacle_event = 0.0
@@ -135,7 +144,7 @@ class DroneInterface(Node):
         vio_ns = self._vio_topic.rsplit("/", 1)[0]
         for cloud in ("points_slam", "points_msckf"):
             self.create_subscription(PointCloud2, f"{vio_ns}/{cloud}", self._on_vio_points, 1, callback_group=points)
-        self.create_timer(VIO_MAP_PUBLISH_S, self._publish_vio_map, callback_group=points)
+        self.create_timer(VIO_MAP_PUBLISH_S, self._publish_point_maps, callback_group=points)
         self.create_subscription(PoseStamped, "aero_sense/drone/setpoint", self._on_setpoint, 1,
                                  callback_group=commands)
         for name, handler in (("takeoff", self._takeoff), ("land", self._land),
@@ -271,12 +280,13 @@ class DroneInterface(Node):
         if len(xyz):
             self._vio_map.add(vio_map.to_map(xyz.astype(float), alignment), now)
 
-    def _publish_vio_map(self) -> None:
-        points = self._vio_map.points()
-        if not len(points):
-            return
+    def _publish_point_maps(self) -> None:
+        """The two point maps: what the cameras triangulated, and what the beams have hit."""
         header = Header(stamp=self.get_clock().now().to_msg(), frame_id=self._map_frame)
-        self._pubs["vio_points"].publish(point_cloud2.create_cloud_xyz32(header, points.astype(np.float32)))
+        for key, source in (("vio_points", self._vio_map), ("obstacle_points", self._obstacle_map)):
+            points = source.points()
+            if len(points):
+                self._pubs[key].publish(point_cloud2.create_cloud_xyz32(header, points.astype(np.float32)))
 
     def _on_vio(self, msg: Odometry) -> None:
         if not self._connected or self._home is None:
@@ -387,7 +397,9 @@ class DroneInterface(Node):
         state = self._ap.state
         here = ned_to_map(state.n, state.e, state.d, self._home)
         beams = {side: reading for side, (reading, _) in self._beams.items()}
-        hit = obstacle.blocked(beams, here, self._target[:3], ned_yaw_to_enu(state.yaw))
+        yaw = ned_yaw_to_enu(state.yaw)
+        self._map_beam_returns(here, yaw, beams)
+        hit = obstacle.blocked(beams, here, self._target[:3], yaw)
         if hit is None:
             if self._hold is not None:              # the way is clear again: fly the leg
                 self._hold = None
@@ -404,6 +416,18 @@ class DroneInterface(Node):
         if first or now - self._last_obstacle_event >= OBSTACLE_EVENT_S:
             self._last_obstacle_event = now
             self._event(f"obstacle {distance:.1f} m to the {side}: holding short of it")
+
+    def _map_beam_returns(self, here: tuple, yaw: float, beams: dict) -> None:
+        """Every beam that reads something goes into the obstacle map, whether or not it is in
+        the way of this leg: the drone maps what is around it, not only what stops it.
+
+        ponytail: the 0.18 m the sensors sit off the centre is inside one 2 m cell, so the
+        drone's own position is used as the ray's origin.
+        """
+        points = [obstacle.hit_point(here, yaw, side, reading)
+                  for side, reading in beams.items() if math.isfinite(reading)]
+        if points:
+            self._obstacle_map.add(np.array(points, float), time.monotonic())
 
     def _takeoff(self, _request, response):
         alt = self.get_parameter("takeoff_alt_m").value

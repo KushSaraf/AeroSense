@@ -59,3 +59,19 @@ def test_a_victim_beside_a_terrace_is_within_reach_of_it():
     assert structure_map.distance_to_nearest(structures, -176.0, 21.5) < 6.0
     # the approach south of the city is open ground: nothing mapped is within reach of it
     assert structure_map.distance_to_nearest(structures, 0.0, -110.0) > 15.0
+
+
+def test_the_obstacle_map_adds_what_a_beam_can_hit_but_a_responder_map_does_not_hold():
+    """Poles, parked vehicles and cordon barriers are obstacles, not structures: the avoidance
+    beams have to see them, and `distance_to_nearest` must not call a casualty beside a parked
+    car "inside a building"."""
+    structures = structure_map.load(WORLD)
+    obstacles = structure_map.load_obstacles(WORLD)
+
+    kinds = {s.kind for s in obstacles} - {s.kind for s in structures}
+    assert kinds == {"aero_sense_electric_pole", "bus", "pickup", "hatchback", "jersey_barrier"}
+    assert len(obstacles) > len(structures)
+    poles = [s for s in obstacles if s.kind == "aero_sense_electric_pole"]
+    assert poles and all(s.height_m == 9.2 for s in poles)      # taller than a low inspection leg
+    # every structure is still in it, unchanged
+    assert set(structures) <= set(obstacles)

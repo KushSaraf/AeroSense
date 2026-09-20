@@ -25,7 +25,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
-from sensor_msgs.msg import BatteryState
+from sensor_msgs.msg import BatteryState, PointCloud2
+from sensor_msgs_py import point_cloud2
 from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from ament_index_python.packages import get_package_share_directory
@@ -37,6 +38,10 @@ from aero_sense_perception import structure_map
 
 from . import airspace, swoop
 from .search_pattern import Area, CoverageGrid, footprint_centre, footprint_radius, lawnmower
+
+#: A beam return is a point, not an outline: it becomes a no-fly circle this wide, which the
+#: planner then keeps its own clearance outside of.
+DETECTED_RADIUS_M = 1.0
 
 #: Sector bounds in the map frame, matching aero_sense_gazebo/worlds/aero_sense_disaster.sdf.
 SCENARIO_AREAS = {
@@ -109,6 +114,7 @@ class MissionManager(Node):
         self._route = ()
         self._route_goal = None
         self._structures = self._load_structures()
+        self._detected = ()              # obstacles the beams found that the structure map lacks
         self._base = None
         self._victims = {}
         self._inspected = {}
@@ -136,6 +142,8 @@ class MissionManager(Node):
         self.create_subscription(BatteryState, "aero_sense/drone/battery", self._on_battery, 10)
         self.create_subscription(VictimArray, "aero_sense/victims", self._on_victims, 10)
         self.create_subscription(VictimArray, "aero_sense/perception/suspects", self._on_leads, 10)
+        self.create_subscription(PointCloud2, "aero_sense/perception/obstacle_points",
+                                 self._on_obstacle_points, 1)
         self.create_subscription(DroneStatus, "aero_sense/drone/status",
                                  lambda m: setattr(self, "_armed", m.armed), 10)
 
@@ -246,6 +254,27 @@ class MissionManager(Node):
         self.get_logger().info(f"airspace: {len(structures)} structures, "
                                f"{len(tall)} reach search altitude ({', '.join(o.name for o in tall)})")
         return structures
+
+    def _on_obstacle_points(self, msg: PointCloud2) -> None:
+        """What the avoidance beams hit, as no-fly circles the planner respects.
+
+        The structure map is what the responder had before launch; these are what the drone found
+        that was not in it - a pole, a parked bus, a wall the map got wrong. Returns from inside a
+        mapped structure are dropped: the planner already goes round those, and a circle per voxel
+        of every wall the drone passes would fill the planning grid.
+        """
+        points = point_cloud2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
+        found = tuple(
+            structure_map.Structure(f"obstacle at ({x:.0f}, {y:.0f})", "detected", float(x), float(y),
+                                    DETECTED_RADIUS_M, float(z))
+            for x, y, z in points.reshape(-1, 3)
+            if structure_map.distance_to_nearest(self._structures, x, y) > DETECTED_RADIUS_M)
+        if len(found) == len(self._detected):
+            return
+        self._event(f"obstacle map: {len(found)} obstacle{'s' if len(found) != 1 else ''} the "
+                    f"structure map did not have")
+        self._detected = found
+        self._route, self._route_goal = (), None       # re-plan this leg round what is now known
 
     def _begin(self, mission_id: str):
         self._mission_id = mission_id
@@ -572,12 +601,13 @@ class MissionManager(Node):
         can close every way round; then the drone first climbs where it is and plans at the leg's
         height, and if even that is walled in it holds where it is rather than fly through.
         """
-        low = airspace.blocking(self._structures, min(here[2], altitude))
+        known = self._structures + self._detected
+        low = airspace.blocking(known, min(here[2], altitude))
         try:
             return airspace.route(here[:2], airspace.safe_goal((x, y), low), low)
         except airspace.NoRoute:
             pass
-        high = airspace.blocking(self._structures, altitude)
+        high = airspace.blocking(known, altitude)
         try:
             rest, names = airspace.route(here[:2], airspace.safe_goal((x, y), high), high)
         except airspace.NoRoute as exc:
@@ -599,7 +629,7 @@ class MissionManager(Node):
         altitude = max(here.z, self.get_parameter("search_altitude_m").value)
         try:
             waypoints, names = airspace.route((here.x, here.y), self._base,
-                                              airspace.blocking(self._structures, altitude))
+                                              airspace.blocking(self._structures + self._detected, altitude))
         except airspace.NoRoute as exc:
             self._event(f"obstacle avoidance: no clear way home at {altitude:.0f} m ({exc}): handing straight to RTL")
             return

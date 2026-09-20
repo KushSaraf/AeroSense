@@ -10,9 +10,10 @@ Ogre2GpuRays in this world, though the same sensor works on a standalone model i
 (docs/VERIFICATION.md). The model keeps the real parts and their meshes; set
 `rangefinders.rendered: true` in sensors.yaml to use the Gazebo sensors once that is fixed.
 
-What it sees: every structure the world includes (`structure_map`: buildings, the radio mast, the
-towers, as upright cylinders of their footprint radius) that is taller than the drone is high.
-Poles, vehicles and terrain are not in that map, so the beams do not see them.
+What it sees: everything the world includes that `structure_map.load_obstacles` knows about -
+buildings, the radio mast, the towers, the electric poles, parked vehicles and the cordon
+barriers - as upright cylinders of their footprint radius, and only while one stands taller than
+the drone. Terrain and the flood water are not in that map, so the beams do not see them.
 """
 import math
 from pathlib import Path
@@ -73,7 +74,7 @@ class RangefinderSim(Node):
         self._rf = cfg["rangefinders"]
         self._ground_z = self.get_parameter("ground_z").value
         self._structures = np.array([(s.x, s.y, s.radius_m, s.height_m)
-                                     for s in structure_map.load(Path(world))])
+                                     for s in structure_map.load_obstacles(Path(world))])
         self._noise = np.random.default_rng(2026)
         self._pubs = {beam["name"]: self.create_publisher(LaserScan, TOPIC.format(side=beam["name"]), 1)
                       for beam in self._rf["beams"]}
@@ -81,7 +82,7 @@ class RangefinderSim(Node):
         self.create_subscription(Odometry, GROUND_TRUTH_TOPIC, lambda m: setattr(self, "_pose", m.pose.pose), 1)
         self.create_timer(1.0 / self._rf["rate_hz"], self._publish)
         self.get_logger().info(
-            f"rangefinders from {len(self._structures)} structures: "
+            f"rangefinders from {len(self._structures)} obstacles: "
             f"{', '.join(b['name'] + ' ' + b['part'] for b in self._rf['beams'])}")
 
     def _publish(self) -> None:

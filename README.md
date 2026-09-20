@@ -137,7 +137,13 @@ Micro elsewhere, 0.1-12 m). They reach ArduPilot as proximity, and because its o
 leaves GUIDED targets alone, the drone guards its own setpoints: whichever beam faces the way it
 is going stops the leg, the drone backs off to 3 m and waits, and flies on when the way clears
 (`aero_sense_mission/obstacle.py`). Flown at a building at 4 m/s it stopped 1.55 m short and
-settled at 3 m; before the guard it flew into the wall.
+settled at 3 m; before the guard it flew into the wall. Flown at an electric pole at 6 m it picked
+it up at 7.3 m and held 3.3 m off it.
+
+Every return is also remembered. The beams hit what the responder's building map never had - a
+pole, a parked bus, a wall the map got wrong - so each one goes into a 2 m voxel map that leaves
+the drone as `aero_sense/perception/obstacle_points`, shows red in the 3D view, and becomes a
+no-fly circle the mission plans round: the drone stops for an obstacle once, then flies round it.
 
 ### Hazards: what the ground is like, region by region
 
@@ -156,7 +162,8 @@ without it.
 The dashboard's **3D VIEW** shows what the drone has seen in 3D: the feature points OpenVINS
 triangulates from the stereo cameras, placed in the map by the same fit it navigates on
 (`aero_sense_mission/vio_map.py`: one per 0.5 m voxel, the last two minutes), coloured by height,
-with the structures it plans round, the casualties it has confirmed and its own track. Points
+with the structures it plans round, the obstacles its rangefinder beams have found (red), the
+casualties it has confirmed and its own track. Points
 appear once OpenVINS has initialised after take-off and its track fits GPS.
 
 ### Tracking: one name per casualty (ByteTrack)

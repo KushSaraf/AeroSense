@@ -125,7 +125,7 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
 ## Obstacle avoidance (`obstacle.py`, `rangefinder_sim`, `sensors.yaml` `rangefinders`)
 
 - **Parts:** TFmini Plus forward, three TFMini-S Micro on the other sides, 0.1-12 m. Meshes from
-  the manufacturer's drawing (`tools/make_rangefinder.py`); Benewake publishes no CAD.
+  the vendor's STEP (`hardware/cad/tfmini_*`, `tools/step_to_mesh.py`).
 - **To the autopilot:** `drone_interface` sends each beam as MAVLink DISTANCE_SENSOR (time since
   boot in 32 bits: epoch ms overflow it and killed the node). ArduPilot reports proximity healthy
   (PRX1_TYPE 2), but **its avoidance does not steer GUIDED targets**, which is why the guard exists.
@@ -133,10 +133,16 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   leg while it reads under 12 m, backing off to a 3 m stand-off and flying the leg again when it
   clears. It re-checks at 5 Hz, not per setpoint: a leg is one command. It is the last line;
   `airspace.py` is what routes round what the map knows.
+- **The map the beams hit:** `structure_map.load_obstacles` = the structures plus the electric
+  poles, parked vehicles and cordon barriers (151, against 101 structures). Terrain and the flood
+  water are in neither.
+- **What they find:** every return goes into a 2 m voxel map and out as
+  `aero_sense/perception/obstacle_points` (relayed, drawn red in the 3D view). `mission_manager`
+  turns each point more than `DETECTED_RADIUS_M` from a mapped structure into a no-fly circle and
+  re-plans the leg, so an obstacle the guard stopped for once is flown round after that.
 - **Simulation:** a `gpu_lidar` on this drone segfaults gz-rendering 8 (docs/VERIFICATION.md), so
-  `rangefinder_sim` casts the beams at `structure_map`'s footprints and publishes the same topics.
-  It sees only mapped structures: no poles, vehicles or terrain. `rangefinders.rendered: true`
-  switches to the Gazebo sensors.
+  `rangefinder_sim` casts the beams at those footprints and publishes the same topics.
+  `rangefinders.rendered: true` switches to the Gazebo sensors.
 
 ## Hazards: SegFormer-B0 and HSI (`hazard_mapper`, `disaster.py`, `hsi.py`, `ml/segformer/`)
 
@@ -180,8 +186,9 @@ generator. `ground_routes` runs on the ground side: it plans from `aero_sense/do
 `drone_interface` folds OpenVINS's `points_slam`/`points_msckf` into a 0.5 m voxel map (kept 120 s,
 at most 4000 points) through the same alignment its track uses, only while that fit is healthy,
 and publishes `aero_sense/perception/vio_points` (PointCloud2, map) at 1 Hz. comms_link relays it
-like camera frames (dropped on a weak link). The bridge serves it with the structure footprints at
-`/api/scene`; the dashboard's **3D VIEW** draws them with the drone, its track and the casualties.
+like camera frames (dropped on a weak link). The bridge serves it with the structure footprints and the
+beam-mapped obstacles at `/api/scene`; the dashboard's **3D VIEW** draws them with the drone, its
+track and the casualties.
 three.js is y-up: map (x, y, z) is three (x, z, -y).
 
 ## Video (`aero_sense_bridge/webrtc.py`)

@@ -50,13 +50,29 @@ path, and it took three flights to get right:
 | 9 m margin, re-checked at 5 Hz, hold where we stopped | 0.61 m | stopped at 1.2 m, then drifted in while holding |
 | 12 m margin, 5 Hz, back off to a 3 m stand-off | **1.55 m**, settles at 3.0 m | flies the leg again when the way clears |
 
+**The parts are the vendor CAD.** Benewake's STEP files (`hardware/cad/tfmini_plus`,
+`hardware/cad/tfmini_s`) tessellated by `tools/step_to_mesh.py`: 35 x 18.5 x 21 mm and
+42 x 15 x 16 mm, lens face on the beam axis, 4068 and 2684 triangles. They replace the meshes
+built to the drawings, and `test_render` checks each one's width and depth against the datasheet.
+
+**What the beams see (2026-09-20).** `structure_map.load_obstacles` adds what a responder's
+building map does not hold but a beam can hit: the 34 electric poles (9.2 m to the insulators,
+mapped as the 0.9 m circle that contains the cross-arm), the 9 parked vehicles and the 6 cordon
+barriers - 151 obstacles against 101 structures. Flown at an electric pole at 6 m, 4 m/s: the
+front TFmini Plus picked it up at 7.3 m and the guard held the drone 3.3 m off the pole's mapped
+edge for the rest of the run (`scratchpad/pole3.log`). Every return is folded into a 2 m voxel
+map and published as `aero_sense/perception/obstacle_points`; `mission_manager` logged
+"obstacle map: 4 obstacles the structure map did not have" and planned round them from then on.
+Returns inside a mapped structure are dropped, or every wall the drone passes would fill the
+planning grid.
+
 **gz-rendering 8 segfaults on a gpu_lidar on this drone.** Ogre2GpuRays::UpdateRenderTarget1stPass,
 null dereference, every time, with one beam or four, in base_link or payload_link, at low quality,
 with the near plane at 0.1 or 0.5 m, with or without the ArduPilot plugin, spawned at start or into
 a running world. The same sensor is fine on a standalone model in the same world, alone and beside
 a camera, a depth camera, a thermal camera, five cameras, a GLB mesh, and on a falling body. So the
 beams are cast geometrically instead (`aero_sense_bringup/rangefinder_sim`, against
-`structure_map`'s footprints); `sensors.yaml` `rangefinders.rendered: true` puts the Gazebo sensors
+`structure_map.load_obstacles`'s footprints); `sensors.yaml` `rangefinders.rendered: true` puts the Gazebo sensors
 back when that is fixed. The onboard side reads the same topics either way.
 
 

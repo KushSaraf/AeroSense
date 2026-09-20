@@ -274,11 +274,14 @@ def test_the_rangefinders_are_the_parts_on_the_datasheets():
     assert cfg["rangefinders"]["range_m"] == [0.1, 12.0]                     # both parts
     assert round(math.degrees(beams["front"]["beam_rad"]), 1) == 3.6         # TFmini Plus
     assert round(math.degrees(beams["left"]["beam_rad"]), 1) == 2.0          # TFMini-S
-    sizes = {"tfmini_plus.glb": (0.035, 0.021), "tfmini_s.glb": (0.042, 0.016)}   # across, high
-    for mesh, (across, high) in sizes.items():
+    # the vendor's CAD, tessellated by tools/step_to_mesh.py: the lens face is on x = 0 and the
+    # body reaches back along -x. Height is not checked: the Plus's cable boss adds 4.5 mm to it.
+    sizes = {"tfmini_plus.glb": (0.035, 0.021), "tfmini_s.glb": (0.042, 0.016)}  # across, deep
+    for mesh, (across, deep) in sizes.items():
         bounds = trimesh.load(render.share() / "meshes" / mesh).bounds
         assert abs((bounds[1][1] - bounds[0][1]) - across) < 1e-3
-        assert abs((bounds[1][2] - bounds[0][2]) - high) < 1e-3
+        assert abs((bounds[1][0] - bounds[0][0]) - deep) < 1e-3
+        assert abs(bounds[1][0]) < 1e-3
 
 
 def test_each_beam_looks_out_of_its_own_side():

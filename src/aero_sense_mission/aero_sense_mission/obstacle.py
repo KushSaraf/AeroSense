@@ -62,3 +62,14 @@ def hold_at(here, target, distance_m: float = math.inf, standoff_m: float = STAN
     if length < 1e-3 or back == 0.0:
         return (here[0], here[1], target[2])
     return (here[0] - east / length * back, here[1] - north / length * back, target[2])
+
+
+def hit_point(here, yaw: float, side: str, distance_m: float, mount_radius_m: float = 0.0):
+    """Where in the map a beam's return is: (x, y, z) on the ray of `side`, at the drone's height.
+
+    The beams look out level, so the return is at the drone's own altitude; what stands there
+    reaches at least that high, which is what the route planner needs to know.
+    """
+    bearing = yaw + BEAM_BEARINGS[side]
+    reach = mount_radius_m + distance_m
+    return (here[0] + reach * math.cos(bearing), here[1] + reach * math.sin(bearing), here[2])

@@ -33,6 +33,21 @@ STRUCTURE_HEIGHT_M = {
 }
 
 
+#: What else the world puts in the air that a rangefinder beam can hit: street furniture and
+#: parked vehicles. Plan radius is half the larger footprint side, height the model's own, both
+#: measured from the models (the reference vehicle meshes carry a scale: bus 0.01, the rest
+#: 0.0254). The pole's radius is its cross-arm's half span, not the 0.22 m shaft: the circle has
+#: to contain what a drone at 8.5 m would hit.
+OBSTACLE_RADIUS_M = {
+    "aero_sense_electric_pole": 0.9,
+    "bus": 6.3, "pickup": 2.85, "hatchback": 2.0, "jersey_barrier": 2.03,
+}
+OBSTACLE_HEIGHT_M = {
+    "aero_sense_electric_pole": 9.2,           # 9 m shaft, cross-arm 8.5 m, insulators on top
+    "bus": 3.7, "pickup": 1.86, "hatchback": 1.56, "jersey_barrier": 1.14,
+}
+
+
 @dataclass(frozen=True)
 class Structure:
     name: str
@@ -69,6 +84,17 @@ def include_pose(include) -> tuple:
 
 def load(world: Path) -> tuple:
     """Every structure the world includes, with its plan position."""
+    return _models(world, STRUCTURE_RADIUS_M, STRUCTURE_HEIGHT_M)
+
+
+def load_obstacles(world: Path) -> tuple:
+    """The structures plus everything else in the world a beam can hit: poles, parked vehicles,
+    cordon barriers. What the avoidance sensors see, as against what the responder's map holds."""
+    return _models(world, {**STRUCTURE_RADIUS_M, **OBSTACLE_RADIUS_M},
+                   {**STRUCTURE_HEIGHT_M, **OBSTACLE_HEIGHT_M})
+
+
+def _models(world: Path, radius_m: dict, height_m: dict) -> tuple:
     root = ET.parse(world).getroot()
     models = Path(world).parent.parent / "models"
     structures = []
@@ -81,8 +107,8 @@ def load(world: Path) -> tuple:
             structures.append(Structure(name, uri, x + cx * math.cos(yaw) - cy * math.sin(yaw),
                                         y + cx * math.sin(yaw) + cy * math.cos(yaw),
                                         max(half_x, half_y), height))
-        elif uri in STRUCTURE_RADIUS_M:          # vehicles, barriers, poles: not structures
-            structures.append(Structure(name, uri, x, y, STRUCTURE_RADIUS_M[uri], STRUCTURE_HEIGHT_M.get(uri, 0.0)))
+        elif uri in radius_m:                    # what is not in the table is ground, water, signs
+            structures.append(Structure(name, uri, x, y, radius_m[uri], height_m.get(uri, 0.0)))
     return tuple(structures)
 
 
