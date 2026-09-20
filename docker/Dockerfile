@@ -54,12 +54,21 @@ RUN su ap -c "cd $UAV_WS/src && git clone --depth 1 --recurse-submodules --shall
  && apt-get clean
 
 # The Gazebo plugin, and ros_gz from source: its binaries are built against Fortress, not Harmonic
+# The apt install lives in this stage, not the first one: touching that layer would rebuild
+# ArduPilot. libgflags-dev is ros_gz_sim's (create.cpp includes gflags/gflags.h); rosdep picks up
+# whatever else the three sources declare, skipping the Gazebo keys it has no Harmonic rules for.
 RUN chown -R root:root $UAV_WS/src/ardupilot 2>/dev/null; cd $UAV_WS/src \
+ && apt-get update && apt-get install -y --no-install-recommends libgflags-dev \
  && git clone --depth 1 -b ros2 https://github.com/ArduPilot/ardupilot_gazebo.git \
  && git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git \
  && git clone --depth 1 -b humble https://github.com/ros/sdformat_urdf.git \
  && cd $UAV_WS && . /opt/ros/humble/setup.bash \
- && GZ_VERSION=harmonic colcon build --symlink-install --event-handlers console_cohesion-
+ && (rosdep update --rosdistro humble \
+     && GZ_VERSION=harmonic rosdep install --from-paths src --ignore-src -r -y \
+        --skip-keys "gz-sim8 gz-transport13 gz-msgs10 gz-math7 gz-plugin2 gz-common5 \
+                     gz-rendering8 gz-sensors8 gz-gui8 sdformat14 gz_sim_vendor" || true) \
+ && GZ_VERSION=harmonic colcon build --symlink-install --event-handlers console_cohesion- \
+ && apt-get clean
 
 # The third-party models the world is built from, in the layout the build expects
 ENV AERO_SENSE_REFERENCE=/opt/reference
