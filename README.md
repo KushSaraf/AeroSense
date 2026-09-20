@@ -129,6 +129,18 @@ and a casualty's popup says which team reaches them and at which stop. `teams` (
 (3600) and `on_site_s` (300) are `ground_routes` parameters: planning figures for the incident
 commander, not measurements.
 
+### Hazards: what the ground is like, region by region
+
+`hazard_mapper` segments the drone's own view with SegFormer-B0 (`ml/segformer/`): the thermal
+image and the part of the RGB image the thermal camera sees go in as four channels, and every
+pixel comes out as background, road, intact building, damaged building, collapsed building, water
+or vehicle. Each pixel is projected onto the ground and counted into 5 m cells; a cell's Hazard
+Severity Index is the share of each class weighted by how dangerous it is to a ground team
+(`hsi.py`), and touching cells of a band become one region: MODERATE, HIGH or CRITICAL. Regions go
+down the network as `aero_sense/hazards`, the Live map draws them (**Hazards**), and ground routing
+closes roads through CRITICAL regions and detours round the rest. `hazards:=false` launches
+without it.
+
 ### Local 3D view (three.js)
 
 The dashboard's **3D VIEW** shows what the drone has seen in 3D: the feature points OpenVINS

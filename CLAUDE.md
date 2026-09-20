@@ -122,6 +122,21 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   walls, and people 5 m up on terraces projected onto z 0, made leads nobody was at.
 - Retrain with `ml/make_dataset.py` + `ml/train.py`; score with `ml/evaluate.py`.
 
+## Hazards: SegFormer-B0 and HSI (`hazard_mapper`, `disaster.py`, `hsi.py`, `ml/segformer/`)
+
+- **Input:** the thermal image plus the RGB the thermal camera sees (`disaster.rgb_in_thermal_view`:
+  a scale about the centre, both cameras share `camera_optical`), 4 channels at 256x192. Training
+  and the node both go through `disaster.network_input`; change it in one place.
+- **Classes:** background, road, intact, damaged, collapsed, water, vehicle. Labels come from a
+  gz segmentation camera on a labelled copy of the world (`ml/segformer/make_dataset.py`
+  `URI_CLASSES`); the world file is not touched.
+- **HSI:** pixels on the ground in 5 m cells; HSI = class shares x `SEVERITY_WEIGHT`; CRITICAL >= 0.7,
+  HIGH >= 0.45, MODERATE >= 0.2; touching cells of a band are one region -> `aero_sense/hazards`.
+  `ground_routes` closes roads through CRITICAL and detours round the rest.
+- **Weights:** `ml/segformer/models/segformer_b0_disaster/` (committed), installed through file
+  symlinks in `src/aero_sense_perception/models/segformer_b0_disaster/` (`os.walk` does not follow
+  a directory symlink). `hazards:=false` launches without it. Retrain: make_dataset.py, train.py.
+
 ## Casualty tracker (`aero_sense_perception/tracker.py`)
 
 ByteTrack's BYTE association in the map frame: confident detections first (Hungarian), weak ones

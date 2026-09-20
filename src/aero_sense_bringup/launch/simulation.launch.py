@@ -188,6 +188,13 @@ def _launch(context, *args, **kwargs):
     # people in the RGB camera (ml/models/yolo11n_aerial): SWOOP leads, and the deceased casualty
     rgb_people = Node(package="aero_sense_perception", executable="rgb_detector", namespace=namespace,
                       output="screen", parameters=[{"camera_frame": f"{frame_prefix}camera_optical"}])
+    # disaster segmentation (ml/segformer) into hazard regions for the map and ground routing
+    hazards = Node(package="aero_sense_perception", executable="hazard_mapper", namespace=namespace,
+                   output="screen",
+                   parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon,
+                                "thermal_resolution_k": cfg["thermal"]["resolution_k"],
+                                "rgb_hfov_rad": cfg["rgb"]["hfov_rad"], "thermal_hfov_rad": cfg["thermal"]["hfov_rad"],
+                                "camera_frame": f"{frame_prefix}camera_optical"}])
     mission = Node(package="aero_sense_mission", executable="mission_manager",
                    namespace=namespace, output="screen",
                    # coverage and inspection stand-off follow the thermal camera actually fitted
@@ -209,6 +216,8 @@ def _launch(context, *args, **kwargs):
         actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
     if LaunchConfiguration("rgb").perform(context).lower() in ("true", "1"):
         actions.append(rgb_people)
+    if LaunchConfiguration("hazards").perform(context).lower() in ("true", "1"):
+        actions.append(hazards)
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
         actions += _victim_actions(world, worlds.world_name(world))
     return actions
@@ -225,6 +234,8 @@ def generate_launch_description() -> LaunchDescription:
                               description="sensor quality profile (resolution / rate)"),
         DeclareLaunchArgument("rgb", default_value="true", choices=["true", "false"],
                               description="run the RGB person detector (ml/models/yolo11n_aerial) beside thermal"),
+        DeclareLaunchArgument("hazards", default_value="true", choices=["true", "false"],
+                              description="map hazards: SegFormer-B0 disaster segmentation into HSI regions"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
                               description="spawn the scenario's victims and publish their ground truth"),
         DeclareLaunchArgument("vio", default_value="true", choices=["true", "false"],

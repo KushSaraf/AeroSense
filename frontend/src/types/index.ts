@@ -25,18 +25,18 @@ export interface Victim {
   timestamp: string
 }
 
+/** A hazard region the drone mapped: disaster segmentation (SegFormer-B0) banded by HSI (hazard_mapper). */
 export interface Hazard {
   id: string
-  type: 'FIRE' | 'FLOOD' | 'STRUCTURAL' | 'SMOKE' | 'ELECTRICAL' | 'CHEMICAL' | 'LANDSLIDE' | 'DEBRIS'
-  severity: Severity
-  confidence: number
+  type: 'STRUCTURAL' | 'FLOOD' | 'DEBRIS'
+  severity: 'CRITICAL' | 'HIGH' | 'MODERATE'
+  /** the region's mean Hazard Severity Index, 0..1 */
+  hsi: number
+  areaM2: number
   latitude: number
   longitude: number
-  radius: number
-  detected: string
-  spread: string
-  nearbyVictims: number
-  coords: Array<[number, number]>
+  /** outline, [lat, lon] */
+  polygon: [number, number][]
 }
 
 export interface Drone {

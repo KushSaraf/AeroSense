@@ -31,7 +31,28 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
-### Local 3D view: OpenVINS's feature points in the map (2026-09-19)
+### Hazard mapping: SegFormer-B0 and HSI (2026-09-20)
+
+SegFormer-B0 fine-tuned on 1200 rendered frames of this world (RGB + thermal, 256x192, labels from
+a gz segmentation camera). Validation (150 frames, the same world): mIoU 0.9385, pixel accuracy
+0.9751; per class IoU road 0.968, water 0.973, background 0.949, intact 0.940, collapsed 0.936,
+damaged 0.931, vehicle 0.873. This scores the simulation, not real imagery.
+
+Earthquake mission with `hazard_mapper` running (45 ms a frame, 1 Hz, on the CPU):
+MISSION_COMPLETE in 927 s, 98.3 % coverage, 14 of 18 casualties, 0 false positives, 0.76 m mean
+position error, V09 found: the same as the run without it. Up to 175 hazard regions were mapped
+(13 CRITICAL, ~50 HIGH, ~110 MODERATE, all structural), and the ground routes changed with them:
+of 13 routed casualties one (V-006) became unreachable because CRITICAL rubble closes every road
+to it, and 2-4 of the rest crossed MODERATE ground.
+
+The RGB person detector ran at 1.2-1.6 Hz rather than its configured 3 Hz. A/B on the same
+simulation: 1.47 Hz with `hazard_mapper`, 1.60 Hz without, so hazard mapping costs about 8 %; the
+rest is YOLO on the CPU, because `rgb_detector` picked its device before CUDA was restored
+(`sudo rmmod nvidia_uvm && sudo modprobe nvidia_uvm` after a suspend).
+
+Not yet checked: whether a CRITICAL region covers the buried casualties, V16 at (-116.0, 52.5)
+and V17 at (-70.0, 46.0), or the partly buried V13 (-164.0, 13.0) and V14 (-93.0, 37.0) (victims.yaml).
+
 
 Earthquake mission on the dashboard sim, 3D VIEW open: 1134 feature points reached the bridge
 along the flown track (x -197 to 4, y -120 to 26), ground points at z 0.2-0.4 m and roofs up to

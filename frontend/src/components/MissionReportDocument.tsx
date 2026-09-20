@@ -67,7 +67,7 @@ function Fields({ rows }: { rows: Array<[string, string]> }) {
 
 /**
  * The printable mission report: A4, ten sections, every number taken from the mission that was
- * flown. Where the system has no data — hazards are not mapped yet — the report says so instead
+ * flown. Where the system has no data — no hazard regions mapped — the report says so instead
  * of printing a zero that reads like a finding.
  */
 function MissionReportDocument({ report }: { report: MissionReport }) {
@@ -152,8 +152,8 @@ function MissionReportDocument({ report }: { report: MissionReport }) {
 
       <Section index={6} title="Hazards">
         {summary.hazardsIdentified === 0
-          ? <p className="report-note">No hazard map was produced on this flight. Hazard classification is not part of the flown perception stack, so no hazard count is claimed.</p>
-          : <p>{summary.hazardsIdentified} hazards identified.</p>}
+          ? <p className="report-note">No hazard regions were mapped on this flight (disaster segmentation found none, or did not run).</p>
+          : <p>{summary.hazardsIdentified} hazard regions mapped by disaster segmentation (SegFormer-B0), banded by HSI.</p>}
       </Section>
 
       <Section index={7} title="Platform and link">

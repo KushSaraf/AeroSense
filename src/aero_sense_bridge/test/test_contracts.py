@@ -409,3 +409,17 @@ def test_the_3d_view_gets_points_and_structures_in_metres():
     assert contracts.points_json(cloud) == [[1.2, -5.0, 12.1]] and contracts.points_json(None) == []
     [mast] = contracts.structures_json([Structure("mast", "radio_tower", -40.0, 60.0, 6.7, 44.2)])
     assert mast == {"name": "mast", "kind": "radio_tower", "x": -40.0, "y": 60.0, "radiusM": 6.7, "heightM": 44.2}
+
+
+def test_hazard_regions_reach_the_maps_with_their_outline():
+    from geometry_msgs.msg import Point32
+    from aero_sense_interfaces.msg import HazardArray, HazardDetection
+    hazard = HazardDetection(hazard_id="H-C1_2", type="structural", severity="CRITICAL", confidence=0.93, area_m2=75.4,
+                             latitude=-35.0, longitude=149.0)
+    hazard.footprint.polygon.points = [Point32(x=0.0, y=0.0), Point32(x=5.0, y=0.0), Point32(x=5.0, y=5.0)]
+    hazard.footprint.latitudes, hazard.footprint.longitudes = [-35.0, -35.0, -34.99995], [149.0, 149.00005, 149.00005]
+    [out] = contracts.hazards_json(HazardArray(hazards=[hazard]))
+    assert (out["id"], out["type"], out["severity"], out["hsi"], out["areaM2"]) == ("H-C1_2", "STRUCTURAL", "CRITICAL", 0.93, 75)
+    assert out["polygon"][1] == [-35.0, 149.00005] and contracts.hazards_json(None) == []
+    report = contracts.report_json({"id": "M1", "status": "COMPLETED"}, [], {}, [], [out])
+    assert report["summary"]["hazardsIdentified"] == 1

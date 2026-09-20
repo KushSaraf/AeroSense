@@ -15,6 +15,8 @@ const PRIORITY_COLOUR: Record<string, string> = {
 const TRACK_LIMIT = 600
 /** Ground routes by the worst hazard they cross. */
 const ROUTE_COLOUR: Record<string, string> = { SAFE: '#6ec6ff', MODERATE: '#ffb74d', HIGH: '#ef5350' }
+/** Hazard regions by severity. */
+const HAZARD_COLOUR: Record<string, string> = { MODERATE: '#ffd166', HIGH: '#ff8c42', CRITICAL: '#e63946' }
 
 /** One colour per ground team's tour. */
 const TEAM_COLOUR = ['#ffd166', '#c792ea', '#4dd0e1', '#f78c6c', '#a5d6a7', '#ff80ab']
@@ -41,10 +43,10 @@ function Recentre({ centre }: { centre: [number, number] | null }) {
 }
 
 function MapPage() {
-  const { victims, routes, teams, drone, mission, link } = useMission()
+  const { victims, routes, teams, hazards, drone, mission, link } = useMission()
   const { data: world, error } = useWorld()
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
-  const [layers, setLayers] = useState({ sectors: true, network: true, victims: true, track: true, teams: true, routes: false })
+  const [layers, setLayers] = useState({ sectors: true, network: true, hazards: true, victims: true, track: true, teams: true, routes: false })
   const area = useAreaDrawer(world)
   const latitude = drone?.latitude
   const longitude = drone?.longitude
@@ -66,6 +68,7 @@ function MapPage() {
   const toggles = [
     { label: 'Sectors', on: layers.sectors, act: () => setLayers((l) => ({ ...l, sectors: !l.sectors })) },
     { label: 'No network', on: layers.network, act: () => setLayers((l) => ({ ...l, network: !l.network })) },
+    { label: 'Hazards', on: layers.hazards, act: () => setLayers((l) => ({ ...l, hazards: !l.hazards })) },
     { label: 'Casualties', on: layers.victims, act: () => setLayers((l) => ({ ...l, victims: !l.victims })) },
     { label: 'Flight track', on: layers.track, act: () => setLayers((l) => ({ ...l, track: !l.track })) },
     { label: 'Team tours', on: layers.teams, act: () => setLayers((l) => ({ ...l, teams: !l.teams })) },
@@ -109,6 +112,18 @@ function MapPage() {
 
           {layers.network && <DeniedZones world={world} />}
           {area.layer}
+
+          {layers.hazards && hazards.filter((hazard) => hazard.polygon.length > 2).map((hazard) => (
+            <Polygon key={hazard.id} positions={hazard.polygon}
+                     pathOptions={{ color: HAZARD_COLOUR[hazard.severity], fillColor: HAZARD_COLOUR[hazard.severity],
+                                    fillOpacity: 0.3, weight: 1 }}>
+              <Popup>
+                <strong>{hazard.severity}</strong> {hazard.type.toLowerCase()} hazard · HSI {hazard.hsi.toFixed(2)}<br />
+                {hazard.areaM2} m², mapped by disaster segmentation
+                {hazard.severity === 'CRITICAL' ? ' · roads through it are closed to ground teams' : ''}
+              </Popup>
+            </Polygon>
+          ))}
 
           {layers.routes && routes.filter((route) => route.reachable && route.path.length > 1).map((route) => (
             <Polyline key={`route-${route.victimId}`} positions={route.path}

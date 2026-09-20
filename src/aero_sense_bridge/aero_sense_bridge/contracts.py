@@ -383,6 +383,23 @@ def routes_json(msg, origin_lat: float, origin_lon: float) -> list:
     } for route in msg.routes]
 
 
+def hazards_json(msg) -> list:
+    """Hazard regions (HazardArray from hazard_mapper: disaster segmentation banded by HSI) for the
+    maps: each outline in latitude and longitude, as the drone computed it."""
+    if msg is None:
+        return []
+    return [{
+        "id": hazard.hazard_id,
+        "type": hazard.type.upper(),
+        "severity": hazard.severity,
+        "hsi": round(hazard.confidence, 3),           # the region's mean Hazard Severity Index
+        "areaM2": round(hazard.area_m2),
+        "latitude": hazard.latitude,
+        "longitude": hazard.longitude,
+        "polygon": [[lat, lon] for lat, lon in zip(hazard.footprint.latitudes, hazard.footprint.longitudes)],
+    } for hazard in msg.hazards]
+
+
 def teams_json(msg, origin_lat: float, origin_lon: float) -> dict:
     """Which ground team goes to whom, in order (SafeRouteArray.teams), and who no team reaches."""
     if msg is None:
@@ -482,7 +499,7 @@ def alerts_json(victims: list, events: list) -> list:
     return alerts
 
 
-def report_json(mission: dict, victims: list, drone: dict, events: list) -> dict:
+def report_json(mission: dict, victims: list, drone: dict, events: list, hazards: list = ()) -> dict:
     """Everything a mission report states, taken from the mission that was flown.
 
     Counts are derived here rather than stored, so a report can never disagree with the casualty
@@ -503,7 +520,7 @@ def report_json(mission: dict, victims: list, drone: dict, events: list) -> dict
             "byPriority": by_priority,
             "durationSeconds": mission.get("elapsedSeconds", 0),
             "duration": mission.get("elapsed", "00:00"),
-            "hazardsIdentified": 0,          # the hazard map is not built yet
+            "hazardsIdentified": len(hazards),
             "dronesUsed": 1,
             "status": mission.get("status", ""),
         },

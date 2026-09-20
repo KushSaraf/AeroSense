@@ -26,7 +26,7 @@ onboard comms_link), so inside a dead zone the bridge hears nothing and says the
 and commands to the drone are refused rather than pretending to be sent.
 
 Every number here comes from a ROS message produced by the running simulation. Nothing is
-generated to make the dashboard look busy: topics that do not exist yet (hazards, alerts) return
+generated to make the dashboard look busy: topics that do not exist yet (alerts) return
 empty, and unknown fields say so.
 """
 import threading
@@ -181,7 +181,7 @@ class DashboardBridge(Node):
         mission = contracts.mission_json(self._mission_state, list(self._events))
         if mission and mission["status"] == "COMPLETED":
             # keep finished missions so their report survives the next takeoff
-            self._history[mission["id"]] = {"mission": mission, "victims": self.victims(),
+            self._history[mission["id"]] = {"mission": mission, "victims": self.victims(), "hazards": self.hazards(),
                                             "drone": self.drone(), "events": self._own_events()}
         return mission
 
@@ -217,12 +217,12 @@ class DashboardBridge(Node):
         if record is None:
             live = self.mission()
             if live and live["id"] == mission_id:
-                record = {"mission": live, "victims": self.victims(), "drone": self.drone(),
+                record = {"mission": live, "victims": self.victims(), "hazards": self.hazards(), "drone": self.drone(),
                           "events": self._own_events()}
         if record is None:
             return None
         return contracts.report_json(record["mission"], record["victims"], record["drone"],
-                                     record["events"])
+                                     record["events"], record.get("hazards", ()))
 
     def call_mission(self, command: str, scenario: str = "earthquake") -> dict:
         """Start or steer the mission. Reports what the state machine answered, including its
@@ -308,6 +308,9 @@ class DashboardBridge(Node):
         ok, buffer = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
         return buffer.tobytes() if ok else None
 
+    def hazards(self) -> list:
+        return contracts.hazards_json(self._hazards)
+
     def routes(self) -> list:
         return contracts.routes_json(self._routes, *self._origin)
 
@@ -331,7 +334,7 @@ class DashboardBridge(Node):
             "victims": self.victims(),
             "routes": self.routes(),
             "teams": self.teams(),
-            "hazards": [],            # the hazard map arrives with its phase
+            "hazards": self.hazards(),
             "alerts": [],             # likewise the alert engine
             "telemetry": list(self._telemetry),
         })
@@ -489,7 +492,8 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
     @app.get("/api/hazards")
     def hazards():
-        return []
+        """Hazard regions the drone mapped (hazard_mapper: disaster segmentation, HSI)."""
+        return bridge.hazards()
 
     @app.get("/api/alerts")
     def alerts():

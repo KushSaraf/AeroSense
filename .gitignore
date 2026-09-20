@@ -21,3 +21,5 @@ ml/datasets/
 ml/models/runs/
 !ml/models/yolo11n_aerial/*.pt
 !src/aero_sense_perception/models/*.pt
+# The disaster segmentation dataset (ml/segformer/make_dataset.py); the trained weights are committed.
+ml/segformer/datasets/

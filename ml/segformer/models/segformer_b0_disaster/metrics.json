@@ -1,0 +1,654 @@
+{
+ "best_miou": 0.9385,
+ "device": "cpu",
+ "args": {
+  "epochs": 40,
+  "batch": 16,
+  "lr": 0.0002,
+  "workers": 2
+ },
+ "train_frames": 1050,
+ "val_frames": 150,
+ "history": [
+  {
+   "epoch": 1,
+   "loss": 1.8291,
+   "iou": {
+    "background": 0.3688,
+    "road": 0.5278,
+    "intact": 0.49,
+    "damaged": 0.211,
+    "collapsed": 0.2333,
+    "water": 0.5076,
+    "vehicle": 0.0228
+   },
+   "miou": 0.3373,
+   "pixel_accuracy": 0.5665,
+   "seconds": 63
+  },
+  {
+   "epoch": 2,
+   "loss": 1.4093,
+   "iou": {
+    "background": 0.5629,
+    "road": 0.5691,
+    "intact": 0.6747,
+    "damaged": 0.569,
+    "collapsed": 0.5574,
+    "water": 0.7671,
+    "vehicle": 0.1237
+   },
+   "miou": 0.5463,
+   "pixel_accuracy": 0.7634,
+   "seconds": 65
+  },
+  {
+   "epoch": 3,
+   "loss": 0.9698,
+   "iou": {
+    "background": 0.6661,
+    "road": 0.638,
+    "intact": 0.7285,
+    "damaged": 0.6947,
+    "collapsed": 0.6575,
+    "water": 0.8312,
+    "vehicle": 0.3938
+   },
+   "miou": 0.6585,
+   "pixel_accuracy": 0.8249,
+   "seconds": 65
+  },
+  {
+   "epoch": 4,
+   "loss": 0.693,
+   "iou": {
+    "background": 0.6744,
+    "road": 0.7254,
+    "intact": 0.7521,
+    "damaged": 0.7175,
+    "collapsed": 0.707,
+    "water": 0.8687,
+    "vehicle": 0.5073
+   },
+   "miou": 0.7075,
+   "pixel_accuracy": 0.8471,
+   "seconds": 66
+  },
+  {
+   "epoch": 5,
+   "loss": 0.508,
+   "iou": {
+    "background": 0.7647,
+    "road": 0.8157,
+    "intact": 0.808,
+    "damaged": 0.774,
+    "collapsed": 0.7037,
+    "water": 0.9053,
+    "vehicle": 0.5576
+   },
+   "miou": 0.7613,
+   "pixel_accuracy": 0.8875,
+   "seconds": 66
+  },
+  {
+   "epoch": 6,
+   "loss": 0.3773,
+   "iou": {
+    "background": 0.8358,
+    "road": 0.8861,
+    "intact": 0.8294,
+    "damaged": 0.8019,
+    "collapsed": 0.8099,
+    "water": 0.9283,
+    "vehicle": 0.624
+   },
+   "miou": 0.8165,
+   "pixel_accuracy": 0.9197,
+   "seconds": 65
+  },
+  {
+   "epoch": 7,
+   "loss": 0.3133,
+   "iou": {
+    "background": 0.8597,
+    "road": 0.9007,
+    "intact": 0.8492,
+    "damaged": 0.8185,
+    "collapsed": 0.8423,
+    "water": 0.9388,
+    "vehicle": 0.6802
+   },
+   "miou": 0.8414,
+   "pixel_accuracy": 0.9314,
+   "seconds": 66
+  },
+  {
+   "epoch": 8,
+   "loss": 0.2448,
+   "iou": {
+    "background": 0.8688,
+    "road": 0.9058,
+    "intact": 0.8547,
+    "damaged": 0.826,
+    "collapsed": 0.8418,
+    "water": 0.9444,
+    "vehicle": 0.7141
+   },
+   "miou": 0.8508,
+   "pixel_accuracy": 0.9352,
+   "seconds": 65
+  },
+  {
+   "epoch": 9,
+   "loss": 0.2266,
+   "iou": {
+    "background": 0.8809,
+    "road": 0.9255,
+    "intact": 0.8803,
+    "damaged": 0.864,
+    "collapsed": 0.8763,
+    "water": 0.9499,
+    "vehicle": 0.7847
+   },
+   "miou": 0.8802,
+   "pixel_accuracy": 0.9456,
+   "seconds": 65
+  },
+  {
+   "epoch": 10,
+   "loss": 0.1638,
+   "iou": {
+    "background": 0.8997,
+    "road": 0.9395,
+    "intact": 0.8964,
+    "damaged": 0.8484,
+    "collapsed": 0.839,
+    "water": 0.9572,
+    "vehicle": 0.7743
+   },
+   "miou": 0.8792,
+   "pixel_accuracy": 0.95,
+   "seconds": 66
+  },
+  {
+   "epoch": 11,
+   "loss": 0.1655,
+   "iou": {
+    "background": 0.9053,
+    "road": 0.9443,
+    "intact": 0.9037,
+    "damaged": 0.8425,
+    "collapsed": 0.8547,
+    "water": 0.9581,
+    "vehicle": 0.778
+   },
+   "miou": 0.8838,
+   "pixel_accuracy": 0.9527,
+   "seconds": 65
+  },
+  {
+   "epoch": 12,
+   "loss": 0.1427,
+   "iou": {
+    "background": 0.9144,
+    "road": 0.9476,
+    "intact": 0.9131,
+    "damaged": 0.8847,
+    "collapsed": 0.8946,
+    "water": 0.962,
+    "vehicle": 0.7336
+   },
+   "miou": 0.8929,
+   "pixel_accuracy": 0.9595,
+   "seconds": 65
+  },
+  {
+   "epoch": 13,
+   "loss": 0.1256,
+   "iou": {
+    "background": 0.9189,
+    "road": 0.9514,
+    "intact": 0.9124,
+    "damaged": 0.8942,
+    "collapsed": 0.903,
+    "water": 0.9615,
+    "vehicle": 0.8036
+   },
+   "miou": 0.9064,
+   "pixel_accuracy": 0.9615,
+   "seconds": 66
+  },
+  {
+   "epoch": 14,
+   "loss": 0.1153,
+   "iou": {
+    "background": 0.9227,
+    "road": 0.9524,
+    "intact": 0.9211,
+    "damaged": 0.8995,
+    "collapsed": 0.912,
+    "water": 0.9641,
+    "vehicle": 0.8183
+   },
+   "miou": 0.9129,
+   "pixel_accuracy": 0.9641,
+   "seconds": 66
+  },
+  {
+   "epoch": 15,
+   "loss": 0.1652,
+   "iou": {
+    "background": 0.909,
+    "road": 0.9445,
+    "intact": 0.8871,
+    "damaged": 0.8099,
+    "collapsed": 0.8241,
+    "water": 0.9634,
+    "vehicle": 0.7421
+   },
+   "miou": 0.8686,
+   "pixel_accuracy": 0.9491,
+   "seconds": 65
+  },
+  {
+   "epoch": 16,
+   "loss": 0.1398,
+   "iou": {
+    "background": 0.9163,
+    "road": 0.9516,
+    "intact": 0.9154,
+    "damaged": 0.8348,
+    "collapsed": 0.8565,
+    "water": 0.9655,
+    "vehicle": 0.7906
+   },
+   "miou": 0.8901,
+   "pixel_accuracy": 0.9568,
+   "seconds": 66
+  },
+  {
+   "epoch": 17,
+   "loss": 0.1039,
+   "iou": {
+    "background": 0.9264,
+    "road": 0.9559,
+    "intact": 0.9248,
+    "damaged": 0.9091,
+    "collapsed": 0.9176,
+    "water": 0.9671,
+    "vehicle": 0.8104
+   },
+   "miou": 0.9159,
+   "pixel_accuracy": 0.9663,
+   "seconds": 66
+  },
+  {
+   "epoch": 18,
+   "loss": 0.1055,
+   "iou": {
+    "background": 0.9262,
+    "road": 0.9518,
+    "intact": 0.9203,
+    "damaged": 0.8933,
+    "collapsed": 0.8805,
+    "water": 0.9666,
+    "vehicle": 0.8229
+   },
+   "miou": 0.9088,
+   "pixel_accuracy": 0.9632,
+   "seconds": 66
+  },
+  {
+   "epoch": 19,
+   "loss": 0.0973,
+   "iou": {
+    "background": 0.9297,
+    "road": 0.9598,
+    "intact": 0.9232,
+    "damaged": 0.8984,
+    "collapsed": 0.8989,
+    "water": 0.9688,
+    "vehicle": 0.8522
+   },
+   "miou": 0.9187,
+   "pixel_accuracy": 0.966,
+   "seconds": 65
+  },
+  {
+   "epoch": 20,
+   "loss": 0.1022,
+   "iou": {
+    "background": 0.9351,
+    "road": 0.9596,
+    "intact": 0.9231,
+    "damaged": 0.9076,
+    "collapsed": 0.9074,
+    "water": 0.9684,
+    "vehicle": 0.8389
+   },
+   "miou": 0.92,
+   "pixel_accuracy": 0.9677,
+   "seconds": 65
+  },
+  {
+   "epoch": 21,
+   "loss": 0.0895,
+   "iou": {
+    "background": 0.9368,
+    "road": 0.961,
+    "intact": 0.9256,
+    "damaged": 0.9123,
+    "collapsed": 0.9302,
+    "water": 0.9695,
+    "vehicle": 0.8432
+   },
+   "miou": 0.9255,
+   "pixel_accuracy": 0.9697,
+   "seconds": 65
+  },
+  {
+   "epoch": 22,
+   "loss": 0.0834,
+   "iou": {
+    "background": 0.9329,
+    "road": 0.9608,
+    "intact": 0.9266,
+    "damaged": 0.9127,
+    "collapsed": 0.9118,
+    "water": 0.9653,
+    "vehicle": 0.8321
+   },
+   "miou": 0.9203,
+   "pixel_accuracy": 0.9679,
+   "seconds": 65
+  },
+  {
+   "epoch": 23,
+   "loss": 0.0801,
+   "iou": {
+    "background": 0.9397,
+    "road": 0.9637,
+    "intact": 0.9334,
+    "damaged": 0.9203,
+    "collapsed": 0.926,
+    "water": 0.9706,
+    "vehicle": 0.846
+   },
+   "miou": 0.9285,
+   "pixel_accuracy": 0.9714,
+   "seconds": 65
+  },
+  {
+   "epoch": 24,
+   "loss": 0.0755,
+   "iou": {
+    "background": 0.9417,
+    "road": 0.9631,
+    "intact": 0.932,
+    "damaged": 0.9277,
+    "collapsed": 0.9317,
+    "water": 0.9711,
+    "vehicle": 0.8471
+   },
+   "miou": 0.9306,
+   "pixel_accuracy": 0.9722,
+   "seconds": 65
+  },
+  {
+   "epoch": 25,
+   "loss": 0.0781,
+   "iou": {
+    "background": 0.9429,
+    "road": 0.9658,
+    "intact": 0.9342,
+    "damaged": 0.9229,
+    "collapsed": 0.9381,
+    "water": 0.9702,
+    "vehicle": 0.8238
+   },
+   "miou": 0.9283,
+   "pixel_accuracy": 0.9727,
+   "seconds": 65
+  },
+  {
+   "epoch": 26,
+   "loss": 0.0693,
+   "iou": {
+    "background": 0.9443,
+    "road": 0.9645,
+    "intact": 0.9375,
+    "damaged": 0.933,
+    "collapsed": 0.9437,
+    "water": 0.9717,
+    "vehicle": 0.832
+   },
+   "miou": 0.9324,
+   "pixel_accuracy": 0.974,
+   "seconds": 65
+  },
+  {
+   "epoch": 27,
+   "loss": 0.0849,
+   "iou": {
+    "background": 0.9422,
+    "road": 0.964,
+    "intact": 0.9332,
+    "damaged": 0.916,
+    "collapsed": 0.9259,
+    "water": 0.9714,
+    "vehicle": 0.8269
+   },
+   "miou": 0.9256,
+   "pixel_accuracy": 0.9717,
+   "seconds": 64
+  },
+  {
+   "epoch": 28,
+   "loss": 0.0668,
+   "iou": {
+    "background": 0.9438,
+    "road": 0.9652,
+    "intact": 0.9376,
+    "damaged": 0.9335,
+    "collapsed": 0.9436,
+    "water": 0.972,
+    "vehicle": 0.8593
+   },
+   "miou": 0.9364,
+   "pixel_accuracy": 0.9741,
+   "seconds": 66
+  },
+  {
+   "epoch": 29,
+   "loss": 0.0654,
+   "iou": {
+    "background": 0.9444,
+    "road": 0.9658,
+    "intact": 0.9306,
+    "damaged": 0.915,
+    "collapsed": 0.9261,
+    "water": 0.9714,
+    "vehicle": 0.8547
+   },
+   "miou": 0.9297,
+   "pixel_accuracy": 0.972,
+   "seconds": 65
+  },
+  {
+   "epoch": 30,
+   "loss": 0.0648,
+   "iou": {
+    "background": 0.9462,
+    "road": 0.9668,
+    "intact": 0.9372,
+    "damaged": 0.9346,
+    "collapsed": 0.9427,
+    "water": 0.9726,
+    "vehicle": 0.8603
+   },
+   "miou": 0.9372,
+   "pixel_accuracy": 0.9747,
+   "seconds": 65
+  },
+  {
+   "epoch": 31,
+   "loss": 0.0615,
+   "iou": {
+    "background": 0.9462,
+    "road": 0.9652,
+    "intact": 0.9374,
+    "damaged": 0.9355,
+    "collapsed": 0.9418,
+    "water": 0.9727,
+    "vehicle": 0.8626
+   },
+   "miou": 0.9374,
+   "pixel_accuracy": 0.9746,
+   "seconds": 65
+  },
+  {
+   "epoch": 32,
+   "loss": 0.064,
+   "iou": {
+    "background": 0.945,
+    "road": 0.9661,
+    "intact": 0.9369,
+    "damaged": 0.9259,
+    "collapsed": 0.9349,
+    "water": 0.9723,
+    "vehicle": 0.8536
+   },
+   "miou": 0.9335,
+   "pixel_accuracy": 0.9737,
+   "seconds": 65
+  },
+  {
+   "epoch": 33,
+   "loss": 0.0614,
+   "iou": {
+    "background": 0.9477,
+    "road": 0.9673,
+    "intact": 0.9395,
+    "damaged": 0.929,
+    "collapsed": 0.9358,
+    "water": 0.973,
+    "vehicle": 0.8653
+   },
+   "miou": 0.9368,
+   "pixel_accuracy": 0.9747,
+   "seconds": 65
+  },
+  {
+   "epoch": 34,
+   "loss": 0.0605,
+   "iou": {
+    "background": 0.9478,
+    "road": 0.9674,
+    "intact": 0.9382,
+    "damaged": 0.9322,
+    "collapsed": 0.9351,
+    "water": 0.9729,
+    "vehicle": 0.8701
+   },
+   "miou": 0.9377,
+   "pixel_accuracy": 0.9747,
+   "seconds": 65
+  },
+  {
+   "epoch": 35,
+   "loss": 0.0605,
+   "iou": {
+    "background": 0.9477,
+    "road": 0.9672,
+    "intact": 0.9381,
+    "damaged": 0.9322,
+    "collapsed": 0.9365,
+    "water": 0.9727,
+    "vehicle": 0.866
+   },
+   "miou": 0.9372,
+   "pixel_accuracy": 0.9747,
+   "seconds": 65
+  },
+  {
+   "epoch": 36,
+   "loss": 0.0591,
+   "iou": {
+    "background": 0.9481,
+    "road": 0.967,
+    "intact": 0.9391,
+    "damaged": 0.9342,
+    "collapsed": 0.9364,
+    "water": 0.9731,
+    "vehicle": 0.8586
+   },
+   "miou": 0.9367,
+   "pixel_accuracy": 0.975,
+   "seconds": 65
+  },
+  {
+   "epoch": 37,
+   "loss": 0.0588,
+   "iou": {
+    "background": 0.9491,
+    "road": 0.9691,
+    "intact": 0.9391,
+    "damaged": 0.9295,
+    "collapsed": 0.9367,
+    "water": 0.9729,
+    "vehicle": 0.867
+   },
+   "miou": 0.9376,
+   "pixel_accuracy": 0.9751,
+   "seconds": 65
+  },
+  {
+   "epoch": 38,
+   "loss": 0.0605,
+   "iou": {
+    "background": 0.9494,
+    "road": 0.9678,
+    "intact": 0.9398,
+    "damaged": 0.9307,
+    "collapsed": 0.9371,
+    "water": 0.9733,
+    "vehicle": 0.8652
+   },
+   "miou": 0.9376,
+   "pixel_accuracy": 0.9753,
+   "seconds": 65
+  },
+  {
+   "epoch": 39,
+   "loss": 0.0592,
+   "iou": {
+    "background": 0.9486,
+    "road": 0.9682,
+    "intact": 0.9397,
+    "damaged": 0.9289,
+    "collapsed": 0.9375,
+    "water": 0.9732,
+    "vehicle": 0.8666
+   },
+   "miou": 0.9375,
+   "pixel_accuracy": 0.9751,
+   "seconds": 65
+  },
+  {
+   "epoch": 40,
+   "loss": 0.0596,
+   "iou": {
+    "background": 0.9487,
+    "road": 0.9679,
+    "intact": 0.9395,
+    "damaged": 0.9312,
+    "collapsed": 0.9361,
+    "water": 0.9732,
+    "vehicle": 0.8732
+   },
+   "miou": 0.9385,
+   "pixel_accuracy": 0.9751,
+   "seconds": 65
+  }
+ ]
+}
