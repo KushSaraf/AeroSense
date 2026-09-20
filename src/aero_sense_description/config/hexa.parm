@@ -14,3 +14,16 @@ EK3_SRC3_VELXY 0
 EK3_SRC3_POSZ 1
 EK3_SRC3_VELZ 0
 EK3_SRC3_YAW 1
+
+# Obstacle avoidance from the four TF rangefinders (config/sensors.yaml), which drone_interface
+# sends as MAVLink DISTANCE_SENSOR. PRX1_TYPE 2 is the MAVLink proximity backend; simple
+# avoidance stops the drone short in the pilot's modes, and BendyRuler steers round an obstacle
+# in the GUIDED legs the mission flies.
+PRX1_TYPE 2
+PRX1_ORIENT 0
+AVOID_ENABLE 2
+AVOID_MARGIN 3
+AVOID_BEHAVE 0
+OA_TYPE 1
+OA_MARGIN_MAX 3
+OA_BR_LOOKAHEAD 8

@@ -204,6 +204,11 @@ def _launch(context, *args, **kwargs):
     # the only way reports leave the drone: the dashboard hears nothing inside a dead zone
     comms_link = Node(package="aero_sense_mission", executable="comms_link", namespace=namespace,
                       output="screen")
+    # the obstacle-avoidance beams, cast against the world's structures (the rendered sensor
+    # segfaults gz-rendering 8 on this model: sensors.yaml rangefinders.rendered)
+    beams = Node(package="aero_sense_bringup", executable="rangefinder_sim", namespace=namespace,
+                 output="screen", parameters=[{"world_file": str(world), "quality": quality,
+                                               "use_sim_time": True}])
     # the simulator jams GPS in the no-GPS zones (or by hand); the drone must notice on its own
     gps_jammer = Node(package="aero_sense_mission", executable="gps_jammer", namespace=namespace,
                       parameters=[{"mavlink_url": f"udpin:{SIMULATOR_OUT}"}], output="screen")
@@ -212,6 +217,8 @@ def _launch(context, *args, **kwargs):
                          output="screen", parameters=[{"use_sim_time": True}])
     actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission, comms_link,
                gps_jammer, ground_routes, *_static_tf_nodes(cfg, frame_prefix, namespace)]
+    if not cfg["rangefinders"]["rendered"]:
+        actions.append(beams)
     if vio:
         actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
     if LaunchConfiguration("rgb").perform(context).lower() in ("true", "1"):

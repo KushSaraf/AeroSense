@@ -23,5 +23,6 @@ setup(
         f"system_check = {PACKAGE}.system_check:main",
         f"stop_sim = {PACKAGE}.stop_sim:main",
         f"spawn = {PACKAGE}.spawn:main",
+        f"rangefinder_sim = {PACKAGE}.rangefinder_sim:main",
     ]},
 )

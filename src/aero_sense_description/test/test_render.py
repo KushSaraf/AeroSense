@@ -260,3 +260,48 @@ def test_openvins_masks_the_skids_at_the_stereo_resolution(tmp_path, quality):
     source = Path(get_package_share_directory("aero_sense_description")) / "config" / "openvins"
     left = np.asarray(Image.open(source / "airframe_mask_left.png").resize((stereo["width"], stereo["height"]), Image.NEAREST))
     assert np.array_equal(masks[0], left) and not np.array_equal(masks[1], left)
+
+
+def test_the_rangefinders_are_the_parts_on_the_datasheets():
+    """Benewake's published dimensions, masses and beams: TFmini Plus forward, TFMini-S elsewhere."""
+    import trimesh
+    cfg = render.load("medium")
+    beams = {b["name"]: b for b in cfg["rangefinders"]["beams"]}
+    assert set(beams) == {"front", "left", "back", "right"}
+    assert beams["front"]["part"] == "TFmini Plus" and beams["front"]["mass_kg"] == 0.012
+    assert all(b["part"] == "TFMini-S Micro" and b["mass_kg"] == 0.005
+               for name, b in beams.items() if name != "front")
+    assert cfg["rangefinders"]["range_m"] == [0.1, 12.0]                     # both parts
+    assert round(math.degrees(beams["front"]["beam_rad"]), 1) == 3.6         # TFmini Plus
+    assert round(math.degrees(beams["left"]["beam_rad"]), 1) == 2.0          # TFMini-S
+    sizes = {"tfmini_plus.glb": (0.035, 0.021), "tfmini_s.glb": (0.042, 0.016)}   # across, high
+    for mesh, (across, high) in sizes.items():
+        bounds = trimesh.load(render.share() / "meshes" / mesh).bounds
+        assert abs((bounds[1][1] - bounds[0][1]) - across) < 1e-3
+        assert abs((bounds[1][2] - bounds[0][2]) - high) < 1e-3
+
+
+def test_each_beam_looks_out_of_its_own_side():
+    cfg = render.load("medium")
+    radius = cfg["rangefinders"]["mount_radius_m"]
+    poses = {b["name"]: [float(v) for v in b["pose"].split()] for b in render.beam_layout(cfg)}
+    assert poses["front"][:2] == pytest.approx([radius, 0.0], abs=1e-4)
+    assert poses["left"][:2] == pytest.approx([0.0, radius], abs=1e-4)
+    assert poses["back"][:2] == pytest.approx([-radius, 0.0], abs=1e-4)
+    assert poses["right"][:2] == pytest.approx([0.0, -radius], abs=1e-4)
+    # the beam and the mesh face the way the sensor is yawed, level with the frame
+    assert poses["left"][5] == pytest.approx(math.pi / 2, abs=1e-4) and poses["left"][2] == 0.0
+    # by default the parts are on the drone but Gazebo does not render them: rangefinder_sim
+    # casts the beams instead (a gpu_lidar here segfaults gz-rendering 8, docs/VERIFICATION.md)
+    sdf = render.model_sdf(cfg, "drone_01")
+    assert sdf.count("tfmini_s.glb") == 3 and sdf.count("tfmini_plus.glb") == 1
+    assert 'type="gpu_lidar"' not in sdf
+    rendered = render.load("medium")
+    rendered["rangefinders"]["rendered"] = True
+    assert render.model_sdf(rendered, "drone_01").count('type="gpu_lidar"') == 4
+
+
+def test_ardupilot_takes_the_beams_as_proximity_and_avoids_with_them():
+    params = _parm("hexa.parm")
+    assert params["PRX1_TYPE"] == "2"          # MAVLink DISTANCE_SENSOR, from drone_interface
+    assert params["AVOID_ENABLE"] == "2" and params["OA_TYPE"] == "1"

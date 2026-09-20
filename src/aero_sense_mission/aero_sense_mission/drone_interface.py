@@ -8,6 +8,8 @@ Publishes (relative names; launching under namespace drone_01 prefixes them):
   aero_sense/gps/fix          sensor_msgs/NavSatFix        the autopilot's GPS as it sees it
   aero_sense/mission/events   std_msgs/String              GPS lost / back, what it navigates on
   aero_sense/perception/vio_points  sensor_msgs/PointCloud2  OpenVINS's feature points in the map (vio_map.py)
+Subscribes: aero_sense/rangefinder/{front,left,back,right} (LaserScan, the TF beams) -> MAVLink
+            DISTANCE_SENSOR, which ArduPilot's proximity library and avoidance fly on
   TF map -> base_link
 Services (std_srvs/Trigger): aero_sense/drone/takeoff, /land, /return_to_base
 Subscribes: aero_sense/drone/setpoint (PoseStamped, map) -> GUIDED position + yaw target
@@ -27,7 +29,7 @@ from nav_msgs.msg import Odometry
 from rclpy.callback_groups import MutuallyExclusiveCallbackGroup, ReentrantCallbackGroup
 from rclpy.executors import ExternalShutdownException, MultiThreadedExecutor
 from rclpy.node import Node
-from sensor_msgs.msg import BatteryState, NavSatFix, NavSatStatus, PointCloud2
+from sensor_msgs.msg import BatteryState, LaserScan, NavSatFix, NavSatStatus, PointCloud2
 from sensor_msgs_py import point_cloud2
 from std_msgs.msg import Header, String
 from std_srvs.srv import Trigger
@@ -35,10 +37,10 @@ from tf2_ros import TransformBroadcaster
 
 from aero_sense_interfaces.msg import DroneStatus
 
-from . import navigation, vio_map
+from . import navigation, obstacle, vio_map
 from .autopilot import Autopilot, classify_gps
 from .comms_link import EVENTS_TOPIC
-from .frames import (enu_attitude_to_ned, enu_yaw_to_ned, geodetic_to_map, map_to_ned,
+from .frames import (enu_attitude_to_ned, enu_yaw_to_ned, geodetic_to_map, map_to_ned, ned_yaw_to_enu,
                      ned_attitude_to_enu_quaternion, ned_to_map, quaternion_to_rpy, quaternion_to_yaw)
 from .navigation import GPS, NONE, VISION
 
@@ -54,6 +56,17 @@ PAIR_MIN_ALTITUDE_M = 3.0
 #: After take-off the drone hovers until OpenVINS has initialised (it needs a still view full of
 #: features: on the pad it sees little but the pad, and a climb is not still), at most this long.
 VIO_INIT_TIMEOUT_S = 20.0
+#: The obstacle-avoidance beams go to ArduPilot this often (its proximity library reads slower
+#: than the sensor's 100 Hz, and every message shares the drone's one MAVLink link).
+DISTANCE_SEND_HZ = 10.0
+#: How often the guard may say the same thing, so a held leg does not fill the event log.
+OBSTACLE_EVENT_S = 5.0
+#: The guard re-checks the beams this often, not only when a setpoint arrives: a leg is one
+#: command and the drone covers 4 m a second under it.
+GUARD_PERIOD_S = 0.2
+#: Each beam's MAV_SENSOR_ORIENTATION: ArduPilot counts yaw clockwise from forward.
+BEAM_ORIENTATION = {"front": 0, "right": 2, "back": 4, "left": 6}
+
 #: OpenVINS's feature clouds are folded into the 3D map at most this often, and published this often.
 VIO_POINTS_PERIOD_S = 0.5
 VIO_MAP_PUBLISH_S = 1.0
@@ -92,6 +105,10 @@ class DroneInterface(Node):
         }
         self._vio_map = vio_map.VoxelMap()
         self._last_points = 0.0
+        self._beams = {}                 # side -> (metres, sensor range) from the rangefinders
+        self._last_obstacle_event = 0.0
+        self._target = None              # (x, y, z, yaw NED) of the leg being flown
+        self._hold = None                # where the guard stopped us, latched while blocked
         # navigation source: shared between the OpenVINS callback and the switching timer
         self._nav_lock = threading.Lock()
         self._source = GPS
@@ -108,6 +125,12 @@ class DroneInterface(Node):
         self.create_subscription(Odometry, self._vio_topic, self._on_vio, 10,
                                  callback_group=MutuallyExclusiveCallbackGroup())
         self.create_timer(NAVIGATE_PERIOD_S, self._navigate, callback_group=MutuallyExclusiveCallbackGroup())
+        beams = MutuallyExclusiveCallbackGroup()
+        for side in BEAM_ORIENTATION:
+            self.create_subscription(LaserScan, f"aero_sense/rangefinder/{side}",
+                                     lambda msg, s=side: self._on_beam(s, msg), 1, callback_group=beams)
+        self.create_timer(1.0 / DISTANCE_SEND_HZ, self._send_distances, callback_group=beams)
+        self.create_timer(GUARD_PERIOD_S, self._guard_tick, callback_group=beams)
         points = MutuallyExclusiveCallbackGroup()
         vio_ns = self._vio_topic.rsplit("/", 1)[0]
         for cloud in ("points_slam", "points_msckf"):
@@ -215,6 +238,25 @@ class DroneInterface(Node):
         return msg
 
     # -- navigation: GPS, or OpenVINS when GPS is gone ------------------------------------
+
+    def _on_beam(self, side: str, msg: LaserScan) -> None:
+        """One rangefinder's single return. Gazebo reports out of range as inf."""
+        # the part reports one distance over its beam: the nearest return in the fan of rays
+        finite = [r for r in msg.ranges if math.isfinite(r) and r >= msg.range_min]
+        reading = min(finite) if finite else math.inf
+        self._beams[side] = (reading, (msg.range_min, msg.range_max))
+
+    def _send_distances(self) -> None:
+        """Every beam to ArduPilot, so its proximity library and avoidance see the obstacles."""
+        if not self._connected:
+            return
+        usec = int(time.monotonic() * 1e6)          # DISTANCE_SENSOR wants time since boot
+        for index, (side, orientation) in enumerate(BEAM_ORIENTATION.items()):
+            beam = self._beams.get(side)
+            if beam is None:
+                continue
+            distance, limits = beam
+            self._ap.send_distance(distance, orientation, index, limits, usec)
 
     def _on_vio_points(self, msg: PointCloud2) -> None:
         """Fold OpenVINS's features into the 3D map once its track fits GPS; before that its frame
@@ -326,8 +368,42 @@ class DroneInterface(Node):
             self.get_logger().warn(f"ignoring setpoint in frame {msg.header.frame_id!r}")
             return
         pos, o = msg.pose.position, msg.pose.orientation
-        n, e, d = map_to_ned(pos.x, pos.y, pos.z, self._home)
-        self._ap.goto(n, e, -d, yaw=enu_yaw_to_ned(quaternion_to_yaw(o.x, o.y, o.z, o.w)))
+        self._target = (pos.x, pos.y, pos.z, enu_yaw_to_ned(quaternion_to_yaw(o.x, o.y, o.z, o.w)))
+        self._hold = None                            # a new leg: judge it on this tick's beams
+        self._fly(self._target)
+
+    def _fly(self, target: tuple) -> None:
+        n, e, d = map_to_ned(*target[:3], self._home)
+        self._ap.goto(n, e, -d, yaw=target[3])
+
+    def _guard_tick(self) -> None:
+        """Hold the leg while a beam sees something in the way, and fly it again once clear.
+
+        ArduPilot takes these beams as proximity but its avoidance does not steer the GUIDED
+        targets a mission flies, so the guard is here (obstacle.py). It runs on a timer because a
+        leg is commanded once and the drone covers metres a second under it."""
+        if not self._connected or self._home is None or self._target is None:
+            return
+        state = self._ap.state
+        here = ned_to_map(state.n, state.e, state.d, self._home)
+        beams = {side: reading for side, (reading, _) in self._beams.items()}
+        hit = obstacle.blocked(beams, here, self._target[:3], ned_yaw_to_enu(state.yaw))
+        if hit is None:
+            if self._hold is not None:              # the way is clear again: fly the leg
+                self._hold = None
+                self._event("obstacle clear: flying the leg again")
+                self._fly(self._target)
+            return
+        side, distance = hit
+        first = self._hold is None
+        if first:
+            # latch where we stopped: re-sending the live position every tick walks into the wall
+            self._hold = obstacle.hold_at(here, self._target[:3], distance)
+        self._fly((*self._hold, self._target[3]))
+        now = time.monotonic()
+        if first or now - self._last_obstacle_event >= OBSTACLE_EVENT_S:
+            self._last_obstacle_event = now
+            self._event(f"obstacle {distance:.1f} m to the {side}: holding short of it")
 
     def _takeoff(self, _request, response):
         alt = self.get_parameter("takeoff_alt_m").value

@@ -291,6 +291,20 @@ class Autopilot:
             covariance[index] = variance
         self._conn.mav.vision_position_estimate_send(usec, *ned, *rpy, covariance=covariance)
 
+    def send_distance(self, distance_m: float, orientation: int, sensor_id: int,
+                      range_m: tuple, usec: int) -> None:
+        """One rangefinder reading for ArduPilot's proximity library (PRX1_TYPE 2), which its
+        avoidance uses. `orientation` is a MAV_SENSOR_ORIENTATION: 0 forward, 2 right, 4 back,
+        6 left. A reading beyond the sensor's range is sent as max + 1 cm, which ArduPilot reads
+        as "nothing out there" rather than an obstacle at the range limit."""
+        low, high = (round(v * 100) for v in range_m)
+        # Gazebo reports nothing in the beam as inf, which does not survive round()
+        reading = round(distance_m * 100) if math.isfinite(distance_m) else high + 1
+        self._conn.mav.distance_sensor_send(
+            # the field is milliseconds since boot in 32 bits: epoch milliseconds overflow it
+            (usec // 1000) % 2 ** 32, low, high, reading if low <= reading <= high else high + 1,
+            mavutil.mavlink.MAV_DISTANCE_SENSOR_LASER, sensor_id, orientation, 0)
+
     def set_mode(self, mode: str) -> None:
         """Resend until the autopilot reports the mode. A single set_mode goes unanswered when the
         link is busy: spawning a scenario's victims was enough to make takeoff fail this way."""

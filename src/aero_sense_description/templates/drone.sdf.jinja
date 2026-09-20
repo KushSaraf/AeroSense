@@ -85,6 +85,42 @@
         <material><diffuse>0.7 0.71 0.73 1</diffuse><specular>1 1 1 1</specular></material>
       </visual>
 {% endfor %}
+      <!-- Obstacle-avoidance rangefinders: one beam out of each side (config/sensors.yaml).
+           A single-return gpu_lidar is what the part is: one distance along its beam. -->
+{% set rf = cfg.rangefinders %}
+{% for b in beams %}
+{% if not rf.rendered %}
+      <visual name="rangefinder_{{ b.name }}">
+        <pose>{{ b.pose }}</pose>
+        <geometry><mesh><uri>file://{{ meshes }}/{{ b.mesh }}</uri></mesh></geometry>
+      </visual>
+{% else %}
+      <visual name="rangefinder_{{ b.name }}">
+        <pose>{{ b.pose }}</pose>
+        <geometry><mesh><uri>file://{{ meshes }}/{{ b.mesh }}</uri></mesh></geometry>
+      </visual>
+      <sensor name="rangefinder_{{ b.name }}" type="gpu_lidar">
+        <pose>{{ b.pose }}</pose>
+        <gz_frame_id>{{ frames['rangefinder_' ~ b.name] }}</gz_frame_id>
+        <topic>{{ topics['rangefinder_' ~ b.name] }}</topic>
+        <update_rate>{{ rf.rate_hz }}</update_rate>
+        <always_on>1</always_on>
+        <!-- The part measures one distance over its beam's divergence, so the beam is a small
+             fan of rays and the nearest return is the reading (drone_interface). A single ray
+             segfaults gz-rendering 8's Ogre2GpuRays: it has no render target to draw into. -->
+        <lidar>
+          <scan>
+            <horizontal><samples>{{ rf.beam_samples }}</samples><resolution>1</resolution>
+              <min_angle>{{ -b.beam_rad / 2 }}</min_angle><max_angle>{{ b.beam_rad / 2 }}</max_angle></horizontal>
+            <vertical><samples>{{ rf.beam_samples }}</samples><resolution>1</resolution>
+              <min_angle>{{ -b.beam_rad / 2 }}</min_angle><max_angle>{{ b.beam_rad / 2 }}</max_angle></vertical>
+          </scan>
+          <range><min>{{ rf.range_m[0] }}</min><max>{{ rf.range_m[1] }}</max><resolution>0.01</resolution></range>
+          <noise><type>gaussian</type><mean>0</mean><stddev>{{ rf.noise_stddev }}</stddev></noise>
+        </lidar>
+      </sensor>
+{% endif %}
+{% endfor %}
     </link>
 
     <!-- Flight IMU, read by ArduPilot SITL (noise-free: SITL adds its own sensor model). -->

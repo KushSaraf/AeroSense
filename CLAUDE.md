@@ -122,6 +122,22 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   walls, and people 5 m up on terraces projected onto z 0, made leads nobody was at.
 - Retrain with `ml/make_dataset.py` + `ml/train.py`; score with `ml/evaluate.py`.
 
+## Obstacle avoidance (`obstacle.py`, `rangefinder_sim`, `sensors.yaml` `rangefinders`)
+
+- **Parts:** TFmini Plus forward, three TFMini-S Micro on the other sides, 0.1-12 m. Meshes from
+  the manufacturer's drawing (`tools/make_rangefinder.py`); Benewake publishes no CAD.
+- **To the autopilot:** `drone_interface` sends each beam as MAVLink DISTANCE_SENSOR (time since
+  boot in 32 bits: epoch ms overflow it and killed the node). ArduPilot reports proximity healthy
+  (PRX1_TYPE 2), but **its avoidance does not steer GUIDED targets**, which is why the guard exists.
+- **The guard:** `obstacle.blocked` picks the beam facing the way the drone is going and holds the
+  leg while it reads under 12 m, backing off to a 3 m stand-off and flying the leg again when it
+  clears. It re-checks at 5 Hz, not per setpoint: a leg is one command. It is the last line;
+  `airspace.py` is what routes round what the map knows.
+- **Simulation:** a `gpu_lidar` on this drone segfaults gz-rendering 8 (docs/VERIFICATION.md), so
+  `rangefinder_sim` casts the beams at `structure_map`'s footprints and publishes the same topics.
+  It sees only mapped structures: no poles, vehicles or terrain. `rangefinders.rendered: true`
+  switches to the Gazebo sensors.
+
 ## Hazards: SegFormer-B0 and HSI (`hazard_mapper`, `disaster.py`, `hsi.py`, `ml/segformer/`)
 
 - **Input:** the thermal image plus the RGB the thermal camera sees (`disaster.rgb_in_thermal_view`:

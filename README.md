@@ -130,6 +130,15 @@ and a casualty's popup says which team reaches them and at which stop. `teams` (
 (3600) and `on_site_s` (300) are `ground_routes` parameters: planning figures for the incident
 commander, not measurements.
 
+### Obstacle avoidance: stopping for what the map did not know
+
+Four rangefinders look out of the drone's sides (a Benewake TFmini Plus forward, three TFMini-S
+Micro elsewhere, 0.1-12 m). They reach ArduPilot as proximity, and because its own avoidance
+leaves GUIDED targets alone, the drone guards its own setpoints: whichever beam faces the way it
+is going stops the leg, the drone backs off to 3 m and waits, and flies on when the way clears
+(`aero_sense_mission/obstacle.py`). Flown at a building at 4 m/s it stopped 1.55 m short and
+settled at 3 m; before the guard it flew into the wall.
+
 ### Hazards: what the ground is like, region by region
 
 `hazard_mapper` segments the drone's own view with SegFormer-B0 (`ml/segformer/`): the thermal

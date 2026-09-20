@@ -31,7 +31,34 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
-### Hazard mapping: SegFormer-B0 and HSI (2026-09-20)
+### Obstacle avoidance: the four TF rangefinders (2026-09-20)
+
+The drone carries a Benewake TFmini Plus forward and three TFMini-S Micro on the other sides
+(published sizes, masses, 3.6 deg / 2 deg beams, 0.1-12 m). `drone_interface` sends them to
+ArduPilot as MAVLink DISTANCE_SENSOR; SITL reports the proximity sensor present, enabled and
+healthy with PRX1_TYPE 2, AVOID_ENABLE 2, OA_TYPE 1.
+
+**ArduPilot's own avoidance does not steer a GUIDED position target.** Flown at a 10.5 m building
+at 8 m: its own front beam read 5.4, 2.0 then 0.3 m and the drone flew into the wall (closest
+approach 0.07 m) and ended on the ground. So the guard is onboard (`obstacle.py`), on the setpoint
+path, and it took three flights to get right:
+
+| Guard | Closest approach | What went wrong |
+|---|---|---|
+| none (ArduPilot only) | 0.07 m | hit the wall |
+| 5 m margin, checked as each setpoint arrives | 0.06 m | a leg is one command; the beams were never re-read under it |
+| 9 m margin, re-checked at 5 Hz, hold where we stopped | 0.61 m | stopped at 1.2 m, then drifted in while holding |
+| 12 m margin, 5 Hz, back off to a 3 m stand-off | **1.55 m**, settles at 3.0 m | flies the leg again when the way clears |
+
+**gz-rendering 8 segfaults on a gpu_lidar on this drone.** Ogre2GpuRays::UpdateRenderTarget1stPass,
+null dereference, every time, with one beam or four, in base_link or payload_link, at low quality,
+with the near plane at 0.1 or 0.5 m, with or without the ArduPilot plugin, spawned at start or into
+a running world. The same sensor is fine on a standalone model in the same world, alone and beside
+a camera, a depth camera, a thermal camera, five cameras, a GLB mesh, and on a falling body. So the
+beams are cast geometrically instead (`aero_sense_bringup/rangefinder_sim`, against
+`structure_map`'s footprints); `sensors.yaml` `rangefinders.rendered: true` puts the Gazebo sensors
+back when that is fixed. The onboard side reads the same topics either way.
+
 
 SegFormer-B0 fine-tuned on 1200 rendered frames of this world (RGB + thermal, 256x192, labels from
 a gz segmentation camera). Validation (150 frames, the same world): mIoU 0.9385, pixel accuracy

@@ -18,8 +18,10 @@ STEREO = ("stereo_left", "stereo_right")
 CAMERAS = ("rgb", "depth", "thermal", *STEREO)
 #: Camera body frame (x forward, z up) -> optical frame (z forward, x right, y down).
 OPTICAL_RPY = (-math.pi / 2, 0.0, -math.pi / 2)
+#: Obstacle-avoidance beams, in the order sensors.yaml lists them (front, left, back, right).
+BEAMS = ("front", "left", "back", "right")
 FRAME_NAMES = ("base_link", "camera_link", "camera_optical", "imu_link", "baro_link",
-               *(f"{cam}_optical" for cam in STEREO))
+               *(f"{cam}_optical" for cam in STEREO), *(f"rangefinder_{b}" for b in BEAMS))
 #: ArduPilot Hexa-X (FRAME_CLASS 2, FRAME_TYPE 1), in motor order: (bearing deg clockwise from
 #: forward, spin seen from above). Copied from AP_MotorsMatrix::setup_hexa_matrix; the model's
 #: rotor_<i>_joint is ArduPilot's motor i+1, so this order must not change.
@@ -47,6 +49,8 @@ def gz_topics(name: str) -> dict:
     for cam in CAMERAS:
         topics[cam] = f"/{name}/{cam}/image"
         topics[f"{cam}_info"] = f"/{name}/{cam}/camera_info"
+    for beam in BEAMS:
+        topics[f"rangefinder_{beam}"] = f"/{name}/rangefinder/{beam}"
     return topics
 
 
@@ -174,7 +178,7 @@ def model_sdf(cfg: dict, name: str, frame_prefix: str = "") -> str:
     return env.get_template("drone.sdf.jinja").render(
         cfg=cfg, name=name, frames=frames(frame_prefix), topics=gz_topics(name),
         rotors=rotors(cfg["airframe"]["arm_m"]), meshes=share() / "meshes", parts=layout(cfg),
-        stereo=stereo_offsets(cfg))
+        stereo=stereo_offsets(cfg), beams=beam_layout(cfg))
 
 
 def _gz_to_ros(ros: str, gz: str, ros_type: str, gz_type: str) -> dict:
@@ -193,6 +197,10 @@ def bridge_config(name: str) -> list:
             _gz_to_ros(f"aero_sense/camera/{cam}/camera_info", t[f"{cam}_info"],
                        "sensor_msgs/msg/CameraInfo", "gz.msgs.CameraInfo"),
         ]
+    if load(QUALITIES[1])["rangefinders"]["rendered"]:      # else rangefinder_sim publishes them
+        for beam in BEAMS:
+            entries.append(_gz_to_ros(f"aero_sense/rangefinder/{beam}", t[f"rangefinder_{beam}"],
+                                      "sensor_msgs/msg/LaserScan", "gz.msgs.LaserScan"))
     return entries + [
         _gz_to_ros("aero_sense/imu", t["imu"], "sensor_msgs/msg/Imu", "gz.msgs.IMU"),
         _gz_to_ros("aero_sense/baro", t["baro"], "sensor_msgs/msg/FluidPressure", "gz.msgs.FluidPressure"),
@@ -212,7 +220,26 @@ def static_transforms(cfg: dict, frame_prefix: str = "") -> tuple:
         (f["base_link"], f["baro_link"], mount, (0.0, 0.0, 0.0)),
         *((f["camera_link"], f[f"{cam}_optical"], (0.0, y, 0.0), OPTICAL_RPY)
           for cam, y in stereo_offsets(cfg).items()),
+        *((f["base_link"], f[f"rangefinder_{beam['name']}"], beam_xyz(cfg, beam),
+           (0.0, 0.0, math.radians(beam["yaw_deg"]))) for beam in cfg["rangefinders"]["beams"]),
     )
+
+
+def beam_xyz(cfg: dict, beam: dict) -> tuple:
+    """Where a rangefinder sits in base_link (FLU): out at the plate edge, facing its own way."""
+    rf = cfg["rangefinders"]
+    yaw = math.radians(beam["yaw_deg"])
+    return (rf["mount_radius_m"] * math.cos(yaw), rf["mount_radius_m"] * math.sin(yaw), rf["mount_z_m"])
+
+
+def beam_layout(cfg: dict) -> list:
+    """Each rangefinder for the model: its pose in base_link, where it is bolted to the frame
+    (the mesh and the beam look the same way)."""
+    out = []
+    for beam in cfg["rangefinders"]["beams"]:
+        x, y, z = beam_xyz(cfg, beam)
+        out.append({**beam, "pose": f"{x:.4f} {y:.4f} {z:.4f} 0 0 {math.radians(beam['yaw_deg']):.4f}"})
+    return out
 
 
 def stereo_offsets(cfg: dict) -> dict:

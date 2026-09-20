@@ -102,6 +102,28 @@ thermal:                      # LWIR core at 256x192 (fixed, so not part of the 
   # and perception must not assume finer than 2.6 K.
   resolution_k: 0.01          # scale of the L16 counts (1 count = 0.01 K), not the precision
   # No noise_stddev: gz-sensors 8 segfaults on <noise> in a thermal camera.
+rangefinders:                 # obstacle avoidance: one beam out of each side, level with the frame
+  # Benewake TFmini Plus forward (11 g, 3.6 deg beam), TFMini-S Micro on the other three sides
+  # (5 g, 2 deg). Both read 0.1-12 m; ArduPilot takes them as proximity (PRX1_TYPE 2, MAVLink
+  # DISTANCE_SENSOR from drone_interface) and avoids with them.
+  range_m: [0.1, 12.0]        # both parts' published range
+  rate_hz: 20                 # the part does 100 Hz+; ArduPilot's proximity library reads far slower
+  noise_stddev: 0.02          # metres
+  mount_z_m: 0.0              # on the plate stack, level: the beams look out horizontally
+  beam_samples: 4             # rays across the beam's divergence; the nearest return is the reading
+  # false: aero_sense_bringup/rangefinder_sim casts the beams against the world's structures.
+  # A gpu_lidar anywhere on this drone segfaults gz-rendering 8 in this world, though the same
+  # sensor works on a standalone model in it (docs/VERIFICATION.md). true renders them in Gazebo.
+  rendered: false
+  mount_radius_m: 0.18        # out to the edge of the plates, clear of the battery and camera tray
+  # Masses and beam angles are the manufacturer's (Benewake product pages and manuals); the
+  # meshes are built to their constructional drawings by tools/make_rangefinder.py.
+  beams:                      # yaw in base_link (FLU): 0 forward, +90 left
+    - {name: front, yaw_deg: 0,   part: TFmini Plus,    mesh: tfmini_plus.glb, mass_kg: 0.012, beam_rad: 0.0628}
+    - {name: left,  yaw_deg: 90,  part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}
+    - {name: back,  yaw_deg: 180, part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}
+    - {name: right, yaw_deg: -90, part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}
+
 imu:                          # OAK-D Pro W's BNO086; the flight IMU stays noise-free for SITL
   rate_hz: 200                # VIO integrates between frames: OpenVINS wants 200 Hz or more
   gyro_stddev: 0.0009         # rad/s
