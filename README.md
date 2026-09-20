@@ -4,10 +4,11 @@ An autonomous search-and-rescue drone for Smart India Hackathon 2026. It flies a
 zone (earthquake + flood sectors) under ArduPilot SITL, finds casualties with thermal perception,
 triages them, routes around obstacles, and reports everything to a live command-centre dashboard.
 
-**Website: https://kushsaraf.github.io/AeroSense_SIH26/** — the dashboard playing back a real
-recorded flight of the earthquake sector (track, thermal and RGB camera, confirmed casualties with
-triage, obstacle-avoidance events, printable report). The simulation itself cannot run on a web
-host, so every page says it is a replay; run `tools/dashboard.sh` to fly one live.
+**Run it:** `tools/dashboard.sh` brings up the simulation, the bridge and the dashboard together.
+There is no public website: this repository is private. To show the dashboard without the
+simulation, `cd frontend && VITE_REPLAY=1 npm run dev` plays back the real recorded flight in
+`frontend/public/replay/` (track, thermal and RGB camera, confirmed casualties with triage,
+obstacle-avoidance events, printable report); every page says it is a replay.
 
 Tests, flight results, the triage scorecard and screenshots: [docs/VERIFICATION.md](docs/VERIFICATION.md).
 
@@ -16,13 +17,13 @@ Tests, flight results, the triage scorecard and screenshots: [docs/VERIFICATION.
 ```
 sih_2026/
 ├── src/              ROS 2 packages — the drone system (one folder per package, below)
-├── frontend/         React dashboard (live, or replay on the website) — see frontend/README.md
+├── frontend/         React dashboard (live, or replaying a recorded flight) — see frontend/README.md
 ├── tools/            launch scripts and helper tools (start here to run anything)
 ├── ml/               the RGB person detector: rendered aerial dataset, YOLO11n fine-tuning, scores — see ml/README.md
 ├── hardware/         real parts: manufacturer CAD, parts list, what is still needed
 ├── docs/             ARCHITECTURE.md (design), VERIFICATION.md (test + flight results), images/
 ├── legacy/prototype/ the first single-process version, superseded by src/ — kept for reference
-├── .github/          GitHub Pages workflow that publishes the replay website
+├── .github/          CI: the dashboard build, including the replay build
 └── reference/        third-party Gazebo model repos (not in git; see "Reference assets")
 ```
 
@@ -206,7 +207,7 @@ vital-sign and triage algorithms. Perception never reads either.
 | `demo.sh` | simulation + RViz + a scored search, no dashboard |
 | `search_evaluation.py` | fly a search (round the radio mast, as the mission does) and score it against ground truth |
 | `mission_evaluation.py` | start a mission (SWOOP, triage and all) on a running sim and score what it confirmed |
-| `record_replay.py` | record the running flight into `frontend/public/replay/` for the website |
+| `record_replay.py` | record the running flight into `frontend/public/replay/` for replay without the sim |
 | `vio_drift.py` | record OpenVINS against Gazebo's ground truth during a flight and report its drift |
 | `vio_mask.py` | measure OpenVINS's airframe masks (the skids in the stereo view) from a recorded flight |
 | `record_thermal_dataset.py` | save labelled thermal (16-bit, 0.01 K) + RGB frames for developing algorithms |
@@ -282,7 +283,7 @@ camera streams. The view starts over the earthquake sector; the base is to the s
 
 ## Screenshots
 
-From the recorded flight on the website.
+From the recorded flight, replayed in the dashboard.
 
 | | |
 |---|---|

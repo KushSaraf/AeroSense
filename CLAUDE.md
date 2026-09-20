@@ -179,7 +179,7 @@ WebRTC fails, and replays always use it. Keep `cryptography` at the version inst
 ## Conventions and gotchas
 
 - **Commits:** never add a `Co-Authored-By` trailer. Commit only verified slices, and push
-  (`master:main` to KushSaraf/AeroSense_SIH26) only when asked.
+  (`master:main` to KushSaraf/AeroSense, private) only when asked.
 - **Data:** no placeholders or fabricated data anywhere. Everything shown comes from the running
   sim or a recorded flight.
 - **Meshes:**

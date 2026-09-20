@@ -401,7 +401,7 @@ Each flown end to end in Gazebo with ArduPilot SITL, started from the dashboard'
 | M-20260911-102001 | the failure that led to obstacle avoidance: search leg 3 ran through the 44 m radio mast | drone hung disarmed on the mast; mission waited 74 min — now caught as EMERGENCY within 3 s |
 | M-20260911-115500 | obstacle avoidance: routed round the mast, the industrial hall, the water tower and the fire station | 8 casualties, 92% measured coverage, landed on the pad |
 | M-20260911-120231 | the dashboard's restart: simulation torn down and brought back through `POST /api/simulation/restart` | 8 casualties, 90% coverage, landed on the pad |
-| M-20260911-151948 | the flight on the website, recorded with `tools/record_replay.py` | 8 casualties found, 91% of the sector searched, 406 s |
+| M-20260911-151948 | the recorded flight, `tools/record_replay.py` | 8 casualties found, 91% of the sector searched, 406 s |
 
 ## Triage against the scenario
 
@@ -432,7 +432,7 @@ temperature has no thermal contrast.
 
 ## Screenshots
 
-The website, playing back the recorded flight:
+The dashboard, playing back the recorded flight:
 
 | | |
 |---|---|

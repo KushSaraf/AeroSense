@@ -1,7 +1,8 @@
 # Aero Sense dashboard
 
 React + TypeScript + Vite command-centre UI. Live, it talks to `aero_sense_bridge` on :8000;
-on the website (GitHub Pages) it plays back the recorded flight in `public/replay/`.
+with `VITE_REPLAY=1` it plays back the recorded flight in `public/replay/` instead, needing no
+simulation.
 
 ```bash
 npm install
