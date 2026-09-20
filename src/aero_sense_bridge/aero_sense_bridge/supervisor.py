@@ -20,9 +20,6 @@ LOG_DIR = WORKSPACE / "logs" / "dashboard"
 ROS_SETUP = "/opt/ros/humble/setup.bash"
 #: ArduPilot's workspace, overridable like the one above: a container does not keep it in $HOME.
 UAV_SETUP = str(Path(os.environ.get("UAV_WS", Path.home() / "uav_ws")) / "install" / "setup.bash")
-#: Launch arguments for a machine that cannot run everything. A container without OpenVINS
-#: sets AERO_SENSE_LAUNCH_ARGS="vio:=false"; without it the launch aborts on ov_msckf.
-EXTRA_LAUNCH_ARGS = os.environ.get("AERO_SENSE_LAUNCH_ARGS", "")
 START_TIMEOUT_S = 240
 #: How long a freshly opened window must survive before it counts as open. Qt aborts within a
 #: second when it cannot initialise, so this catches that without making the button feel slow.
@@ -62,7 +59,7 @@ def _log_tail(path: Path, lines: int = 3) -> str:
 def _launch_command(quality: str, gui: bool, rviz: bool, cruise_speed: float) -> str:
     launch = (f"ros2 launch aero_sense_bringup full_system.launch.py quality:={quality} "
               f"gui:={'true' if gui else 'false'} rviz:={'true' if rviz else 'false'} "
-              f"cruise_speed:={cruise_speed} dashboard:=false {EXTRA_LAUNCH_ARGS}").strip()
+              f"cruise_speed:={cruise_speed} dashboard:=false")
     return (f"source {ROS_SETUP} && source {UAV_SETUP} && "
             f"source {WORKSPACE}/install/setup.bash && {launch}")
 

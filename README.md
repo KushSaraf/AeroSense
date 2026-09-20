@@ -328,35 +328,6 @@ git clone https://github.com/LTU-RAI/darpa_subt_worlds darpa_subt_worlds-main
 
 Or point `AERO_SENSE_REFERENCE` at another directory holding them.
 
-## Another machine (cloud VM, second laptop)
-
-`tools/cloud_setup.sh` installs the lot on a fresh Ubuntu 22.04 box — ROS 2 Humble, Gazebo
-Harmonic, ArduPilot SITL, the reference assets above — and builds both workspaces. It takes
-roughly 60–90 minutes, most of it ArduPilot, and it needs a GPU: Gazebo renders the drone's
-thermal and RGB cameras, and on software GL they run far slower than real time, so the drone
-flies but perception misses casualties. Then `tools/dashboard.sh --headless` runs the whole
-system with the dashboard as the only view. Forward :8000 and :5173 to your own browser rather
-than exposing them — the bridge starts processes on the host, so it binds 127.0.0.1.
-
-| Directory in `reference/` | Source | License | Used for |
-|---|---|---|---|
-| `tdf_gazebo-main` | [rsanchezmo/tdf_gazebo](https://github.com/rsanchezmo/tdf_gazebo) | MIT | industrial hall, fire and police stations, vehicles, radio mast, water tower |
-| `gazebo_models_worlds_collection-master` | [leonhartyao/gazebo_models_worlds_collection](https://github.com/leonhartyao/gazebo_models_worlds_collection) | GPL-3.0 | the grass of the farmland around the society |
-| `Autonomous-robot-for-fire-detection-main` | [kyriakosar/Autonomous-robot-for-fire-detection](https://github.com/kyriakosar/Autonomous-robot-for-fire-detection) | none stated | `suv` textures used by the tdf bus |
-| `darpa_subt_worlds-main` | [LTU-RAI/darpa_subt_worlds](https://github.com/LTU-RAI/darpa_subt_worlds) | MIT | jersey barriers |
-
-Consulted while designing the scenarios, not loaded by the world:
-
-| Project | License | What it informed |
-|---|---|---|
-| [bhavyakeerthi3/Autonomous-Drone-Simulator](https://github.com/bhavyakeerthi3/Autonomous-Drone-Simulator) | MIT | ROS 2 + ArduPilot SITL disaster-monitoring layout |
-| [disaster-robotics-proalertas/usv_sim_lsa](https://github.com/disaster-robotics-proalertas/usv_sim_lsa) | Apache-2.0 | flood water and currents in Gazebo |
-| [lirs-kfu/lirs-usim-public](https://gitlab.com/lirs-kfu/lirs-usim-public) (GitLab) | none stated | urban search-and-rescue simulator structure |
-
-`ros2 run aero_sense_bringup system_check` reports them missing. Their meshes name textures by
-bare filename, so each model's `materials/textures` goes on `GZ_SIM_RESOURCE_PATH`
-(`aero_sense_bringup/worlds.py`).
-
 ## Firmware notes
 
 `~/uav_ws` builds **ArduCopter 4.8.0-dev**, which renamed the waypoint parameters to SI
