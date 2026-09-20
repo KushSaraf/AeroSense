@@ -32,7 +32,7 @@ case "${1:-}" in
   fly)
     # tmux inside the container, bound so the published ports reach it
     docker exec -e AERO_SENSE_BIND=0.0.0.0 "$NAME" \
-      bash -lc 'apt-get install -y -qq tmux >/dev/null 2>&1; tools/dashboard.sh --headless --no-browser --quality low'
+      bash -lc 'tools/dashboard.sh --headless --no-browser --quality low'
     ;;
   shell) docker exec -it -e AERO_SENSE_BIND=0.0.0.0 "$NAME" bash ;;
   stop) docker rm -f "$NAME" ;;

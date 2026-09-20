@@ -13,7 +13,7 @@ SHELL ["/bin/bash", "-c"]
 
 # Gazebo Harmonic, build dependencies, and software GL for a machine with no GPU
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      curl gnupg lsb-release git python3-pip ca-certificates \
+      curl gnupg lsb-release git python3-pip ca-certificates sudo tmux \
       rapidjson-dev libopencv-dev libeigen3-dev libgl1-mesa-dri libegl1 xvfb \
       python3-colcon-common-extensions ros-humble-vision-msgs ros-humble-mavros-msgs \
  && curl -sSL -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg https://packages.osrfoundation.org/gazebo.gpg \
