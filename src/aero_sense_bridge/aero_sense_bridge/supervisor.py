@@ -18,7 +18,8 @@ from aero_sense_bringup import stop_sim
 WORKSPACE = Path(os.environ.get("AERO_SENSE_WORKSPACE", Path.home() / "sih_2026"))
 LOG_DIR = WORKSPACE / "logs" / "dashboard"
 ROS_SETUP = "/opt/ros/humble/setup.bash"
-UAV_SETUP = str(Path.home() / "uav_ws" / "install" / "setup.bash")
+#: ArduPilot's workspace, overridable like the one above: a container does not keep it in $HOME.
+UAV_SETUP = str(Path(os.environ.get("UAV_WS", Path.home() / "uav_ws")) / "install" / "setup.bash")
 START_TIMEOUT_S = 240
 #: How long a freshly opened window must survive before it counts as open. Qt aborts within a
 #: second when it cannot initialise, so this catches that without making the button feel slow.

@@ -84,7 +84,9 @@ RUN mkdir -p $AERO_SENSE_REFERENCE && cd $AERO_SENSE_REFERENCE && touch COLCON_I
 
 # No GPU in a cloud CPU instance: Gazebo renders the cameras in software. Detections are the same
 # as on a GPU, only slower, so fly at --quality low.
-ENV LIBGL_ALWAYS_SOFTWARE=1 \
+# the supervisor launches the simulation from the workspace; in here that is the bind mount
+ENV AERO_SENSE_WORKSPACE=/workspace \
+    LIBGL_ALWAYS_SOFTWARE=1 \
     GALLIUM_DRIVER=llvmpipe \
     PATH=/opt/Micro-XRCE-DDS-Gen/scripts:$UAV_WS/src/ardupilot/Tools/autotest:$PATH
 
