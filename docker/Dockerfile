@@ -24,10 +24,13 @@ http://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" 
 
 # Torch from the CPU index: the GPU wheels are 2.5 GB and there is no GPU here.
 # cryptography is pinned because aiortc pulls a newer one whose DTLS breaks the camera streams.
+# --ignore-installed: the base image's sympy and numpy came from distutils, and pip refuses to
+# uninstall those ("cannot accurately determine which files belong to it"), which failed the build.
+# Shadowing them in /usr/local costs nothing in a container.
 RUN python3 -m pip install --no-cache-dir --upgrade pip \
- && python3 -m pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
-      torch torchvision \
- && python3 -m pip install --no-cache-dir \
+ && python3 -m pip install --no-cache-dir --ignore-installed \
+      --index-url https://download.pytorch.org/whl/cpu torch torchvision \
+ && python3 -m pip install --no-cache-dir --ignore-installed \
       "cryptography==46.0.7" aiortc fastapi uvicorn "numpy>=2.2" scipy opencv-python-headless \
       MAVProxy pymavlink ultralytics transformers
 
