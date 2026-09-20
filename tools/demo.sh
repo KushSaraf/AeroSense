@@ -39,6 +39,9 @@ CRUISE=8
 SPACING=25
 BUILD=0 SEARCH=1 HEADLESS=0 ATTACH=0 DASHBOARD=0 SIM=1 BROWSER=1 STOP_ONLY=0
 READY_TIMEOUT_S=300
+# In a container the loopback the bridge binds is the container's own, so nothing reaches it:
+# AERO_SENSE_BIND=0.0.0.0 with `docker run -p 127.0.0.1:8000:8000` keeps it off the network.
+BIND_HOST="${AERO_SENSE_BIND:-127.0.0.1}"
 BRIDGE_PORT=8000
 FRONTEND_PORT=5173
 
@@ -128,9 +131,9 @@ start_dashboard() {
   fi
 
   tmux new-session -d -s "$SESSION" -n bridge \
-    "bash -lc '$SETUP && ros2 run aero_sense_bridge dashboard_bridge; exec bash'"
+    "bash -lc '$SETUP && ros2 run aero_sense_bridge dashboard_bridge --ros-args -p host:=$BIND_HOST; exec bash'"
   tmux new-window -t "$SESSION" -n frontend \
-    "bash -lc 'cd $ROOT/frontend && npm run dev -- --host 127.0.0.1 --port $FRONTEND_PORT --strictPort; exec bash'"
+    "bash -lc 'cd $ROOT/frontend && npm run dev -- --host $BIND_HOST --port $FRONTEND_PORT --strictPort; exec bash'"
   tmux new-window -t "$SESSION" -n shell "bash -lc '$SETUP && cd $ROOT; exec bash'"
   echo "  tmux session '$SESSION': windows bridge, frontend, shell"
 
