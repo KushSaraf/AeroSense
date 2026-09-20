@@ -88,6 +88,15 @@ ENV LIBGL_ALWAYS_SOFTWARE=1 \
     GALLIUM_DRIVER=llvmpipe \
     PATH=/opt/Micro-XRCE-DDS-Gen/scripts:$UAV_WS/src/ardupilot/Tools/autotest:$PATH
 
+# `docker exec` does not run the ENTRYPOINT, so sourcing has to live where every shell finds it:
+# without this, colcon could not find ament_cmake.
+RUN printf '%s\n' \
+      'source /opt/ros/humble/setup.bash' \
+      'source /opt/uav_ws/install/setup.bash' \
+      '[ -f /workspace/install/setup.bash ] && source /workspace/install/setup.bash' \
+      > /etc/profile.d/aero_sense.sh \
+ && cat /etc/profile.d/aero_sense.sh >> /root/.bashrc
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 WORKDIR /workspace
