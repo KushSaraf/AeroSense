@@ -32,22 +32,29 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip \
       --index-url https://download.pytorch.org/whl/cpu torch torchvision \
  && python3 -m pip install --no-cache-dir --ignore-installed \
       "cryptography==46.0.7" aiortc fastapi uvicorn "numpy>=2.2" scipy opencv-python-headless \
-      MAVProxy pymavlink ultralytics transformers
+      MAVProxy pymavlink ultralytics transformers pexpect future "empy==3.3.4"
 
 RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs && apt-get clean
 
 # ArduPilot SITL: no binary exists, so it is built. The long stage.
 ENV UAV_WS=/opt/uav_ws
-RUN mkdir -p $UAV_WS/src && cd $UAV_WS/src \
- && git clone --depth 1 --recurse-submodules --shallow-submodules \
-      https://github.com/ArduPilot/ardupilot.git \
- && cd ardupilot \
- && USER=root Tools/environment_install/install-prereqs-ubuntu.sh -y \
- && . ~/.profile && ./waf configure --board sitl && ./waf copter \
+# ArduPilot's prereq script refuses to run as root ("don't sudo it!"), so the build runs as an
+# unprivileged user with passwordless sudo, the way upstream tests it.
+# DO_AP_STM_ENV=0 skips the ARM cross-toolchain: SITL is a native binary and never needs it.
+RUN useradd -m -s /bin/bash ap \
+ && echo "ap ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ap && chmod 0440 /etc/sudoers.d/ap \
+ && mkdir -p $UAV_WS/src && chown -R ap:ap $UAV_WS
+RUN su ap -c "cd $UAV_WS/src && git clone --depth 1 --recurse-submodules --shallow-submodules \
+      https://github.com/ArduPilot/ardupilot.git" \
+ && su ap -c "cd $UAV_WS/src/ardupilot \
+      && DO_AP_STM_ENV=0 SKIP_AP_EXT_ENV=1 SKIP_AP_GRAPHIC_ENV=1 SKIP_AP_COV_ENV=1 \
+         Tools/environment_install/install-prereqs-ubuntu.sh -y" \
+ && su ap -c "cd $UAV_WS/src/ardupilot && . ~/.profile \
+      && ./waf configure --board sitl && ./waf copter" \
  && apt-get clean
 
 # The Gazebo plugin, and ros_gz from source: its binaries are built against Fortress, not Harmonic
-RUN cd $UAV_WS/src \
+RUN chown -R root:root $UAV_WS/src/ardupilot 2>/dev/null; cd $UAV_WS/src \
  && git clone --depth 1 -b ros2 https://github.com/ArduPilot/ardupilot_gazebo.git \
  && git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git \
  && git clone --depth 1 -b humble https://github.com/ros/sdformat_urdf.git \
