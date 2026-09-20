@@ -58,10 +58,14 @@ RUN su ap -c "cd $UAV_WS/src && git clone --depth 1 --recurse-submodules --shall
 # ArduPilot. libgflags-dev is ros_gz_sim's (create.cpp includes gflags/gflags.h); rosdep picks up
 # whatever else the three sources declare, skipping the Gazebo keys it has no Harmonic rules for.
 RUN chown -R root:root $UAV_WS/src/ardupilot 2>/dev/null; cd $UAV_WS/src \
- && apt-get update && apt-get install -y --no-install-recommends libgflags-dev \
+ && apt-get update && apt-get install -y --no-install-recommends libgflags-dev default-jdk-headless \
  && git clone --depth 1 -b ros2 https://github.com/ArduPilot/ardupilot_gazebo.git \
  && git clone --depth 1 -b humble https://github.com/gazebosim/ros_gz.git \
  && git clone --depth 1 -b humble https://github.com/ros/sdformat_urdf.git \
+ && git clone -b master --recurse-submodules --depth 1 \
+      https://github.com/ArduPilot/Micro-XRCE-DDS-Gen.git /opt/Micro-XRCE-DDS-Gen \
+ && (cd /opt/Micro-XRCE-DDS-Gen && ./gradlew --no-daemon assemble) \
+ && export PATH=/opt/Micro-XRCE-DDS-Gen/scripts:$PATH \
  && cd $UAV_WS && . /opt/ros/humble/setup.bash \
  && (rosdep update --rosdistro humble \
      && GZ_VERSION=harmonic rosdep install --from-paths src --ignore-src -r -y \
@@ -82,7 +86,7 @@ RUN mkdir -p $AERO_SENSE_REFERENCE && cd $AERO_SENSE_REFERENCE && touch COLCON_I
 # as on a GPU, only slower, so fly at --quality low.
 ENV LIBGL_ALWAYS_SOFTWARE=1 \
     GALLIUM_DRIVER=llvmpipe \
-    PATH=$UAV_WS/src/ardupilot/Tools/autotest:$PATH
+    PATH=/opt/Micro-XRCE-DDS-Gen/scripts:$UAV_WS/src/ardupilot/Tools/autotest:$PATH
 
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
