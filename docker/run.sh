@@ -31,10 +31,10 @@ case "${1:-}" in
     ;;
   fly)
     # tmux inside the container, bound so the published ports reach it
-    docker exec -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace "$NAME" \
+    docker exec -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace -e AERO_SENSE_LAUNCH_ARGS=vio:=false "$NAME" \
       bash -lc 'tools/dashboard.sh --headless --no-browser --quality low'
     ;;
-  shell) docker exec -it -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace "$NAME" bash ;;
+  shell) docker exec -it -e AERO_SENSE_BIND=0.0.0.0 -e AERO_SENSE_WORKSPACE=/workspace -e AERO_SENSE_LAUNCH_ARGS=vio:=false "$NAME" bash ;;
   stop) docker rm -f "$NAME" ;;
   *) sed -n '2,15p' "$0"; exit 2 ;;
 esac

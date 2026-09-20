@@ -86,6 +86,7 @@ RUN mkdir -p $AERO_SENSE_REFERENCE && cd $AERO_SENSE_REFERENCE && touch COLCON_I
 # as on a GPU, only slower, so fly at --quality low.
 # the supervisor launches the simulation from the workspace; in here that is the bind mount
 ENV AERO_SENSE_WORKSPACE=/workspace \
+    AERO_SENSE_LAUNCH_ARGS="vio:=false" \
     LIBGL_ALWAYS_SOFTWARE=1 \
     GALLIUM_DRIVER=llvmpipe \
     PATH=/opt/Micro-XRCE-DDS-Gen/scripts:$UAV_WS/src/ardupilot/Tools/autotest:$PATH

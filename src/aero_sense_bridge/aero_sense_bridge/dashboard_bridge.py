@@ -5,7 +5,7 @@
   GET  /api/state      everything the dashboard needs, in one object
   GET  /api/drone | /api/victims | /api/telemetry | /api/mission | /api/hazards | /api/alerts | /api/routes | /api/teams
   WS   /ws             the same state pushed as it changes
-  GET  /api/scene      the 3D view: structures, and OpenVINS's feature points in the map
+  GET  /api/scene      the 3D view: structures, OpenVINS's feature points, beam-mapped obstacles
   POST /api/camera/rgb|thermal/webrtc  {"sdp", "type": "offer"} -> the answer: the camera over WebRTC
   GET  /api/camera/rgb|thermal         the same camera as MJPEG (replays, fallback)
   GET  /api/simulation           whether a simulation is running
@@ -83,6 +83,7 @@ class DashboardBridge(Node):
         self._status_at = None          # monotonic time of the last DroneStatus
         self._comms = self._comms_at = None
         self._victims = self._hazards = self._routes = self._vio_points = None
+        self._obstacle_points = None
         self._structures = None          # loaded on the first /api/scene
         self._origin = contracts.world_origin()[:2]
         self._mission_state = None
@@ -128,6 +129,8 @@ class DashboardBridge(Node):
                                   for name in ("pause", "resume", "abort", "return_to_base")}
         self.create_subscription(PointCloud2, DOWNLINK + "perception/vio_points",
                                  lambda m: setattr(self, "_vio_points", m), 1)
+        self.create_subscription(PointCloud2, DOWNLINK + "perception/obstacle_points",
+                                 lambda m: setattr(self, "_obstacle_points", m), 1)
         for name in ("rgb", "thermal"):
             self.create_subscription(Image, f"{DOWNLINK}camera/{name}/image_raw",
                                      lambda msg, which=name: self._on_frame(which, msg), 1)
@@ -318,11 +321,13 @@ class DashboardBridge(Node):
         return contracts.teams_json(self._routes, *self._origin)
 
     def scene(self) -> dict:
-        """The 3D view's static and slow layers: structures and OpenVINS's feature points."""
+        """The 3D view's static and slow layers: the structures, OpenVINS's feature points, and
+        where the avoidance beams hit something the structure map did not have."""
         if self._structures is None:
             from aero_sense_perception import structure_map
             self._structures = contracts.structures_json(structure_map.load(contracts.world_file()))
-        return {"structures": self._structures, "points": contracts.points_json(self._vio_points)}
+        return {"structures": self._structures, "points": contracts.points_json(self._vio_points),
+                "obstacles": contracts.points_json(self._obstacle_points)}
 
     def state(self) -> dict:
         """Everything at once, so the dashboard can render a consistent frame."""
