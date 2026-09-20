@@ -312,6 +312,16 @@ git clone https://github.com/LTU-RAI/darpa_subt_worlds darpa_subt_worlds-main
 
 Or point `AERO_SENSE_REFERENCE` at another directory holding them.
 
+## Another machine (cloud VM, second laptop)
+
+`tools/cloud_setup.sh` installs the lot on a fresh Ubuntu 22.04 box — ROS 2 Humble, Gazebo
+Harmonic, ArduPilot SITL, the reference assets above — and builds both workspaces. It takes
+roughly 60–90 minutes, most of it ArduPilot, and it needs a GPU: Gazebo renders the drone's
+thermal and RGB cameras, and on software GL they run far slower than real time, so the drone
+flies but perception misses casualties. Then `tools/dashboard.sh --headless` runs the whole
+system with the dashboard as the only view. Forward :8000 and :5173 to your own browser rather
+than exposing them — the bridge starts processes on the host, so it binds 127.0.0.1.
+
 | Directory in `reference/` | Source | License | Used for |
 |---|---|---|---|
 | `tdf_gazebo-main` | [rsanchezmo/tdf_gazebo](https://github.com/rsanchezmo/tdf_gazebo) | MIT | industrial hall, fire and police stations, vehicles, radio mast, water tower |
