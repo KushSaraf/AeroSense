@@ -195,8 +195,8 @@ function ScenePage() {
   return (
     <div className="relative h-full overflow-hidden bg-[#1b2130]">
       <div ref={mount} className="absolute inset-0" />
-      <div className="pointer-events-none absolute left-4 top-4 max-w-sm rounded border border-white/15 bg-[#202635]/90 px-3 py-2 text-[11px] leading-5 text-white/75">
-        <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white">Local 3D view</div>
+      <div className="pointer-events-none absolute left-4 top-4 max-w-sm rounded border border-white/15 bg-[#202635]/90 px-3 py-2 text-[13px] leading-5 text-white/75">
+        <div className="mb-1 text-[12px] font-bold uppercase tracking-[0.09em] text-white">Local 3D view</div>
         {error ?? (points
           ? `${points} feature points OpenVINS has triangulated from the stereo cameras, coloured by height`
           : 'No feature points yet: OpenVINS starts in the hover after take-off, and its points are placed once its track fits GPS')}
@@ -204,7 +204,7 @@ function ScenePage() {
         {obstacles > 0 && <><br />{`Red: ${obstacles} obstacle${obstacles === 1 ? '' : 's'} the rangefinder beams found, which the mission now routes round`}</>}
       </div>
       <button type="button" onClick={() => setFollow((f) => !f)}
-              className={`absolute right-4 top-4 rounded border px-3 py-2 text-[10px] uppercase tracking-[0.16em] ${follow ? 'border-[#8ae0ff]/60 bg-[#8ae0ff]/20 text-white' : 'border-white/15 bg-white/5 text-white/70'}`}>
+              className={`absolute right-4 top-4 rounded border px-3 py-2 text-[12px] uppercase tracking-[0.09em] ${follow ? 'border-[#8ae0ff]/60 bg-[#8ae0ff]/20 text-white' : 'border-white/15 bg-white/5 text-white/70'}`}>
         Follow drone
       </button>
     </div>

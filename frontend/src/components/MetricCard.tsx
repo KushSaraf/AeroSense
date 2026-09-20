@@ -18,7 +18,7 @@ const accentMap = {
 export default function MetricCard({ label, value, accent = 'default', children }: MetricCardProps) {
   return (
     <div className={`panel flex min-h-[116px] flex-1 flex-col justify-between border p-4 ${accentMap[accent]}`}>
-      <div className="text-[10px] uppercase tracking-[0.24em] text-text/60">{label}</div>
+      <div className="text-[12px] uppercase tracking-[0.08em] text-text/75">{label}</div>
       <div className="mt-4 text-2xl font-semibold tracking-[0.06em] text-text">{value}</div>
       {children}
     </div>

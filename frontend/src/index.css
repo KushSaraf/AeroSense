@@ -6,7 +6,7 @@
 
 :root {
   font-family: 'Rajdhani', 'Segoe UI', sans-serif;
-  line-height: 1.45;
+  line-height: 1.55;
   font-weight: 400;
   color: #f2f2ea;
   background: #202635;
@@ -42,7 +42,7 @@ button, input, select, textarea {
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
 }
 
 button, input, select, textarea, table {
@@ -57,7 +57,7 @@ button, input, select, textarea, table {
 
 .aero-micro {
   font-family: 'Space Mono', monospace;
-  letter-spacing: 0.16em;
+  letter-spacing: 0.09em;
 }
 
 .hero-lockup {
@@ -123,8 +123,8 @@ button, input, select, textarea, table {
   padding: 7px 14px;
   color: rgba(255, 255, 255, 0.86);
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.14em;
+  font-size: 12px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -138,8 +138,8 @@ button, input, select, textarea, table {
   padding: 10px 15px;
   color: rgba(255, 255, 255, 0.85);
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.12em;
+  font-size: 12px;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   transition: background 160ms ease, border-color 160ms ease;
 }
@@ -289,11 +289,11 @@ p {
 .app-main .panel > .mb-3,
 .app-main .panel > .mb-4,
 .app-main .panel > .mb-5 {
-  color: rgba(218, 228, 241, 0.62);
+  color: rgba(226, 235, 247, 0.82);
   font-family: 'Space Mono', monospace;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
@@ -363,3 +363,27 @@ p {
   }
 }
 
+
+/* Values, as opposed to labels: a reading like "Iris quadrotor (ArduCopter SITL)" is data, and
+   all-caps mono at 0.16em spacing made it slower to read than the label beside it. */
+.data-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: #f2f6fc;
+}
+
+/* Long values (a model name, a rationale) wrap instead of crushing the label next to them. */
+.data-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.data-row > :last-child {
+  text-align: right;
+  min-width: 0;
+}

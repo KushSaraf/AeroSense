@@ -10,7 +10,7 @@ const CHARTS = [
 function Reading({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border border-white/12 bg-white/5 p-3">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-text/55">{label}</div>
+      <div className="text-[12px] uppercase tracking-[0.1em] text-text/72">{label}</div>
       <div className="mt-2 text-[20px] font-medium tracking-[0.06em] text-text">{value}</div>
     </div>
   )
@@ -38,7 +38,7 @@ function TelemetryPage() {
   return (
     <div className="space-y-5 p-4 md:p-6">
       <div>
-        <div className="text-[10px] uppercase tracking-[0.28em] text-text/60">Real-time metrics</div>
+        <div className="text-[12px] uppercase tracking-[0.09em] text-text/75">Real-time metrics</div>
         <h1 className="aero-heading mt-1 text-[36px] uppercase leading-none text-text">TELEMETRY</h1>
       </div>
 
@@ -49,7 +49,7 @@ function TelemetryPage() {
       <div className="grid gap-4 xl:grid-cols-3">
         {CHARTS.map(({ key, label, colour }) => (
           <section key={key} className="panel p-4">
-            <div className="text-[10px] uppercase tracking-[0.18em] text-text/60">{label}</div>
+            <div className="text-[12px] uppercase tracking-[0.1em] text-text/75">{label}</div>
             <div className="mt-3 h-[180px]">
               {telemetry.length > 1 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -61,7 +61,7 @@ function TelemetryPage() {
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.14em] text-text/40">
+                <div className="flex h-full items-center justify-center text-[12px] uppercase tracking-[0.08em] text-text/40">
                   Waiting for telemetry
                 </div>
               )}

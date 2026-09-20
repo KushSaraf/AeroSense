@@ -15,9 +15,9 @@ interface PerceptionStats {
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-lg border border-white/12 bg-[#33405c]/60 p-4">
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/45">{label}</div>
+      <div className="text-[12px] uppercase tracking-[0.1em] text-white/78">{label}</div>
       <div className="mt-2 text-[22px] font-bold text-white">{value}</div>
-      {hint && <div className="mt-1 text-[9px] uppercase tracking-[0.12em] text-white/40">{hint}</div>}
+      {hint && <div className="mt-1 text-[11px] uppercase tracking-[0.07em] text-white/40">{hint}</div>}
     </div>
   )
 }
@@ -29,17 +29,17 @@ function AiPerceptionPage() {
   return (
     <div className="min-h-full space-y-5 p-4 md:p-6">
       <header>
-        <div className="aero-micro text-[10px] tracking-[0.28em] text-white/50">Perception</div>
+        <div className="aero-micro text-[12px] tracking-[0.09em] text-white/70">Perception</div>
         <h1 className="aero-heading mt-1 text-[38px] uppercase leading-none text-white">AI &amp; PERCEPTION</h1>
-        <p className="mt-2 max-w-[720px] text-[10px] uppercase tracking-[0.12em] text-white/45">
+        <p className="mt-2 max-w-[720px] text-[12px] uppercase tracking-[0.07em] text-white/78">
           What the drone is running right now, measured from its own topics.
         </p>
       </header>
 
-      {error && <div className="rounded border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-[11px] tracking-[0.1em] text-amber-200">{error}</div>}
+      {error && <div className="rounded border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-[13px] tracking-[0.1em] text-amber-200">{error}</div>}
 
       <section className="rounded-xl border border-white/12 bg-[#2c374f]/70 p-5">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-white">
+        <div className="flex items-center gap-2 text-[13px] uppercase tracking-[0.09em] text-white">
           <Cpu size={16} /> Detection pipeline
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -51,7 +51,7 @@ function AiPerceptionPage() {
       </section>
 
       <section className="rounded-xl border border-white/12 bg-[#2c374f]/70 p-5">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-white">
+        <div className="flex items-center gap-2 text-[13px] uppercase tracking-[0.09em] text-white">
           <Radar size={16} /> Tracking
         </div>
         <div className="mt-4 grid gap-3 md:grid-cols-3">
@@ -65,10 +65,10 @@ function AiPerceptionPage() {
       </section>
 
       <section className="rounded-xl border border-white/12 bg-[#2c374f]/70 p-5">
-        <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.16em] text-white"><Eye size={16} /> Confirmed casualties</div>
+        <div className="flex items-center gap-2 text-[13px] uppercase tracking-[0.09em] text-white"><Eye size={16} /> Confirmed casualties</div>
         <div className="mt-3 overflow-auto">
-          <table className="w-full text-left text-[11px] uppercase tracking-[0.1em] text-white/80">
-            <thead><tr className="text-[9px] text-white/45">
+          <table className="w-full text-left text-[13px] uppercase tracking-[0.1em] text-white/80">
+            <thead><tr className="text-[11px] text-white/78">
               <th className="pb-2">ID</th><th className="pb-2">Priority</th><th className="pb-2">Confidence</th>
               <th className="pb-2">Thermal</th><th className="pb-2">Evidence</th><th className="pb-2">Position</th>
             </tr></thead>
@@ -79,14 +79,14 @@ function AiPerceptionPage() {
                   <td>{victim.priority}</td>
                   <td>{(victim.confidence * 100).toFixed(0)}%</td>
                   <td>{victim.thermalStrength}</td>
-                  <td className="normal-case tracking-normal text-white/60">{victim.rationale}</td>
-                  <td className="text-white/60">
+                  <td className="normal-case tracking-normal text-white/75">{victim.rationale}</td>
+                  <td className="text-white/75">
                     {victim.position ? `${victim.position.x.toFixed(0)}, ${victim.position.y.toFixed(0)} m` : '—'}
                   </td>
                 </tr>
               ))}
               {victims.length === 0 && (
-                <tr><td colSpan={6} className="py-6 text-center text-white/45">Nothing confirmed yet.</td></tr>
+                <tr><td colSpan={6} className="py-6 text-center text-white/78">Nothing confirmed yet.</td></tr>
               )}
             </tbody>
           </table>

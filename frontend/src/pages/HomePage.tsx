@@ -35,7 +35,7 @@ function HomePage() {
           a safer tomorrow
         </p>
 
-        <div className="aero-micro absolute left-[7%] top-[57%] border-l-2 border-white/70 pl-5 text-[clamp(11px,1vw,16px)] font-bold uppercase leading-[1.75] tracking-[0.18em] text-white">
+        <div className="aero-micro absolute left-[7%] top-[57%] border-l-2 border-white/70 pl-5 text-[clamp(11px,1vw,16px)] font-bold uppercase leading-[1.75] tracking-[0.1em] text-white">
           From disaster
           <br />
           to hope
@@ -54,7 +54,7 @@ function HomePage() {
             {capabilityItems.map(({ icon: Icon, label, sub }, index) => (
               <div key={label} className={`flex items-center justify-center gap-4 px-4 ${index > 0 ? 'border-l border-white/35' : ''}`}>
                 <Icon size={42} strokeWidth={1.6} className="shrink-0 text-white" />
-                <div className="aero-micro text-left text-[clamp(10px,0.85vw,14px)] font-bold uppercase tracking-[0.12em] text-white">
+                <div className="aero-micro text-left text-[clamp(10px,0.85vw,14px)] font-bold uppercase tracking-[0.07em] text-white">
                   <div>{label}</div>
                   <div className="mt-1 text-[clamp(9px,0.65vw,11px)] text-white/70">{sub}</div>
                 </div>
@@ -63,7 +63,7 @@ function HomePage() {
           </div>
         </div>
 
-        <footer className="absolute inset-x-0 bottom-0 flex h-[7%] items-center justify-between border-t border-white/15 bg-[#1b2a40]/75 px-7 text-[10px] uppercase tracking-[0.28em] text-white/65">
+        <footer className="absolute inset-x-0 bottom-0 flex h-[7%] items-center justify-between border-t border-white/15 bg-[#1b2a40]/75 px-7 text-[12px] uppercase tracking-[0.09em] text-white/78">
           <span>Built for a safer tomorrow</span>
           <span>AERO SENSE&nbsp;&nbsp; | &nbsp;&nbsp;SIH 2026</span>
         </footer>

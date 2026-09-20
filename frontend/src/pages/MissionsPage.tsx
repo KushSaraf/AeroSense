@@ -27,13 +27,13 @@ function MissionRow({ mission, busy, onStart, onView, victims, drone }: {
     && victim.position.x >= mission.bounds.minX && victim.position.x <= mission.bounds.maxX
     && victim.position.y >= mission.bounds.minY && victim.position.y <= mission.bounds.maxY)
   return (
-    <tr className="text-[11px] uppercase tracking-[0.12em] text-white/85">
+    <tr className="text-[13px] uppercase tracking-[0.07em] text-white/85">
       <td className="flex items-center gap-3 border-t border-white/20 px-3 py-3">
         <SectorThumbnail bounds={mission.bounds} victims={inSector} active={running}
                          drone={running ? drone : null} />
         <div>
         <div className="font-semibold text-white">{mission.name}</div>
-        <div className="text-[10px] text-white/55">
+        <div className="text-[12px] text-white/72">
           {mission.disasterType} · {(mission.areaKm2 * 1e6 / 1e4).toFixed(1)} ha · {mission.type}
         </div>
         </div>
@@ -44,7 +44,7 @@ function MissionRow({ mission, busy, onStart, onView, victims, drone }: {
           {running ? mission.state ?? 'ACTIVE' : mission.status}
         </span>
         {running && mission.reason && (
-          <div className="mt-1 max-w-[260px] truncate text-[9px] normal-case tracking-normal text-white/50" title={mission.reason}>
+          <div className="mt-1 max-w-[260px] truncate text-[11px] normal-case tracking-normal text-white/70" title={mission.reason}>
             {mission.reason}
           </div>
         )}
@@ -53,11 +53,11 @@ function MissionRow({ mission, busy, onStart, onView, victims, drone }: {
         <div className="h-1.5 w-28 overflow-hidden rounded-full bg-white/15">
           <div className="h-full rounded-full bg-[#8ae0ff]" style={{ width: `${Math.min(100, mission.coverage)}%` }} />
         </div>
-        <div className="mt-1 text-[10px] text-white/60">{mission.coverage.toFixed(0)}% searched</div>
+        <div className="mt-1 text-[12px] text-white/75">{mission.coverage.toFixed(0)}% searched</div>
       </td>
       <td className="border-t border-white/20 px-3">
         {mission.victimsFound}
-        {mission.p1 ? <span className="ml-2 rounded bg-[#e2707a]/25 px-1.5 py-0.5 text-[9px] text-[#ffb9bf]">P1 {mission.p1}</span> : null}
+        {mission.p1 ? <span className="ml-2 rounded bg-[#e2707a]/25 px-1.5 py-0.5 text-[11px] text-[#ffb9bf]">P1 {mission.p1}</span> : null}
       </td>
       <td className="border-t border-white/20 px-3 text-white/70">{mission.elapsed ?? '—'}</td>
       <td className="border-t border-white/20 px-3">
@@ -88,10 +88,10 @@ function MissionsPage() {
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto p-4 md:p-5">
       <header className="flex shrink-0 items-center justify-between rounded-xl border border-white/10 bg-[#596278] px-6 py-4 shadow-[0_8px_20px_rgba(0,0,0,0.12)]">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.3em] text-white/65">Mission command</div>
+          <div className="text-[12px] uppercase tracking-[0.3em] text-white/78">Mission command</div>
           <h1 className="aero-heading mt-1 text-[38px] uppercase leading-none text-white">MISSIONS</h1>
         </div>
-        <div className="hidden items-center gap-4 text-[10px] uppercase tracking-[0.24em] text-white/70 md:flex">
+        <div className="hidden items-center gap-4 text-[12px] uppercase tracking-[0.08em] text-white/70 md:flex">
           <span>PLAN</span><span>|</span><span>DEPLOY</span><span>|</span><span>MONITOR</span><span>|</span><span>SAVE LIVES</span>
         </div>
       </header>
@@ -103,17 +103,17 @@ function MissionsPage() {
             {active ? (
               <>
                 <div className="mt-4 text-[22px] font-bold leading-tight text-white">{active.name}</div>
-                <div className="mt-1 text-[11px] tracking-[0.12em] text-white/70">{active.state} · {active.elapsed}</div>
-                <div className="mt-3 flex items-center justify-between text-[10px] uppercase tracking-[0.16em] text-white/80">
+                <div className="mt-1 text-[13px] tracking-[0.07em] text-white/70">{active.state} · {active.elapsed}</div>
+                <div className="mt-3 flex items-center justify-between text-[12px] uppercase tracking-[0.09em] text-white/80">
                   <span>{active.coverage.toFixed(0)}% searched</span>
                   <span>{active.victimsFound} found</span>
                 </div>
-                <button type="button" onClick={() => void abortMission()} className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-[#e2707a]/25 px-2 py-2 text-[10px] uppercase tracking-[0.16em] text-[#ffc7cb] transition hover:bg-[#e2707a]/40">
+                <button type="button" onClick={() => void abortMission()} className="mt-3 flex w-full items-center justify-center gap-2 rounded bg-[#e2707a]/25 px-2 py-2 text-[12px] uppercase tracking-[0.09em] text-[#ffc7cb] transition hover:bg-[#e2707a]/40">
                   <OctagonX size={14} /> Abort and return
                 </button>
               </>
             ) : (
-              <div className="mt-5 text-[12px] leading-relaxed tracking-[0.1em] text-white/70">
+              <div className="mt-5 text-[13px] leading-relaxed tracking-[0.1em] text-white/70">
                 No mission is flying. Start one from the list to bring up the simulation and search a sector.
               </div>
             )}
@@ -121,14 +121,14 @@ function MissionsPage() {
 
           <div className="mission-side-card min-h-[130px] bg-[linear-gradient(135deg,rgba(85,95,120,0.96),rgba(34,43,65,0.98))]">
             <div className="mission-side-label">SIMULATION</div>
-            <div className="mt-4 text-[13px] tracking-[0.14em] text-white">
+            <div className="mt-4 text-[14px] tracking-[0.08em] text-white">
               {simulation.status?.running ? `${simulation.status.processes} processes live` : 'Not running'}
             </div>
             <button
               type="button"
               disabled={simulation.phase === 'unknown' || simulation.phase === 'starting' || simulation.phase === 'stopping'}
               onClick={() => (simulation.status?.running ? void simulation.stop() : void simulation.start({ quality: 'low', gui: true }))}
-              className="mt-3 w-full rounded bg-white/10 px-2 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition hover:bg-white/20"
+              className="mt-3 w-full rounded bg-white/10 px-2 py-2 text-[12px] uppercase tracking-[0.09em] text-white transition hover:bg-white/20"
             >
               {simulation.status?.running ? 'Stop simulation' : 'Start simulation'}
             </button>
@@ -137,23 +137,23 @@ function MissionsPage() {
 
         <section className="min-w-0 flex-1 overflow-hidden rounded-xl border border-white/15 bg-[#596278] p-3">
           {error && (
-            <div className="mb-3 rounded border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[10px] uppercase tracking-[0.12em] text-amber-200">
+            <div className="mb-3 rounded border border-amber-300/30 bg-amber-300/10 px-3 py-2 text-[12px] uppercase tracking-[0.07em] text-amber-200">
               {error}
             </div>
           )}
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-white/70">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-[12px] uppercase tracking-[0.09em] text-white/70">
             <Radar size={15} />
             <span>Sectors in this world</span>
-            <span className="ml-auto text-white/50">{missions.length} available</span>
+            <span className="ml-auto text-white/70">{missions.length} available</span>
             <button type="button" onClick={() => navigate('/map?draw=1')}
-                    className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white/80 transition hover:bg-white/15">
+                    className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-3 py-2 text-[12px] uppercase tracking-[0.09em] text-white/80 transition hover:bg-white/15">
               <SquareDashedMousePointer size={14} /> New mission: draw an area
             </button>
           </div>
           <div className="overflow-auto">
             <table className="w-full border-collapse text-left">
               <thead>
-                <tr className="text-[10px] uppercase tracking-[0.18em] text-white/60">
+                <tr className="text-[12px] uppercase tracking-[0.1em] text-white/75">
                   <th className="px-3 pb-2">Sector</th>
                   <th className="px-3 pb-2">Status</th>
                   <th className="px-3 pb-2">Coverage</th>
@@ -175,7 +175,7 @@ function MissionsPage() {
                   />
                 ))}
                 {missions.length === 0 && !error && (
-                  <tr><td colSpan={6} className="border-t border-white/20 px-3 py-6 text-center text-[11px] uppercase tracking-[0.14em] text-white/50">
+                  <tr><td colSpan={6} className="border-t border-white/20 px-3 py-6 text-center text-[13px] uppercase tracking-[0.08em] text-white/70">
                     Waiting for the dashboard bridge…
                   </td></tr>
                 )}

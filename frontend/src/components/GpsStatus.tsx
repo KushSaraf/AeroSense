@@ -14,7 +14,7 @@ export function GpsBanner({ drone }: { drone: Drone | null | undefined }) {
   // a jammed receiver lets fake 3D fixes through now and then: what the drone flies on decides
   if (!vision && !blind && (drone.gps === '3D FIX' || drone.gps === 'UNKNOWN')) return null
   return (
-    <div className={`flex items-center gap-3 rounded-lg border px-4 py-2 text-[11px] uppercase tracking-[0.14em] ${
+    <div className={`flex items-center gap-3 rounded-lg border px-4 py-2 text-[13px] uppercase tracking-[0.08em] ${
       vision ? 'border-[#ff9800]/50 bg-[#ff9800]/15 text-[#ffe0b2]' : 'border-red-400/50 bg-red-500/15 text-red-100'}`}>
       {vision ? <SatelliteDish size={16} /> : <Satellite size={16} />}
       {vision

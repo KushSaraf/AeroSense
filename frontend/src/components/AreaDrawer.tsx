@@ -118,7 +118,7 @@ export function useAreaDrawer(world: WorldInfo | null) {
 
   const size = shown.length === 2 && world ? sizeOf(shown[0], shown[1], world) : null
   const panel = (drawing || corners.length > 0 || message) && (
-    <div className="absolute right-4 top-4 z-[1000] w-[250px] rounded border border-white/15 bg-[#202635]/95 p-3 text-[10px] uppercase tracking-[0.14em] text-white/80">
+    <div className="absolute right-4 top-4 z-[1000] w-[250px] rounded border border-white/15 bg-[#202635]/95 p-3 text-[12px] uppercase tracking-[0.08em] text-white/80">
       <div className="font-semibold text-white">Search area</div>
       {drawing && <div className="mt-2 normal-case tracking-normal text-white/70">
         {anchor ? 'Release, or click, on the opposite corner' : 'Press on one corner and drag across the area'} · Esc cancels

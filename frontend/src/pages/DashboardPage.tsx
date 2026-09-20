@@ -86,7 +86,7 @@ function SimulationControls({ link, drone }: { link: LinkStatus | null; drone: D
     }
   }
 
-  const button = 'flex items-center gap-2 rounded border px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-white transition disabled:opacity-50'
+  const button = 'flex items-center gap-2 rounded border px-3 py-2 text-[12px] uppercase tracking-[0.09em] text-white transition disabled:opacity-50'
   return (
     <div className="flex flex-col items-end gap-1">
       <div className="flex flex-wrap justify-end gap-2">
@@ -106,7 +106,7 @@ function SimulationControls({ link, drone }: { link: LinkStatus | null; drone: D
         </button>
       </div>
       {note && (
-        <span className={`max-w-[420px] text-right text-[9px] uppercase tracking-[0.12em] ${
+        <span className={`max-w-[420px] text-right text-[11px] uppercase tracking-[0.07em] ${
           note.tone === 'warn' ? 'text-amber-300' : 'text-[#86e2a4]'}`}>{note.text}</span>
       )}
     </div>
@@ -118,7 +118,7 @@ function Panel({ title, icon, children, action }: {
 }) {
   return (
     <section className="panel overflow-hidden p-3">
-      <div className="mb-3 flex items-center justify-between text-[11px] font-bold uppercase tracking-[0.16em] text-white">
+      <div className="mb-3 flex items-center justify-between text-[13px] font-bold uppercase tracking-[0.09em] text-white">
         <span className="flex items-center gap-2">{icon}{title}</span>
         {action}
       </div>
@@ -140,7 +140,7 @@ function CameraFeed() {
             key={option}
             type="button"
             onClick={() => setCamera(option)}
-            className={`rounded border px-2 py-2 text-[9px] uppercase ${
+            className={`rounded border px-2 py-2 text-[11px] uppercase ${
               camera === option ? 'border-[#8ae0ff]/50 bg-[#8ae0ff]/15 text-white' : 'border-white/15 bg-white/5 text-white/70'
             }`}
           >
@@ -159,12 +159,12 @@ function CameraFeed() {
 
 function VictimRow({ victim }: { victim: Victim }) {
   return (
-    <div className="flex items-center justify-between border-b border-white/10 py-2 text-[10px] uppercase tracking-[0.1em] text-white/75">
+    <div className="flex items-center justify-between border-b border-white/10 py-2 text-[12px] uppercase tracking-[0.1em] text-white/75">
       <span className="flex items-center gap-2">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: PRIORITY_TONE[victim.priority] ?? '#8ae0ff' }} />
         {victim.id}
       </span>
-      <span className="text-white/55">{victim.thermalStrength} · {(victim.confidence * 100).toFixed(0)}%</span>
+      <span className="text-white/72">{victim.thermalStrength} · {(victim.confidence * 100).toFixed(0)}%</span>
     </div>
   )
 }
@@ -187,7 +187,7 @@ function DashboardPage() {
   const stageIndex = MISSION_STAGES.findIndex((stage) => stage.state === mission?.state)
 
   if (loading) {
-    return <div className="grid min-h-full place-items-center text-[11px] uppercase tracking-[0.2em] text-white/60">Connecting…</div>
+    return <div className="grid min-h-full place-items-center text-[13px] uppercase tracking-[0.2em] text-white/75">Connecting…</div>
   }
 
   return (
@@ -195,18 +195,18 @@ function DashboardPage() {
       <div className="mx-auto max-w-[1800px] space-y-3">
         <header className="flex min-h-[62px] items-center justify-between rounded-lg border border-white/15 bg-[#4e586e] px-4 py-3">
           <div>
-            <div className="aero-micro text-[9px] text-white/55">Mission / active operation</div>
+            <div className="aero-micro text-[11px] text-white/72">Mission / active operation</div>
             <h1 className="aero-heading mt-1 text-[26px] uppercase leading-none text-white md:text-[32px]">
               {mission ? `MISSION: ${mission.name}` : 'NO ACTIVE MISSION'}
             </h1>
-            <div className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/70">
+            <div className="mt-1 text-[12px] uppercase tracking-[0.1em] text-white/70">
               {mission ? `${mission.state ?? mission.status} — ${mission.reason ?? ''}`
                 : 'Start a sector from Mission Command to fly one'}
             </div>
           </div>
           <div className="flex items-center gap-4">
             <SimulationControls link={link} drone={drone} />
-            <div className="hidden text-right text-[10px] uppercase tracking-[0.16em] text-white/70 lg:block">
+            <div className="hidden text-right text-[12px] uppercase tracking-[0.09em] text-white/70 lg:block">
             <span className={source === 'live' ? 'text-[#86e2a4]' : 'text-amber-300'}>
               ● {source === 'live' ? 'SYSTEM ONLINE' : 'NO SIMULATION'}
             </span><br />
@@ -220,7 +220,7 @@ function DashboardPage() {
         <div className="dashboard-layout">
           <Panel title="Drone 1" icon={<Radio size={15} />}
                  action={<StatusPill label={drone?.status ?? 'OFFLINE'} tone={drone?.armed ? 'green' : 'gray'} />}>
-            <div className="space-y-2 border-b border-white/10 pb-3 text-[10px] uppercase tracking-[0.13em] text-white/70">
+            <div className="space-y-2.5 border-b border-white/10 pb-3.5 text-[12px] uppercase tracking-[0.07em] text-white/75">
               {[
                 ['Model', drone?.model ?? '—'],
                 ['Callsign', drone?.id ?? '—'],
@@ -233,7 +233,7 @@ function DashboardPage() {
                 ['Network', link?.state ?? '—'],
                 ['Mode', drone?.mode ?? '—'],
               ].map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-3"><span>{label}</span><strong className="text-white">{value}</strong></div>
+                <div key={label} className="data-row"><span>{label}</span><strong className="data-value">{value}</strong></div>
               ))}
             </div>
             <CameraFeed />
@@ -266,7 +266,7 @@ function DashboardPage() {
           </Panel>
 
           <Panel title="Mission events"
-                 action={<span className="rounded border border-white/15 px-2 py-1 text-[9px] text-white/60">{mission?.events?.length ?? 0}</span>}>
+                 action={<span className="rounded border border-white/15 px-2 py-1 text-[11px] text-white/75">{mission?.events?.length ?? 0}</span>}>
             <div className="max-h-[440px] space-y-2 overflow-auto">
               {(mission?.events ?? []).slice().reverse().map((event, index) => (
                 <div key={`${event.time}-${index}`} className="rounded-md border border-white/10 bg-[#3a465f]/65 p-2.5">
@@ -275,17 +275,17 @@ function DashboardPage() {
                       <AlertTriangle size={15} />
                     </div>
                     <div>
-                      <div className="text-[10px] text-white/55">
+                      <div className="text-[12px] text-white/72">
                         {event.time}
                         {event.heldS ? <span className="ml-2 text-amber-300">held on board {event.heldS} s</span> : null}
                       </div>
-                      <p className="mt-1 text-[10px] leading-4 text-white/80">{event.text}</p>
+                      <p className="mt-1 text-[12px] leading-4 text-white/80">{event.text}</p>
                     </div>
                   </div>
                 </div>
               ))}
               {!mission?.events?.length && (
-                <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">No mission events yet.</p>
+                <p className="text-[12px] uppercase tracking-[0.08em] text-white/78">No mission events yet.</p>
               )}
             </div>
           </Panel>
@@ -297,7 +297,7 @@ function DashboardPage() {
               const done = stageIndex > index || mission?.state === 'MISSION_COMPLETE'
               const current = stageIndex === index
               return (
-                <div key={stage.state} className="flex items-center justify-between border-b border-white/10 py-2 text-[9px] uppercase text-white/70">
+                <div key={stage.state} className="flex items-center justify-between border-b border-white/10 py-2 text-[11px] uppercase text-white/70">
                   <span className="flex items-center gap-2">
                     <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                       done ? 'border-[#43d17b] text-[#43d17b]' : current ? 'border-[#8ae0ff] text-[#8ae0ff]' : 'border-white/25'}`}>
@@ -320,7 +320,7 @@ function DashboardPage() {
                 ['GPS', drone?.gps ?? '—'],
               ].map(([label, value]) => (
                 <div key={label} className="rounded border border-white/15 bg-[#3a465f]/75 p-3">
-                  <div className="text-[9px] uppercase text-white/55">{label}</div>
+                  <div className="text-[11px] uppercase text-white/72">{label}</div>
                   <div className="mt-3 text-[15px] font-bold text-white">{value}</div>
                 </div>
               ))}
@@ -328,14 +328,14 @@ function DashboardPage() {
           </Panel>
 
           <Panel title="Casualties"
-                 action={<span className="text-[9px] text-white/55">{victims.length} found</span>}>
-            <div className="mb-2 flex gap-2 text-[9px] uppercase text-white/70">
+                 action={<span className="text-[11px] text-white/72">{victims.length} found</span>}>
+            <div className="mb-2 flex gap-2 text-[11px] uppercase text-white/70">
               {Object.entries(counts).filter(([, value]) => value > 0).map(([priority, value]) => (
                 <span key={priority} className="rounded px-2 py-1" style={{ backgroundColor: `${PRIORITY_TONE[priority]}22`, color: PRIORITY_TONE[priority] }}>
                   {priority} {value}
                 </span>
               ))}
-              {victims.length === 0 && <span className="text-white/45">None detected yet</span>}
+              {victims.length === 0 && <span className="text-white/78">None detected yet</span>}
             </div>
             <div className="max-h-[150px] overflow-auto">
               {victims.map((victim) => <VictimRow key={victim.id} victim={victim} />)}
@@ -347,7 +347,7 @@ function DashboardPage() {
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10">
               <div className="h-full rounded-full bg-[#8ae0ff]" style={{ width: `${mission?.coverage ?? 0}%` }} />
             </div>
-            <p className="mt-3 text-[9px] uppercase leading-4 tracking-[0.12em] text-white/55">
+            <p className="mt-3 text-[11px] uppercase leading-4 tracking-[0.07em] text-white/72">
               Measured from where the camera actually looked, not from legs flown.
             </p>
           </Panel>

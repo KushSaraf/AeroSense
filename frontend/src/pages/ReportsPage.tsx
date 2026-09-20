@@ -68,14 +68,14 @@ function ReportsPage() {
     <div className="space-y-5 p-4 md:p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-[0.28em] text-text/60">Mission reporting</div>
+          <div className="text-[12px] uppercase tracking-[0.09em] text-text/75">Mission reporting</div>
           <h1 className="aero-heading mt-1 text-[36px] uppercase leading-none text-text">REPORTS</h1>
-          <p className="mt-2 max-w-[620px] text-[10px] uppercase tracking-[0.12em] text-text/45">
+          <p className="mt-2 max-w-[620px] text-[12px] uppercase tracking-[0.07em] text-text/78">
             Generated from recorded mission data. Nothing here is written by hand.
           </p>
         </div>
         {report && (
-          <div className="flex flex-wrap gap-2 text-[10px] uppercase tracking-[0.16em]">
+          <div className="flex flex-wrap gap-2 text-[12px] uppercase tracking-[0.09em]">
             <button type="button" onClick={() => window.print()}
                     className="flex items-center gap-2 rounded border border-[#8ae0ff]/50 bg-[#8ae0ff]/15 px-4 py-3 text-text hover:bg-[#8ae0ff]/25">
               <Printer size={14} /> Print / PDF
@@ -93,7 +93,7 @@ function ReportsPage() {
       </div>
 
       {(error || loadError) && (
-        <div className="rounded border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-[11px] tracking-[0.1em] text-amber-200">
+        <div className="rounded border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-[13px] tracking-[0.1em] text-amber-200">
           {error ?? loadError}
         </div>
       )}
@@ -101,22 +101,22 @@ function ReportsPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(240px,0.6fr)_minmax(0,2.4fr)]">
         <section className="panel h-fit p-4">
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-[10px] uppercase tracking-[0.2em] text-text/60">Flown missions</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-text/75">Flown missions</div>
             <FileText size={16} className="text-[#8ae0ff]" />
           </div>
           <div className="space-y-2">
             {missions.map((mission) => (
               <button key={mission.id} type="button" onClick={() => setSelectedId(mission.id)}
                       className={`w-full rounded-lg border p-3 text-left transition ${activeId === mission.id ? 'border-[#8ae0ff]/70 bg-[#8ae0ff]/12' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}>
-                <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text">{mission.name}</div>
-                <div className="mt-2 flex justify-between text-[9px] uppercase tracking-[0.14em] text-text/55">
+                <div className="text-[13px] font-semibold uppercase tracking-[0.07em] text-text">{mission.name}</div>
+                <div className="mt-2 flex justify-between text-[11px] uppercase tracking-[0.08em] text-text/72">
                   <span>{mission.status}</span>
                   <span>{mission.coverage.toFixed(0)}% · {mission.victims} found</span>
                 </div>
               </button>
             ))}
             {missions.length === 0 && !error && (
-              <div className="rounded border border-white/10 bg-white/5 px-3 py-6 text-center text-[10px] uppercase tracking-[0.14em] text-text/45">
+              <div className="rounded border border-white/10 bg-white/5 px-3 py-6 text-center text-[12px] uppercase tracking-[0.08em] text-text/78">
                 No mission has been flown yet.
               </div>
             )}
@@ -126,7 +126,7 @@ function ReportsPage() {
         <section className="overflow-auto rounded-xl border border-white/10 bg-[#1a2030] p-4">
           {report
             ? <MissionReportDocument report={report} />
-            : <div className="py-24 text-center text-[11px] uppercase tracking-[0.16em] text-text/45">
+            : <div className="py-24 text-center text-[13px] uppercase tracking-[0.09em] text-text/78">
                 Select a mission to generate its report.
               </div>}
         </section>

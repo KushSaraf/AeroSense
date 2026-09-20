@@ -13,7 +13,7 @@ const toneMap = {
 
 export default function StatusPill({ label, tone = 'gray' }: StatusPillProps) {
   return (
-    <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.14em] ${toneMap[tone]}`}>
+    <span className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[12px] font-medium uppercase tracking-[0.08em] ${toneMap[tone]}`}>
       <span className="status-dot" style={{ backgroundColor: tone === 'green' ? '#7EB17A' : tone === 'yellow' ? '#C7B16A' : tone === 'orange' ? '#D68E58' : tone === 'red' ? '#C96B68' : '#C7CBD5' }} />
       {label}
     </span>

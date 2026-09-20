@@ -86,7 +86,7 @@ function MapPage() {
 
   return (
     <div className="h-full overflow-hidden bg-[#202635]">
-      <div className="flex min-h-[48px] flex-wrap items-center gap-2 border-b border-white/10 bg-[#252e42] px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-text/70">
+      <div className="flex min-h-[48px] flex-wrap items-center gap-2 border-b border-white/10 bg-[#252e42] px-3 py-2 text-[12px] uppercase tracking-[0.1em] text-text/70">
         {(Object.keys(BASE_MAPS) as Array<keyof typeof BASE_MAPS>).map((name) => (
           <button key={name} type="button" onClick={() => setBaseLayer(name)}
                   className={`rounded border px-3 py-2 transition ${baseLayer === name ? 'border-[#8ae0ff]/60 bg-[#8ae0ff]/20 text-text' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}>{name}</button>
@@ -99,7 +99,7 @@ function MapPage() {
         <span className="mx-1 h-5 w-px bg-white/15" />
         <button type="button" onClick={area.start}
                 className={`rounded border px-3 py-2 transition ${area.drawing ? 'border-[#ffd166]/60 bg-[#ffd166]/20 text-text' : 'border-white/10 bg-white/5 hover:bg-white/10'}`}>Draw search area</button>
-        <span className="ml-auto normal-case tracking-[0.1em] text-text/50">
+        <span className="ml-auto normal-case tracking-[0.1em] text-text/70">
           {world ? `${world.world} · origin ${world.origin.latitude.toFixed(5)}, ${world.origin.longitude.toFixed(5)}` : error ?? 'loading world…'}
         </span>
       </div>
@@ -183,7 +183,7 @@ function MapPage() {
 
         {area.panel}
         {!error && victims.length === 0 && (
-          <div className="pointer-events-none absolute bottom-4 left-4 rounded border border-white/15 bg-[#202635]/90 px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/60">
+          <div className="pointer-events-none absolute bottom-4 left-4 rounded border border-white/15 bg-[#202635]/90 px-3 py-2 text-[12px] uppercase tracking-[0.08em] text-white/75">
             No casualties detected yet
           </div>
         )}
