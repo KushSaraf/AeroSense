@@ -77,6 +77,34 @@ unassigned (1 h shift, 5 min on site):
 Every P1 is visited before any P2 on every tour. The priorities are the drone's triage, which got
 7 of the 13 wrong against the scenario (the triage section below); the tours follow whatever triage says.
 
+### Why the last four earthquake casualties are not findable from the air (2026-09-20)
+
+Every mission leaves V13, V14, V16 and V17. Measured, not argued: an earthquake mission flown with
+`tools/record_thermal_dataset.py` recording the thermal camera at 1 Hz (884 frames), reading the
+peak temperature at each casualty's own pixel whenever they were in frame.
+
+| Casualty | In view | Peak at their pixel | What that is |
+|---|---|---|---|
+| V13 (partial, 308 K, in a collapse crack) | 14 frames | 293.1-293.3 K | rubble: no body pixel ever reaches the camera |
+| V14 (partial, 307 K, in a collapse crack) | 39 frames | 293.1-293.3 K | rubble |
+| V16 (buried, alive, 308 K) | 25 frames | up to 300.7 K | ground and asphalt levels, no patch of its own |
+| V17 (buried, dead, 294 K) | 19 frames | up to 300.7 K | at ambient by definition |
+| (for contrast) V08 | 32 frames | up to 311.0 K | skin |
+
+V13 and V14 are geometrically hidden: warm bodies wedged where a nadir pass sees only the crack
+walls. No threshold finds a pixel that is not there.
+
+A buried living casualty does warm the pile surface (`victim_models`: 308 K skin gives about 299 K
+on top), but the gz thermal camera quantises to 2.57 K steps and this scene's levels are 293.0
+(rubble), 298.12 (ground) and 300.69 (asphalt). 299 K quantises to 298.12: the same pixel value as
+plain ground. Lowering `suspects.min_peak_k` from 303 to 299 turns 0.18 suspects a frame into 5.60,
+408 of them false over 83 frames, and filtering on contrast (>= 3, 5, 6 K) or on cold surroundings
+(<= 294, 296 K) leaves 3.9 false a frame. There is no thermal rule that separates them.
+
+So 14 of 18 is the ceiling for this sensor suite on this sector, and the remaining route is not
+perception: a CRITICAL structural region with no casualty found inside it is where a ground team
+digs (`aero_sense/hazards`).
+
 ### yolo11n_aerial retrained on focused scenes (2026-09-19)
 
 The RGB model retrained with 150 more rendered scenes weighted to windows, hands and legs under
