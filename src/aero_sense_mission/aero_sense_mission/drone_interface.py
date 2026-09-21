@@ -39,7 +39,7 @@ from tf2_ros import TransformBroadcaster
 from aero_sense_interfaces.msg import DroneStatus
 
 from . import navigation, obstacle, vio_map
-from .autopilot import Autopilot, classify_gps
+from .autopilot import GPS_FIX_3D, Autopilot, classify_gps
 from .comms_link import EVENTS_TOPIC
 from .frames import (enu_attitude_to_ned, enu_yaw_to_ned, geodetic_to_map, map_to_ned, ned_yaw_to_enu,
                      ned_attitude_to_enu_quaternion, ned_to_map, quaternion_to_rpy, quaternion_to_yaw)
@@ -57,6 +57,12 @@ PAIR_MIN_ALTITUDE_M = 3.0
 #: After take-off the drone hovers until OpenVINS has initialised (it needs a still view full of
 #: features: on the pad it sees little but the pad, and a climb is not still), at most this long.
 VIO_INIT_TIMEOUT_S = 20.0
+#: EKF3 sets its origin at its first GPS fix. Launch into a jammed area and it never gets one,
+#: and without an origin nothing the drone reports can be put on a map at all. A responder always
+#: knows where they launched from, so after this long with no fix at all - not a slow origin,
+#: no fix - the surveyed launch point (the `launch_point` parameter, degrees and metres AMSL) is
+#: used instead, until a real fix turns up.
+LAUNCH_FIX_WAIT_S = 20.0
 #: The obstacle-avoidance beams go to ArduPilot this often (its proximity library reads slower
 #: than the sensor's 100 Hz, and every message shares the drone's one MAVLink link).
 DISTANCE_SEND_HZ = 10.0
@@ -86,6 +92,8 @@ class DroneInterface(Node):
         self.declare_parameter("drone_id", "AS-01")
         # the world origin (lat, lon, alt AMSL) the map frame is built on; worlds.origin in the launch
         self.declare_parameter("world_origin", [0.0, 0.0, 0.0])
+        # the surveyed launch point (lat, lon, alt AMSL): the origin when GPS never arrives
+        self.declare_parameter("launch_point", [0.0, 0.0, 0.0])
         self.declare_parameter("takeoff_alt_m", 15.0)
         self.declare_parameter("cruise_speed_mps", 4.0)
         self.declare_parameter("publish_hz", 20.0)
@@ -95,7 +103,10 @@ class DroneInterface(Node):
         p = lambda name: self.get_parameter(name).value  # noqa: E731
         self._vio_topic = p("vio_topic")
         self._world_origin = tuple(p("world_origin"))
+        self._launch_point = tuple(p("launch_point"))
         self._home = None                # where the EKF's origin sits in the map, once it has one
+        self._home_surveyed = False      # ... or where the responder said they launched from
+        self._waiting_since = None
         self._map_frame, self._base_frame = p("map_frame"), p("base_frame")
         self._drone_id = p("drone_id")
 
@@ -195,17 +206,42 @@ class DroneInterface(Node):
         self._pubs["status"].publish(self._status_msg(s, pose))
 
     def _locate_origin(self) -> bool:
-        """Place the EKF's origin in the map frame. EKF3 puts it at its first GPS fix (the pad, not
-        the world origin), so until the autopilot has one the drone does not know where it is and
-        nothing is published."""
-        if self._home is not None:
+        """Place the origin in the map frame. EKF3 puts it at its first GPS fix (the pad, not the
+        world origin), so until the autopilot has one the drone does not know where it is and
+        nothing is published - unless the launch point was surveyed, which is what a responder
+        launching into a jammed area has instead of a fix.
+
+        The autopilot's own origin always wins, even if it turns up late: the surveyed point is
+        only ever a stand-in, and adopting the real one is logged with how far apart they were.
+        """
+        if self._home is not None and not self._home_surveyed:
             return True
         s = self._ap.state
-        if not math.isfinite(s.origin_lat):
-            self._ap.request_origin()
+        if math.isfinite(s.origin_lat):
+            home = geodetic_to_map(s.origin_lat, s.origin_lon, s.origin_alt_m, self._world_origin)
+            if self._home_surveyed:
+                self._event(f"GPS fix at last: the autopilot's origin is "
+                            f"{math.dist(home[:2], self._home[:2]):.1f} m from the surveyed launch point, "
+                            "and positions follow the autopilot's from now on")
+            else:
+                self.get_logger().info(f"EKF origin at map ({home[0]:.1f}, {home[1]:.1f}, {home[2]:.1f})")
+            self._home, self._home_surveyed = home, False
+            return True
+        self._ap.request_origin()
+        if self._home is not None:                       # already on the surveyed point
+            return True
+        if s.gps_fix_type >= GPS_FIX_3D:
+            # there is a fix: its origin is moments away, and guessing now would override it
+            self._waiting_since = None
             return False
-        self._home = geodetic_to_map(s.origin_lat, s.origin_lon, s.origin_alt_m, self._world_origin)
-        self.get_logger().info(f"EKF origin at map ({self._home[0]:.1f}, {self._home[1]:.1f}, {self._home[2]:.1f})")
+        self._waiting_since = self._waiting_since or time.monotonic()
+        if time.monotonic() - self._waiting_since < LAUNCH_FIX_WAIT_S or not any(self._launch_point):
+            return False
+        self._home = geodetic_to_map(*self._launch_point, self._world_origin)
+        self._home_surveyed = True
+        self._event(f"no GPS fix in {LAUNCH_FIX_WAIT_S:.0f} s: georeferencing on the surveyed launch point "
+                    f"({self._launch_point[0]:.6f}, {self._launch_point[1]:.6f}), map "
+                    f"({self._home[0]:.1f}, {self._home[1]:.1f}); positions are relative to it")
         return True
 
     @staticmethod

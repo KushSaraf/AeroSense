@@ -172,6 +172,46 @@ Services: `aero_sense/mission/start` (StartMission), `…/pause`, `…/resume`, 
 `…/return_to_base` (std_srvs/Trigger), `…/set_search_area` (SetSearchArea),
 `…/set_priority` (SetPriority), `aero_sense/sim/inject_failure` (InjectFailure).
 
+## Flying where there is no GPS and no network
+
+The two failures arrive together - the blocks that jam GPS are the blocks with no coverage - so
+the drone is built to lose both and still be useful. One path, end to end:
+
+```
+  where am I?                                what have I found?
+  ───────────                                ──────────────────
+  GPS fix        -> EKF3 source set 1        found       -> comms_link
+   (none?)          drone_interface              |            |
+  surveyed          _locate_origin               |        link up? -> downlink -> dashboard
+  launch point      places the map origin        |            |
+       |                                         |        link down? -> held in memory
+  OpenVINS       -> VISION_POSITION_ESTIMATE     |                      AND a row in SQLite
+   fitted to        EKF3 source set 2            |                      (event_store.py)
+   the GPS track                                 |            |
+       |                                         |        coverage back? -> drained at a rate,
+  neither        -> source set 3, no horizontal  |                          casualties first
+                    position: the EKF lands      |
+                    where it is                  v
+                                            local 3D map (vio_map) + obstacle map, both relayed
+```
+
+1. **The origin.** EKF3 sets it at its first GPS fix. Launch into a jammed area and it never gets
+   one, and without an origin nothing the drone reports can be placed at all. `drone_interface`
+   then georeferences on the surveyed launch point (`launch_point`, what a responder always
+   knows), and hands over to the autopilot's own origin if a fix ever turns up, saying how far
+   apart they were.
+2. **Position.** OpenVINS is fitted to the EKF's track while GPS is good and streamed as
+   VISION_POSITION_ESTIMATE; when GPS goes the EKF switches to source set 2 and flies on it, and
+   with neither it goes to set 3 and lands where it is rather than chase a fake fix.
+3. **What it sees.** The stereo feature cloud and the rangefinder returns are both kept as voxel
+   maps in the map frame, so the ground gets a local 3D view and a map of obstacles that no
+   survey had.
+4. **What it found.** Every report the ground has not acknowledged is both held in memory and
+   written to the drone's SQLite outbox, so a crashed or restarted link still knows what is owed.
+5. **Getting it out.** On coverage returning, the backlog drains in priority order under a token
+   bucket: casualties first, then the mission state, then the event log, at a rate the link can
+   take rather than as one burst.
+
 ## Launch architecture
 
 ```

@@ -11,7 +11,7 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 |---|---|---|---|
 | 1 | Offline mission store (SQLite) | **done 2026-09-21** | this session |
 | 2 | Network regain: priority queue | **done 2026-09-21** | this session |
-| 3 | GPS-denied / offline, as one story | ~half a day | this session |
+| 3 | GPS-denied / offline, as one story | **done 2026-09-21** | this session |
 | 4 | Closed-loop adaptive coverage search | ~1–2 days | this session |
 | 5 | Gas sensing (MiCS-6814, MQ-136) | ~1–2 days | this session |
 | 6 | Thermal YOLOv8n on HIT-UAV | ~2 days + training | peer (`ml/` is theirs) |
@@ -93,7 +93,14 @@ flight today. That number is the whole point of the item.
 
 ---
 
-## 3. GPS-denied / offline, as one story
+## 3. GPS-denied / offline, as one story — done
+
+The launch-point fallback is in `drone_interface._locate_origin`, the whole path is written up in
+`docs/ARCHITECTURE.md` ("Flying where there is no GPS and no network"), and both were flown on
+2026-09-21 (`docs/VERIFICATION.md`). Still true, and worth saying out loud: with no GPS *ever*,
+the EKF has no horizontal position and the drone cannot fly the mission - OpenVINS is only
+trusted once it has been fitted to a GPS track. This item makes what it reports placeable, not
+the flight possible.
 
 **There now.** Everything except the ends: the jammer, OpenVINS, the EKF3 source-set switching,
 the 5 s trust rule, drag, the local 3D map, the dead zones, `tools/vio_drift.py`.

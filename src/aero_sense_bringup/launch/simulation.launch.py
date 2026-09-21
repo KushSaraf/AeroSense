@@ -21,6 +21,7 @@ import yaml
 
 from aero_sense_bringup import worlds
 from aero_sense_description import render
+from aero_sense_mission.frames import map_to_geodetic
 from aero_sense_scenario_manager import victim_models
 from aero_sense_scenario_manager import victims as victim_table
 from ament_index_python.packages import get_package_prefix, get_package_share_directory
@@ -172,9 +173,13 @@ def _launch(context, *args, **kwargs):
                             "-x", str(x), "-y", str(y), "-z", str(z + SPAWN_DROP_M), "-Y", str(yaw)])
     bridge = Node(package="ros_gz_bridge", executable="parameter_bridge", namespace=namespace,
                   parameters=[{"config_file": str(bridge_config)}], output="screen")
+    # what a responder surveys before launching somewhere with no GPS: where the pad is. The EKF
+    # takes its origin from its first fix; with none, drone_interface georeferences on this.
+    launch_point = map_to_geodetic(x, y, z, worlds.origin(world))
     drone = Node(package="aero_sense_mission", executable="drone_interface", namespace=namespace,
                  parameters=[{"mavlink_url": f"udpin:{ONBOARD_OUT}",
                               "world_origin": [float(v) for v in worlds.origin(world)],
+                              "launch_point": [float(v) for v in launch_point],
                               "base_frame": f"{frame_prefix}base_link",
                               "cruise_speed_mps": float(LaunchConfiguration("cruise_speed").perform(context))}],
                  output="screen")

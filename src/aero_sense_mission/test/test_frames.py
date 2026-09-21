@@ -50,3 +50,15 @@ def test_a_point_north_east_of_the_origin_lands_there_in_the_map():
     assert (round(x, 6), round(y, 6), z) == (0.0, 100.0, 3.0)
     x, _, _ = frames.geodetic_to_map(23.0, 72.5 + 0.001, 50.0, origin)
     assert math.isclose(x, 0.001 * frames.METRES_PER_DEGREE_LAT * math.cos(math.radians(23.0)))
+
+
+def test_a_map_point_and_its_coordinates_are_the_same_place():
+    """The surveyed launch point goes in as degrees and has to come back as the pad."""
+    world_origin = (-35.363262, 149.165237, 584.0)
+    pad = (0.0, -110.0, 0.7)
+
+    lat, lon, alt = frames.map_to_geodetic(*pad, world_origin)
+    there_and_back = frames.geodetic_to_map(lat, lon, alt, world_origin)
+
+    assert all(math.isclose(a, b, abs_tol=1e-6) for a, b in zip(there_and_back, pad))
+    assert lat < world_origin[0] and math.isclose(alt, 584.7)       # 110 m south of the origin

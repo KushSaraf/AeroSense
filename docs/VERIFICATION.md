@@ -95,6 +95,21 @@ at (-130, 19, 19 m) after entering the southern lanes, which jam GPS. That is th
 failsafe with no vision to fall back on, not a fault - but it means a light launch
 (`vio:=false`) cannot fly the earthquake sector to the end.
 
+### Georeferencing with no GPS at all (2026-09-21)
+
+`SIM_GPS1_ENABLE 0` and a rebooted autopilot, so EKF3 came up having never had a fix. Before:
+`drone_interface` published nothing at all - no pose, no casualties, nothing the ground could
+place - because it had no origin. Now it waits 20 s and then georeferences on the surveyed
+launch point (`launch_point`, the pad at -35.364250, 149.165237): pose published at map
+(0.0, -110.0, 0.68), `navigation` NONE, and the operator told in an event which point the
+positions are relative to.
+
+The first cut of this fired on a *healthy* flight - SITL answered GPS_GLOBAL_ORIGIN 22.8 s after
+the link came up, past the 20 s fallback, and the survey would have quietly replaced a perfectly
+good origin. It now falls back only while there is no 3D fix at all, and a fix that turns up
+later takes over from the survey with the distance between them logged. Re-flown after the fix:
+the same launch took the autopilot's origin, as it should.
+
 **The pre-arm timeout said the wrong thing.** Twice, on a loaded machine, take-off failed with
 "pre-arm checks timed out after 120s (last autopilot text: DDS: No ping response, exiting)" -
 which is ArduPilot's own DDS client giving up on a micro-ROS agent this stack does not run, and

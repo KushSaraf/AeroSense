@@ -87,6 +87,11 @@ relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the do
   GPS is good and streamed as VISION_POSITION_ESTIMATE. When GPS is not OK the EKF switches to
   source set 2 (`vio.parm`); back to set 1 once GPS has been OK for 5 s. Vision is used only
   while its track fits the GPS track within 5 m RMS.
+- **No fix at all, from the start:** EKF3 never sets an origin, so nothing can be placed on a
+  map. After `LAUNCH_FIX_WAIT_S` with no 3D fix, `drone_interface` georeferences on the surveyed
+  launch point (`launch_point`, passed by the launch file from the pad's pose) and says so; the
+  autopilot's own origin takes over if one ever arrives. Only *no fix* triggers it - a slow
+  GPS_GLOBAL_ORIGIN with a good fix is waited for (it fired on a healthy flight once).
 - **No GPS and no vision:** the EKF goes to source set 3 (`hexa.parm`: no horizontal position), never
   stays on set 1. The jammer lets fake 3D fixes through for up to 3.1 s; on set 1 the EKF took them
   and flew the drone after positions hundreds of metres off. The 5 s rule rejects them; without a

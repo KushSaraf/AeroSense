@@ -23,6 +23,15 @@ def geodetic_to_map(lat: float, lon: float, alt_m: float, world_origin: tuple) -
             alt_m - origin_alt)
 
 
+def map_to_geodetic(x: float, y: float, z: float, world_origin: tuple) -> tuple:
+    """(lat, lon, alt AMSL) of a map point: the inverse of `geodetic_to_map`, for the surveyed
+    launch point a responder types in before flying somewhere with no GPS."""
+    origin_lat, origin_lon, origin_alt = world_origin
+    return (origin_lat + y / METRES_PER_DEGREE_LAT,
+            origin_lon + x / (METRES_PER_DEGREE_LAT * math.cos(math.radians(origin_lat))),
+            origin_alt + z)
+
+
 def ned_to_map(n: float, e: float, d: float, home_map=(0.0, 0.0, 0.0)) -> tuple:
     return (home_map[0] + e, home_map[1] + n, home_map[2] - d)
 
