@@ -28,5 +28,6 @@ setup(
         f"victim_detector = {PACKAGE}.victim_detector:main",
         f"rgb_detector = {PACKAGE}.rgb_detector:main",
         f"hazard_mapper = {PACKAGE}.hazard_mapper:main",
+        f"gas_mapper = {PACKAGE}.gas_mapper:main",
     ]},
 )

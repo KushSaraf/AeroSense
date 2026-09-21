@@ -29,6 +29,9 @@ MIN_SAMPLES = 20
 WEIGHTS = np.array([SEVERITY_WEIGHT[c] for c in CLASSES])
 
 
+BAND_NAMES = tuple(name for name, _ in BANDS)
+
+
 def severity(hsi: float) -> str:
     return next((name for name, low in BANDS if hsi >= low), "SAFE")
 
@@ -82,32 +85,41 @@ class HazardGrid:
     def regions(self) -> list:
         """Touching cells of one severity band, as hazard regions (SAFE cells are none)."""
         judged = self.cells()
-        if not judged:
-            return []
-        keys = np.array(list(judged))
-        low = keys.min(axis=0)
-        bands = np.zeros(tuple(keys.max(axis=0) - low + 1), int)       # 0 SAFE, 1.. index into BANDS
-        names = [name for name, _ in BANDS]
-        for (i, j), (hsi, _) in judged.items():
-            name = severity(hsi)
-            bands[i - low[0], j - low[1]] = names.index(name) + 1 if name in names else 0
-        regions = []
-        for band, name in enumerate(names, start=1):
-            labelled, count = ndimage.label(bands == band)            # 4-connected
-            for label in range(1, count + 1):
-                cells = [(int(a) + low[0], int(b) + low[1]) for a, b in np.argwhere(labelled == label)]
-                regions.extend(self._region(name, cells, judged))
-        return regions
+        bands = {cell: severity(hsi) for cell, (hsi, _) in judged.items()}
+        return [region for name, cells, polygons in band_regions(bands, self._cell, BAND_NAMES)
+                for region in self._region(name, cells, polygons, judged)]
 
-    def _region(self, name: str, cells: list, judged: dict) -> list:
-        c = self._cell
-        shape = unary_union([box(i * c, j * c, (i + 1) * c, (j + 1) * c) for i, j in cells])
+    def _region(self, name: str, cells: list, polygons: list, judged: dict) -> list:
         counts = sum(judged[cell][1] for cell in cells)
         hazard = max(HAZARD_TYPE, key=lambda cls: counts[CLASSES.index(cls)] * SEVERITY_WEIGHT[cls])
         hsi = float(np.mean([judged[cell][0] for cell in cells]))
         first = min(cells)
-        polygons = list(getattr(shape, "geoms", [shape]))
         return [Region(f"H-{name[0]}{first[0]}_{first[1]}" + (f"_{n}" if n else ""), name, HAZARD_TYPE[hazard],
                        tuple(polygon.exterior.coords[:-1]), (polygon.centroid.x, polygon.centroid.y),
                        float(polygon.area), round(hsi, 3))
                 for n, polygon in enumerate(polygons)]
+
+
+def band_regions(bands: dict, cell_m: float, names: tuple) -> list:
+    """Touching cells of the same band, as [(band, cells, polygons)], one entry per region.
+
+    `bands` maps a cell (i, j) to its band name; cells whose band is not in `names` belong to no
+    region. Shared by the structural hazards (HSI) and the chemical ones (gas.py), so a region is
+    the same shape whatever found it.
+    """
+    if not bands:
+        return []
+    keys = np.array(list(bands))
+    low = keys.min(axis=0)
+    grid = np.zeros(tuple(keys.max(axis=0) - low + 1), int)          # 0 none, 1.. index into names
+    for (i, j), name in bands.items():
+        grid[i - low[0], j - low[1]] = names.index(name) + 1 if name in names else 0
+    regions = []
+    for band, name in enumerate(names, start=1):
+        labelled, count = ndimage.label(grid == band)                 # 4-connected
+        for label in range(1, count + 1):
+            cells = [(int(a) + low[0], int(b) + low[1]) for a, b in np.argwhere(labelled == label)]
+            shape = unary_union([box(i * cell_m, j * cell_m, (i + 1) * cell_m, (j + 1) * cell_m)
+                                 for i, j in cells])
+            regions.append((name, cells, list(getattr(shape, "geoms", [shape]))))
+    return regions

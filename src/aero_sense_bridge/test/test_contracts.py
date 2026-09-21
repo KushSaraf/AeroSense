@@ -423,3 +423,18 @@ def test_hazard_regions_reach_the_maps_with_their_outline():
     assert out["polygon"][1] == [-35.0, 149.00005] and contracts.hazards_json(None) == []
     report = contracts.report_json({"id": "M1", "status": "COMPLETED"}, [], {}, [], [out])
     assert report["summary"]["hazardsIdentified"] == 1
+
+
+def test_a_chemical_region_says_what_was_in_the_air_and_claims_no_hsi():
+    """A gas region is judged against exposure limits, not by the segmentation's HSI: showing its
+    placeholder confidence as an HSI would be a number nobody measured."""
+    from aero_sense_interfaces.msg import GasReading, HazardArray, HazardDetection
+    hazard = HazardDetection(hazard_id="G-H-8_5", type="chemical", severity="HIGH", confidence=1.0,
+                             area_m2=100.0, detail="NH3 210 ppm")
+    [out] = contracts.hazards_json(HazardArray(hazards=[hazard]))
+    assert (out["type"], out["hsi"], out["detail"]) == ("CHEMICAL", None, "NH3 210 ppm")
+
+    reading = GasReading(species=["NH3", "CO"], ppm=[300.0, 0.0], saturated=[True, False])
+    assert contracts.gas_json(reading) == {"NH3": {"ppm": 300.0, "saturated": True},
+                                           "CO": {"ppm": 0.0, "saturated": False}}
+    assert contracts.gas_json(None) == {}

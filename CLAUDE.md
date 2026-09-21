@@ -188,6 +188,22 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   symlinks in `src/aero_sense_perception/models/segformer_b0_disaster/` (`os.walk` does not follow
   a directory symlink). `hazards:=false` launches without it. Retrain: make_dataset.py, train.py.
 
+## Gas (`gas_sim`, `plume.py`, `gas_mapper`, `gas.py`)
+
+- **The leaks:** `aero_sense_gazebo/config/gas.yaml` (sources, wind, stability class) - scenario
+  choices like victims.yaml. Simulator side only: nothing onboard reads it.
+- **The sensors:** `gas_sim` evaluates a Gaussian plume (Briggs open-country) at ground truth and
+  clips to each part's datasheet range (`sensors.yaml` `gas`: MiCS-6814 CO/NO2/NH3, MQ-136 H2S) ->
+  `aero_sense/gas` (`GasReading`). No response lag or cross-sensitivity: neither datasheet gives one.
+- **The map:** `gas_mapper` judges each reading against NIOSH limits (`gas.LIMITS_PPM`: REL, short-term,
+  IDLH -> MODERATE, HIGH, CRITICAL) per 10 m cell at the drone's own pose, and publishes chemical
+  regions on `aero_sense/gas_hazards` - not `aero_sense/hazards`, which is always the whole list and
+  would be wiped by a second publisher. The bridge, the ground routes and comms_link take both.
+  Regions share `hsi.band_regions` with the structural ones. `HazardDetection.detail` says what
+  was measured ("NH3 54 ppm"); a chemical region has no HSI.
+- **Altitude:** a region is the air at the drone's height, not the ground's. At 30 m the NH3 plume
+  reads 54 ppm 80 m downwind; the ground-level H2S source is below the MQ-136's floor from cruise.
+
 ## Casualty tracker (`aero_sense_perception/tracker.py`)
 
 ByteTrack's BYTE association in the map frame: confident detections first (Hungarian), weak ones

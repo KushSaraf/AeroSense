@@ -50,8 +50,8 @@ from sensor_msgs.msg import BatteryState, Image, NavSatFix, PointCloud2
 from std_msgs.msg import String
 from std_srvs.srv import SetBool, Trigger
 
-from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, HazardArray, MissionStatus,
-                                       SafeRouteArray, VictimArray)
+from aero_sense_interfaces.msg import (Alert, CommunicationStatus, DroneStatus, GasReading, HazardArray,
+                                       MissionStatus, SafeRouteArray, VictimArray)
 from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
 from aero_sense_mission import zones
@@ -84,6 +84,7 @@ class DashboardBridge(Node):
         self._comms = self._comms_at = None
         self._victims = self._hazards = self._routes = self._vio_points = None
         self._obstacle_points = None
+        self._gas_hazards = self._gas = None
         self._structures = None          # loaded on the first /api/scene
         self._origin = contracts.world_origin()[:2]
         self._mission_state = None
@@ -110,6 +111,9 @@ class DashboardBridge(Node):
                                  lambda m: setattr(self, "_victims", m), 10)
         self.create_subscription(HazardArray, DOWNLINK + "hazards",
                                  lambda m: setattr(self, "_hazards", m), 10)
+        self.create_subscription(HazardArray, DOWNLINK + "gas_hazards",
+                                 lambda m: setattr(self, "_gas_hazards", m), 10)
+        self.create_subscription(GasReading, DOWNLINK + "gas", lambda m: setattr(self, "_gas", m), 10)
         # planned on the ground (ground_routes), not relayed from the drone
         self.create_subscription(SafeRouteArray, "aero_sense/ground/routes", lambda m: setattr(self, "_routes", m),
                                  QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL))
@@ -312,7 +316,11 @@ class DashboardBridge(Node):
         return buffer.tobytes() if ok else None
 
     def hazards(self) -> list:
-        return contracts.hazards_json(self._hazards)
+        """The structural regions and the chemical ones: two topics, each always its whole list."""
+        return contracts.hazards_json(self._hazards) + contracts.hazards_json(self._gas_hazards)
+
+    def gas(self) -> dict:
+        return contracts.gas_json(self._gas)
 
     def routes(self) -> list:
         return contracts.routes_json(self._routes, *self._origin)
@@ -340,6 +348,7 @@ class DashboardBridge(Node):
             "routes": self.routes(),
             "teams": self.teams(),
             "hazards": self.hazards(),
+            "gas": self.gas(),
             "alerts": [],             # likewise the alert engine
             "telemetry": list(self._telemetry),
         })

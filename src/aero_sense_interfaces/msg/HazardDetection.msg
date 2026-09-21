@@ -6,6 +6,7 @@ string type                      # fire | smoke | flood | landslide | chemical |
 string severity                  # CRITICAL | HIGH | MODERATE | SAFE
 float32 confidence
 string sector                    # earthquake | flood | fire | landslide | chemical
+string detail                    # what was measured, for the operator: e.g. "NH3 210 ppm" (chemical)
 
 HazardPolygon footprint
 geometry_msgs/Point centroid     # map frame

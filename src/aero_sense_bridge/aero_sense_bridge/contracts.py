@@ -392,12 +392,22 @@ def hazards_json(msg) -> list:
         "id": hazard.hazard_id,
         "type": hazard.type.upper(),
         "severity": hazard.severity,
-        "hsi": round(hazard.confidence, 3),           # the region's mean Hazard Severity Index
+        # the region's mean Hazard Severity Index; a chemical region is judged by exposure limits
+        "hsi": None if hazard.type == "chemical" else round(hazard.confidence, 3),
+        "detail": hazard.detail or None,              # e.g. "NH3 210 ppm"
         "areaM2": round(hazard.area_m2),
         "latitude": hazard.latitude,
         "longitude": hazard.longitude,
         "polygon": [[lat, lon] for lat, lon in zip(hazard.footprint.latitudes, hazard.footprint.longitudes)],
     } for hazard in msg.hazards]
+
+
+def gas_json(msg) -> dict:
+    """The drone's latest gas reading: {species: {"ppm": ..., "saturated": ...}}, {} before any."""
+    if msg is None:
+        return {}
+    return {species: {"ppm": round(float(ppm), 2), "saturated": bool(saturated)}
+            for species, ppm, saturated in zip(msg.species, msg.ppm, msg.saturated)}
 
 
 def teams_json(msg, origin_lat: float, origin_lon: float) -> dict:

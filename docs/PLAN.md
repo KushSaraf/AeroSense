@@ -13,7 +13,7 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 | 2 | Network regain: priority queue | **done 2026-09-21** | this session |
 | 3 | GPS-denied / offline, as one story | **done 2026-09-21** | this session |
 | 4 | Closed-loop adaptive coverage search | **done 2026-09-21** (neutral on this world) | this session |
-| 5 | Gas sensing (MiCS-6814, MQ-136) | ~1–2 days | this session |
+| 5 | Gas sensing (MiCS-6814, MQ-136) | **done 2026-09-21** | this session |
 | 6 | Thermal YOLOv8n on HIT-UAV | ~2 days + training | peer (`ml/` is theirs) |
 
 ---
@@ -164,7 +164,13 @@ coverage once the priors are exhausted.
 
 ---
 
-## 5. Gas sensing: MiCS-6814 and MQ-136
+## 5. Gas sensing: MiCS-6814 and MQ-136 — done
+
+Built as `gas_sim` + `plume.py` (simulator) and `gas_mapper` + `gas.py` (onboard), flown across the
+ammonia plume on 2026-09-21 (`docs/VERIFICATION.md`). Two things below turned out wrong when
+checked against the sources: neither datasheet gives a response time, so the "tens of seconds to
+settle" lag was unsourced and is not modelled; and the MiCS-6814's NH₃ range is 1–300 ppm in its own
+performance table (1–500 on its front page). The exposure limits are the NIOSH Pocket Guide's.
 
 **There now.** Only the parts list (`hardware/README.md`): MiCS-6814 (CO 1–1000 ppm, NO₂
 0.05–10 ppm, NH₃ 1–500 ppm) and MQ-136 (H₂S 1–200 ppm). Nothing in the world, nothing onboard.

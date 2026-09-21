@@ -24,5 +24,6 @@ setup(
         f"stop_sim = {PACKAGE}.stop_sim:main",
         f"spawn = {PACKAGE}.spawn:main",
         f"rangefinder_sim = {PACKAGE}.rangefinder_sim:main",
+        f"gas_sim = {PACKAGE}.gas_sim:main",
     ]},
 )

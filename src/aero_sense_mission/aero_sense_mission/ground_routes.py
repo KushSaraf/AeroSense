@@ -6,7 +6,8 @@ without a network it keeps the last routes it could make. Hazards cost a route i
 their severity and CRITICAL ones close the road (road_map.py); none are mapped yet, so today every
 route is the shortest by road.
 
-Subscribes: aero_sense/downlink/victims (VictimArray), aero_sense/downlink/hazards (HazardArray)
+Subscribes: aero_sense/downlink/victims (VictimArray), aero_sense/downlink/hazards and
+            .../gas_hazards (HazardArray: what the ground is like, and where the air is bad)
 Publishes:  aero_sense/ground/routes (SafeRouteArray, latched): one route per casualty, one tour per team
 """
 from pathlib import Path
@@ -50,10 +51,13 @@ class GroundRoutes(Node):
         self._graph = RoadGraph(load_roads(roads_file))
         self._entry = tuple(float(v) for v in self.get_parameter("entry_xy").value)
         self._victims, self._hazards, self._planned = (), (), None
+        self._by_source = {}             # "hazards" | "gas_hazards" -> that topic's regions
         latched = QoSProfile(depth=1, durability=DurabilityPolicy.TRANSIENT_LOCAL)
         self._pub = self.create_publisher(SafeRouteArray, ROUTES_TOPIC, latched)
         self.create_subscription(VictimArray, DOWNLINK_PREFIX + "victims", self._on_victims, 10)
-        self.create_subscription(HazardArray, DOWNLINK_PREFIX + "hazards", self._on_hazards, 10)
+        for source in ("hazards", "gas_hazards"):
+            self.create_subscription(HazardArray, DOWNLINK_PREFIX + source,
+                                     lambda msg, s=source: self._on_hazards(s, msg), 10)
         self.get_logger().info(f"ground routes from the base at {self._entry} over "
                                f"{len(self._graph.nodes)} road nodes ({roads_file})")
 
@@ -61,8 +65,10 @@ class GroundRoutes(Node):
         self._victims = tuple(Casualty(v.victim_id, (v.position.x, v.position.y), v.priority) for v in msg.victims)
         self._replan()
 
-    def _on_hazards(self, msg: HazardArray) -> None:
-        self._hazards = hazards_from(msg)
+    def _on_hazards(self, source: str, msg: HazardArray) -> None:
+        """Each topic is always its whole list, so it replaces its own share and not the other's."""
+        self._by_source = {**self._by_source, source: hazards_from(msg)}
+        self._hazards = tuple(h for regions in self._by_source.values() for h in regions)
         self._replan()
 
     def _replan(self) -> None:

@@ -214,6 +214,12 @@ def _launch(context, *args, **kwargs):
     beams = Node(package="aero_sense_bringup", executable="rangefinder_sim", namespace=namespace,
                  output="screen", parameters=[{"world_file": str(world), "quality": quality,
                                                "use_sim_time": True}])
+    # the scenario's gas leaks, read by the drone's MiCS-6814 and MQ-136 (config/gas.yaml), and the
+    # drone's own map of where it found them against their exposure limits
+    gas_sensors = Node(package="aero_sense_bringup", executable="gas_sim", namespace=namespace,
+                       output="screen", parameters=[{"quality": quality, "use_sim_time": True}])
+    gas_hazards = Node(package="aero_sense_perception", executable="gas_mapper", namespace=namespace,
+                       output="screen", parameters=[{"origin_latitude": origin_lat, "origin_longitude": origin_lon}])
     # the simulator jams GPS in the no-GPS zones (or by hand); the drone must notice on its own
     gps_jammer = Node(package="aero_sense_mission", executable="gps_jammer", namespace=namespace,
                       parameters=[{"mavlink_url": f"udpin:{SIMULATOR_OUT}"}], output="screen")
@@ -221,7 +227,8 @@ def _launch(context, *args, **kwargs):
     ground_routes = Node(package="aero_sense_mission", executable="ground_routes", namespace=namespace,
                          output="screen", parameters=[{"use_sim_time": True}])
     actions = [gz_server, gz_gui, spawn, sitl, mavproxy, bridge, drone, perception, mission, comms_link,
-               gps_jammer, ground_routes, *_static_tf_nodes(cfg, frame_prefix, namespace)]
+               gps_jammer, ground_routes, gas_sensors, gas_hazards,
+               *_static_tf_nodes(cfg, frame_prefix, namespace)]
     if not cfg["rangefinders"]["rendered"]:
         actions.append(beams)
     if vio:

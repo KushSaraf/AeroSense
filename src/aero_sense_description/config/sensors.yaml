@@ -124,6 +124,19 @@ rangefinders:                 # obstacle avoidance: one beam out of each side, l
     - {name: back,  yaw_deg: 180, part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}
     - {name: right, yaw_deg: -90, part: TFMini-S Micro, mesh: tfmini_s.glb,    mass_kg: 0.005, beam_rad: 0.0349}
 
+gas:                          # SGX MiCS-6814 (CO, NO2, NH3) and Winsen MQ-136 (H2S), on the top plate
+  rate_hz: 1
+  # Detection ranges are the datasheets' (MiCS-6814 1143 rev 8 performance tables; MQ136 manual
+  # v1.4). The MiCS-6814 front page says NH3 1-500 ppm, its own performance table 1-300: the
+  # table is used. Neither datasheet gives a response time, so the simulated reading is the air
+  # at that instant - optimistic: a real metal-oxide element lags, cross-reacts (the datasheet's
+  # RED element responds to ammonia too) and the MQ-136 wants 48 h of preheat to settle.
+  species:
+    - {name: CO,  part: MiCS-6814, range_ppm: [1.0, 1000.0]}
+    - {name: NO2, part: MiCS-6814, range_ppm: [0.05, 10.0]}
+    - {name: NH3, part: MiCS-6814, range_ppm: [1.0, 300.0]}
+    - {name: H2S, part: MQ-136,    range_ppm: [1.0, 200.0]}
+
 imu:                          # OAK-D Pro W's BNO086; the flight IMU stays noise-free for SITL
   rate_hz: 200                # VIO integrates between frames: OpenVINS wants 200 Hz or more
   gyro_stddev: 0.0009         # rad/s

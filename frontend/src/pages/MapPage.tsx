@@ -132,8 +132,12 @@ function MapPage() {
                      pathOptions={{ color: HAZARD_COLOUR[hazard.severity], fillColor: HAZARD_COLOUR[hazard.severity],
                                     fillOpacity: 0.3, weight: 1 }}>
               <Popup>
-                <strong>{hazard.severity}</strong> {hazard.type.toLowerCase()} hazard · HSI {hazard.hsi.toFixed(2)}<br />
-                {hazard.areaM2} m², mapped by disaster segmentation
+                <strong>{hazard.severity}</strong> {hazard.type.toLowerCase()} hazard
+                {hazard.hsi !== null ? ` · HSI ${hazard.hsi.toFixed(2)}` : ''}
+                {hazard.detail ? ` · ${hazard.detail}` : ''}<br />
+                {hazard.areaM2} m², {hazard.type === 'CHEMICAL'
+                  ? 'air the drone flew through over its NIOSH exposure limit'
+                  : 'mapped by disaster segmentation'}
                 {hazard.severity === 'CRITICAL' ? ' · roads through it are closed to ground teams' : ''}
               </Popup>
             </Polygon>

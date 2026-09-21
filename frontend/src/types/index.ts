@@ -25,13 +25,19 @@ export interface Victim {
   timestamp: string
 }
 
-/** A hazard region the drone mapped: disaster segmentation (SegFormer-B0) banded by HSI (hazard_mapper). */
+/** The drone's gas sensors (MiCS-6814, MQ-136), by species: ppm, and whether it is pinned at the top of the range. */
+export type GasReading = Record<string, { ppm: number; saturated: boolean }>
+
+/** A hazard region the drone mapped: disaster segmentation (SegFormer-B0) banded by HSI (hazard_mapper),
+ *  or air its gas sensors found over an exposure limit (gas_mapper). */
 export interface Hazard {
   id: string
-  type: 'STRUCTURAL' | 'FLOOD' | 'DEBRIS'
+  type: 'STRUCTURAL' | 'FLOOD' | 'DEBRIS' | 'CHEMICAL'
   severity: 'CRITICAL' | 'HIGH' | 'MODERATE'
-  /** the region's mean Hazard Severity Index, 0..1 */
-  hsi: number
+  /** the region's mean Hazard Severity Index, 0..1; null for a chemical region, judged by exposure limits */
+  hsi: number | null
+  /** what was measured, e.g. "NH3 210 ppm"; absent in recordings made before gas sensing */
+  detail?: string | null
   areaM2: number
   latitude: number
   longitude: number
@@ -212,6 +218,8 @@ export interface LiveState {
   /** Absent in recordings made before team planning. */
   teams?: TeamPlan
   hazards: Hazard[]
+  /** the drone's latest gas reading; absent in recordings made before gas sensing */
+  gas?: GasReading
   alerts: AlertItem[]
   telemetry: TelemetryPoint[]
 }

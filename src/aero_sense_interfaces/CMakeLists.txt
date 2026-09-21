@@ -15,6 +15,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/HazardPolygon.msg"
   "msg/HazardDetection.msg"
   "msg/HazardArray.msg"
+  "msg/GasReading.msg"
   "msg/Alert.msg"
   "msg/DroneStatus.msg"
   "msg/MissionStatus.msg"

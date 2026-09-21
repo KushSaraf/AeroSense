@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { apiService, connectLiveState, isLiveAvailable } from '../services/apiServices'
-import type { AlertItem, Drone, GroundRoute, Hazard, LinkStatus, LiveMission, LiveState, TeamPlan, TelemetryPoint, Victim } from '../types'
+import type { AlertItem, Drone, GasReading, GroundRoute, Hazard, LinkStatus, LiveMission, LiveState, TeamPlan, TelemetryPoint, Victim } from '../types'
 
 /** Where the dashboard's numbers come from. There is no third option: it is live, or it is nothing. */
 export type DataSource = 'live' | 'offline'
@@ -15,6 +15,7 @@ interface MissionData {
   telemetry: TelemetryPoint[]
   alerts: AlertItem[]
   link: LinkStatus | null
+  gas: GasReading
   loading: boolean
   source: DataSource
 }
@@ -29,6 +30,7 @@ const EMPTY = {
   telemetry: [] as TelemetryPoint[],
   alerts: [] as AlertItem[],
   link: null as LinkStatus | null,
+  gas: {} as GasReading,
 }
 const RETRY_MS = 5000
 
@@ -69,7 +71,7 @@ export const useMission = (): MissionData => {
           apiService.getHazards(), apiService.getTelemetry(), apiService.getAlerts(),
         ])
         if (cancelled) return
-        setData({ mission: mission as LiveMission, drone, victims, routes: [], teams: EMPTY.teams, hazards, telemetry, alerts, link: null })
+        setData({ mission: mission as LiveMission, drone, victims, routes: [], teams: EMPTY.teams, hazards, telemetry, alerts, link: null, gas: EMPTY.gas })
         setSource('live')
         setLoading(false)
         disconnect = connectLiveState((state: LiveState) => {
@@ -79,6 +81,7 @@ export const useMission = (): MissionData => {
             teams: state.teams ?? EMPTY.teams,
             hazards: state.hazards, telemetry: state.telemetry, alerts: state.alerts,
             link: state.link ?? null,
+            gas: state.gas ?? EMPTY.gas,
           })
         }, goOffline)
       } catch {

@@ -122,27 +122,37 @@ class HazardMapper(Node):
         self._grid.add(xy[ok], classes[vs.ravel(), us.ravel()][ok])
         self._publish(stamp)
 
-    def _geodetic(self, x: float, y: float) -> tuple:
-        lat = self._origin[0] + np.degrees(y / EARTH_RADIUS_M)
-        lon = self._origin[1] + np.degrees(x / (EARTH_RADIUS_M * np.cos(np.radians(self._origin[0]))))
-        return float(lat), float(lon)
-
     def _publish(self, stamp) -> None:
         out = HazardArray()
         out.header.stamp, out.header.frame_id = stamp, self._map_frame
-        for region in self._grid.regions():
-            hazard = HazardDetection(hazard_id=region.hazard_id, type=region.type, severity=region.severity,
-                                     confidence=float(region.hsi), area_m2=float(region.area_m2))
-            hazard.header = out.header
-            hazard.centroid = Point(x=float(region.centroid[0]), y=float(region.centroid[1]), z=self._ground_z)
-            hazard.latitude, hazard.longitude = self._geodetic(*region.centroid)
-            for x, y in region.polygon:
-                hazard.footprint.polygon.points.append(Point32(x=float(x), y=float(y), z=float(self._ground_z)))
-                lat, lon = self._geodetic(x, y)
-                hazard.footprint.latitudes.append(lat)
-                hazard.footprint.longitudes.append(lon)
-            out.hazards.append(hazard)
+        out.hazards = [hazard_detection(region, region.type, region.hsi, out.header, self._origin, self._ground_z)
+                       for region in self._grid.regions()]
         self._pub.publish(out)
+
+
+def geodetic(origin: tuple, x: float, y: float) -> tuple:
+    """(lat, lon) of a map point, the map's origin being `origin` (lat, lon)."""
+    lat = origin[0] + np.degrees(y / EARTH_RADIUS_M)
+    lon = origin[1] + np.degrees(x / (EARTH_RADIUS_M * np.cos(np.radians(origin[0]))))
+    return float(lat), float(lon)
+
+
+def hazard_detection(region, kind: str, confidence: float, header, origin: tuple,
+                     ground_z: float) -> HazardDetection:
+    """One mapped region as the HazardDetection the map and the ground routes read. Anything
+    with a hazard_id, severity, polygon, centroid and area_m2 will do: the structural regions
+    (hsi.Region) and the chemical ones (gas.Region) both go through here."""
+    hazard = HazardDetection(hazard_id=region.hazard_id, type=kind, severity=region.severity,
+                             confidence=float(confidence), area_m2=float(region.area_m2))
+    hazard.header = header
+    hazard.centroid = Point(x=float(region.centroid[0]), y=float(region.centroid[1]), z=float(ground_z))
+    hazard.latitude, hazard.longitude = geodetic(origin, *region.centroid)
+    for x, y in region.polygon:
+        hazard.footprint.polygon.points.append(Point32(x=float(x), y=float(y), z=float(ground_z)))
+        lat, lon = geodetic(origin, x, y)
+        hazard.footprint.latitudes.append(lat)
+        hazard.footprint.longitudes.append(lon)
+    return hazard
 
 
 def main():

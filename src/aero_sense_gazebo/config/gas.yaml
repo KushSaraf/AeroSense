@@ -1,0 +1,29 @@
+# Gas released in the disaster world, for gas_sim (aero_sense_bringup). Simulator side only: the
+# drone never reads this file, it finds the gas with its MiCS-6814 and MQ-136 like it would for real.
+#
+# Scenario values, not measurements of anything: where a leak is, how much it releases and which
+# way the wind blows are choices, like victims.yaml. The dispersion is a Gaussian plume
+# (aero_sense_bringup/plume.py), which treats every gas as neutrally buoyant - ammonia really
+# rises and H2S really sinks, and neither is modelled.
+
+wind:
+  speed_mps: 3.0
+  from_deg: 135           # meteorological: where it blows FROM, clockwise from north (south-east)
+  stability: B            # Pasquill-Gifford class: B is a sunny afternoon, strongly unstable
+
+sources:
+  # a refrigeration line torn open in the collapsed industrial hall (ammonia is the usual
+  # refrigerant in Indian cold stores), 12 m up its wall; the plume runs north-west over the blocks
+  - name: s1_ammonia_line
+    species: NH3
+    x: -60.0
+    y: 25.0
+    z: 12.0
+    rate_g_per_s: 500.0
+  # sewage in the standing flood water: a weak, ground-level source, barely readable from cruise
+  - name: s2_sewer_gas
+    species: H2S
+    x: 110.0
+    y: 45.0
+    z: 0.5
+    rate_g_per_s: 20.0

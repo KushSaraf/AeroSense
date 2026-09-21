@@ -18,7 +18,7 @@ function Reading({ label, value }: { label: string; value: string }) {
 
 /** The autopilot's own numbers. Anything the autopilot does not report is shown as unknown. */
 function TelemetryPage() {
-  const { drone, telemetry, mission } = useMission()
+  const { drone, telemetry, mission, gas } = useMission()
 
   const readings: Array<[string, string]> = [
     ['Battery', drone?.battery != null ? `${drone.battery.toFixed(0)}%` : 'unknown'],
@@ -33,6 +33,9 @@ function TelemetryPage() {
     ['Longitude', drone?.longitude != null ? drone.longitude.toFixed(6) : 'no fix'],
     ['Mission state', mission?.state ?? 'no mission'],
     ['Coverage', mission ? `${mission.coverage.toFixed(0)}%` : '—'],
+    // the gas sensors: nothing below a sensor's floor, and "at least" when it is pinned at the top
+    ...Object.entries(gas).map(([species, { ppm, saturated }]): [string, string] =>
+      [species, saturated ? `≥ ${ppm.toFixed(0)} ppm` : ppm > 0 ? `${ppm.toFixed(ppm < 10 ? 2 : 0)} ppm` : 'none']),
   ]
 
   return (

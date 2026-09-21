@@ -95,6 +95,34 @@ at (-130, 19, 19 m) after entering the southern lanes, which jam GPS. That is th
 failsafe with no vision to fall back on, not a fault - but it means a light launch
 (`vio:=false`) cannot fly the earthquake sector to the end.
 
+### Gas sensing: MiCS-6814 and MQ-136 (2026-09-21)
+
+The scenario (`aero_sense_gazebo/config/gas.yaml`) tears an ammonia refrigeration line open 12 m up
+the collapsed industrial hall at (-60, 25), 500 g/s, with a 3 m/s south-easterly and a sunny,
+unstable afternoon (Pasquill-Gifford B), and puts a weak H₂S source in the flood water. `gas_sim`
+evaluates a Gaussian plume at the drone (Briggs open-country dispersion) and clips it to each
+sensor's datasheet range; `gas_mapper` judges each reading against the NIOSH Pocket Guide limits
+(NH₃: REL 25, STEL 35, IDLH 300 ppm) and maps it per 10 m cell.
+
+Flown at 30 m north along x = -116, across the plume's axis about 80 m downwind of the leak
+(`logs/gas_plume_crossing.log`), through a corridor clear of every GPS and network zone:
+
+| y (m) | 50 | 59 | 65 | 71 | 77 | 83 | 87 |
+|---|---|---|---|---|---|---|---|
+| NH₃ (ppm) | 1.1 | 7.7 | 14.8 | 33.9 | 42.8 | 53.3 | 54.1 |
+
+The peak, 54.1 ppm, is the 53.7 ppm the model gives for that point before flight. The drone
+mapped two chemical regions - HIGH, NH₃ 54 ppm, 300 m² round (-115, 85), over the 35 ppm
+short-term limit; MODERATE, 34 ppm, 100 m² round (-115, 65), over the 25 ppm REL - and both
+reached the ground on `aero_sense/downlink/gas_hazards`, where the ground routes plan from them
+alongside the structural regions.
+
+What this does not show, and cannot: the plume is time-averaged and neutrally buoyant (real
+ammonia rises, H₂S sinks, and a sensor sees puffs, not the mean), and a metal-oxide sensor's lag
+and cross-sensitivity are not modelled because neither datasheet gives a response time. At 30 m
+the H₂S source is below the MQ-136's 1 ppm floor almost everywhere: a ground-level leak is not
+something a cruising drone smells, and a low pass is what finds one.
+
 ### Closed-loop adaptive coverage search (2026-09-21)
 
 `mission_manager._choose_next_leg` reorders the lawnmower's own legs by expected gain per second

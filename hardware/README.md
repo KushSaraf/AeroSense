@@ -39,7 +39,7 @@ battery is a labelled box; motors and propellers stay generic until they are bou
 | Frame (plates, arms, motor mounts) | **team design** (`cad/hexacopter_frame`) | ✅ | mesh `hexacopter_frame.glb`: motors 567 mm from the centre |
 | Landing gear | part of the frame (skids, 583 mm below the plates' mid-plane) | ✅ | in the frame mesh; lands on the skids |
 | Obstacle rangefinders | **Benewake TFmini Plus** forward (12 g, 3.6° beam) + **3 × TFMini-S Micro** on the other sides (5 g, 2°), both 0.1–12 m | `cad/tfmini_plus`, `cad/tfmini_s` | `tfmini_plus.glb` / `tfmini_s.glb` via `tools/step_to_mesh.py` |
-| Gas sensors | **SGX MiCS-6814** (CO 1–1000 ppm, NO₂ 0.05–10 ppm, NH₃ 1–500 ppm, MOS, three heaters) + **Winsen MQ-136** (H₂S 1–200 ppm, SnO₂, analogue) | to source | not modelled yet: no gas plume in the world and no reading on the drone |
+| Gas sensors | **SGX MiCS-6814** (CO 1–1000 ppm, NO₂ 0.05–10 ppm, NH₃ 1–300 ppm, MOS, three heaters) + **Winsen MQ-136** (H₂S 1–200 ppm, SnO₂, analogue) | to source | simulated: `gas_sim` reads a Gaussian plume of the scenario's leaks (`config/gas.yaml`) at the datasheet ranges (`sensors.yaml` `gas`). The MiCS-6814's front page says NH₃ 1–500 ppm, its own performance table 1–300; the table is used. Neither datasheet states a response time, so none is modelled |
 | GNSS module | Holybro M10-class GPS puck on a folding mast (to confirm) | not needed | white φ50 × 14.4 mm puck with LED ring on a 140 mm mast at the back of the top plate |
 | Lepton carrier board | — | not needed | green board between the camera tray and the Lepton |
 | Camera mount | — | not needed | tray below the battery, hung from the bottom plate by two side plates |
