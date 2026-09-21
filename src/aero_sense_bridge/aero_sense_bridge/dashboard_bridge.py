@@ -31,6 +31,7 @@ empty, and unknown fields say so.
 """
 import threading
 import time
+from datetime import datetime, timezone
 from collections import deque
 from contextlib import asynccontextmanager
 
@@ -186,10 +187,14 @@ class DashboardBridge(Node):
 
     def mission(self):
         mission = contracts.mission_json(self._mission_state, list(self._events))
-        if mission and mission["status"] == "COMPLETED":
-            # keep finished missions so their report survives the next takeoff
+        if contracts.mission_ended(mission):
+            # Kept so its report survives the next takeoff. Re-taken on every poll while it is the
+            # latest mission: a drone that landed in a dead zone delivers its queued casualties
+            # after the status says it has ended. The time it ended is kept from the first look.
+            earlier = self._history.get(mission["id"], {})
             self._history[mission["id"]] = {"mission": mission, "victims": self.victims(), "hazards": self.hazards(),
-                                            "drone": self.drone(), "events": self._own_events()}
+                                            "drone": self.drone(), "events": self._own_events(),
+                                            "endedAt": earlier.get("endedAt") or datetime.now(tz=timezone.utc)}
         return mission
 
     def _own_events(self) -> list:
@@ -220,16 +225,15 @@ class DashboardBridge(Node):
                  "victims": len(record["victims"])} for record in self._history.values()]
 
     def report(self, mission_id: str):
+        """The report of a mission that has ended; None for one still flying or never flown.
+
+        There is no interim report: one written mid-flight read COMPLETED-style totals for a
+        search half done."""
         record = self._history.get(mission_id)
-        if record is None:
-            live = self.mission()
-            if live and live["id"] == mission_id:
-                record = {"mission": live, "victims": self.victims(), "hazards": self.hazards(), "drone": self.drone(),
-                          "events": self._own_events()}
         if record is None:
             return None
         return contracts.report_json(record["mission"], record["victims"], record["drone"],
-                                     record["events"], record.get("hazards", ()))
+                                     record["events"], record.get("hazards", ()), record.get("endedAt"))
 
     def call_mission(self, command: str, scenario: str = "earthquake") -> dict:
         """Start or steer the mission. Reports what the state machine answered, including its
@@ -519,17 +523,18 @@ def build_app(bridge: DashboardBridge) -> FastAPI:
 
     @app.get("/api/reports")
     def reports():
-        """Missions that can be reported on: the one flying, and the ones already flown."""
-        live = bridge.mission()
-        finished = bridge.reports()
-        if live and live["id"] not in {entry["id"] for entry in finished}:
-            finished.append({"id": live["id"], "name": live["name"], "status": live["status"],
-                             "coverage": live["coverage"], "victims": live["victimsFound"]})
-        return finished
+        """Missions that have ended, so can be reported on. A mission still flying is not one."""
+        return bridge.reports()
 
     @app.get("/api/reports/{mission_id}")
     def report(mission_id: str):
-        return bridge.report(mission_id) or {"error": f"no mission {mission_id}"}
+        found = bridge.report(mission_id)
+        if found:
+            return found
+        live = bridge.mission()
+        if live and live["id"] == mission_id:
+            return {"error": f"{mission_id} is still flying: its report is written when it ends"}
+        return {"error": f"no mission {mission_id} has ended"}
 
     @app.websocket("/ws")
     async def stream(socket: WebSocket):

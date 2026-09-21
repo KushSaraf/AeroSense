@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import MissionReportDocument from '../components/MissionReportDocument'
 import type { MissionReport } from '../components/MissionReportDocument'
 import { useApi } from '../hooks/useApi'
+import { useMission } from '../hooks/useMission'
 import { API_URL } from '../services/apiServices'
 import '../styles/report.css'
 
@@ -41,8 +42,16 @@ function ReportsPage() {
   const [report, setReport] = useState<MissionReport | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
+  const { mission: live } = useMission()
   const missions = summaries ?? []
-  const activeId = selectedId ?? missions[0]?.id ?? null
+  const activeId = selectedId && missions.some((entry) => entry.id === selectedId)
+    ? selectedId : missions[0]?.id ?? null
+  // A report is written when a mission ends, so while one flies the page says so rather than
+  // showing a report of a search half done.
+  const flying = live && live.status === 'ACTIVE' ? live : null
+  const waiting = flying
+    ? `${flying.name} is still flying (${flying.state}, ${flying.elapsed}). Its report is written when it ends.`
+    : 'No mission has ended yet. A report is written when a mission ends.'
 
   const loadReport = useCallback(async (missionId: string) => {
     try {
@@ -58,7 +67,11 @@ function ReportsPage() {
   }, [])
 
   useEffect(() => {
-    if (!activeId) return
+    // no ended mission (a replay looping back to take-off, say): drop the report on screen
+    if (!activeId) {
+      setReport(null)
+      return undefined
+    }
     void loadReport(activeId)
     const timer = setInterval(() => void loadReport(activeId), REPORT_POLL_MS)
     return () => clearInterval(timer)
@@ -101,7 +114,7 @@ function ReportsPage() {
       <div className="grid gap-5 xl:grid-cols-[minmax(240px,0.6fr)_minmax(0,2.4fr)]">
         <section className="panel h-fit p-4">
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-[12px] uppercase tracking-[0.2em] text-text/75">Flown missions</div>
+            <div className="text-[12px] uppercase tracking-[0.2em] text-text/75">Ended missions</div>
             <FileText size={16} className="text-[#8ae0ff]" />
           </div>
           <div className="space-y-2">
@@ -117,7 +130,7 @@ function ReportsPage() {
             ))}
             {missions.length === 0 && !error && (
               <div className="rounded border border-white/10 bg-white/5 px-3 py-6 text-center text-[12px] uppercase tracking-[0.08em] text-text/78">
-                No mission has been flown yet.
+                {waiting}
               </div>
             )}
           </div>
@@ -126,8 +139,8 @@ function ReportsPage() {
         <section className="overflow-auto rounded-xl border border-white/10 bg-[#1a2030] p-4">
           {report
             ? <MissionReportDocument report={report} />
-            : <div className="py-24 text-center text-[13px] uppercase tracking-[0.09em] text-text/78">
-                Select a mission to generate its report.
+            : <div className="mx-auto max-w-[520px] py-24 text-center text-[14px] leading-6 text-text/78">
+                {missions.length ? loadError ?? 'Loading the report…' : waiting}
               </div>}
         </section>
       </div>

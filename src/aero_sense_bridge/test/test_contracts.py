@@ -438,3 +438,25 @@ def test_a_chemical_region_says_what_was_in_the_air_and_claims_no_hsi():
     assert contracts.gas_json(reading) == {"NH3": {"ppm": 300.0, "saturated": True},
                                            "CO": {"ppm": 0.0, "saturated": False}}
     assert contracts.gas_json(None) == {}
+
+
+# -- reports exist once a mission has ended ------------------------------------------------------
+
+def test_a_mission_has_ended_when_it_completed_or_hit_an_emergency():
+    assert contracts.mission_ended({"status": "COMPLETED"})
+    # an emergency is the flight an operator most needs a record of
+    assert contracts.mission_ended({"status": "EMERGENCY"})
+
+
+def test_a_mission_still_flying_or_absent_has_not_ended():
+    for status in ("ACTIVE", "STANDBY", "READY"):
+        assert not contracts.mission_ended({"status": status})
+    assert not contracts.mission_ended(None)
+    assert not contracts.mission_ended({})
+
+
+def test_a_report_is_dated_when_its_mission_ended_not_when_it_was_fetched():
+    from datetime import datetime, timezone
+    ended = datetime(2026, 9, 21, 15, 26, tzinfo=timezone.utc)
+    report = contracts.report_json({"id": "M1", "status": "COMPLETED"}, [], {}, [], ended_at=ended)
+    assert report["generated"] == "21 Sep 2026, 15:26 UTC"

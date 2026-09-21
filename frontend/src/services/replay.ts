@@ -134,6 +134,7 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
   const route = path.split('?')[0]
   const state = stateAt(rec, replayTime())
   const frame = rec.frames[frameIndexAt(rec.frames, replayTime())]
+  ended(state)
   switch (route) {
     case '/api/state': return state
     case '/api/drone': return state.drone
@@ -152,8 +153,9 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
       framesProcessed: null,
       rawDetectionsPerFrame: null,
     }
-    // only the recorded flight has a report here; the bridge's history of other flights does not
-    case '/api/reports': return rec.final.reports.filter((entry) => entry.id === rec.missionId)
+    // As on the bridge, a report exists once its mission has ended: until the replay clock
+    // reaches the landing there is nothing to report on, rather than the finished flight's totals.
+    case '/api/reports': return ended(state) ? rec.final.reports.filter((entry) => entry.id === rec.missionId) : []
     // nothing is running during a replay, and saying otherwise put 'RUNNING - 0 processes' on screen
     case '/api/simulation': return { running: false, processes: 0, port5760Free: true, replay: true }
     // This flight was recorded before the 3D view existed, so there are no feature points to
@@ -162,9 +164,24 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
     case '/api/routes': return { routes: [], teams: [], unassigned: [] }
     case '/api/teams': return { teams: [], unassigned: [] }
     default:
-      if (route.startsWith('/api/reports/')) return rec.final.report
+      if (route.startsWith('/api/reports/')) {
+        return ended(state) ? rec.final.report
+          : { error: `${rec.missionId} is still flying: its report is written when it ends` }
+      }
       return { error: `not in the recording: ${route}` }
   }
+}
+
+/** Set the first time the replay reaches the landing. A mission that has ended does not un-end
+ *  when the replay loops back to take-off, as on the bridge a report outlives the next flight;
+ *  without this the report showed for the ~16 s between landing and the loop, and polled at 5 s a
+ *  faster replay never showed it at all. */
+let endedOnce = false
+
+/** The bridge's contracts.ENDED_STATUSES: a report exists once a mission has ended, however it ended. */
+const ended = (state: ReturnType<typeof stateAt>): boolean => {
+  if (['COMPLETED', 'EMERGENCY'].includes(state.mission?.status ?? '')) endedOnce = true
+  return endedOnce
 }
 
 /** The drone's camera at the replay clock: the latest snapshot taken before that moment. */

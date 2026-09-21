@@ -509,7 +509,18 @@ def alerts_json(victims: list, events: list) -> list:
     return alerts
 
 
-def report_json(mission: dict, victims: list, drone: dict, events: list, hazards: list = ()) -> dict:
+#: A mission has a report once it has ended, however it ended: an emergency is the flight an
+#: operator most needs a record of, and only COMPLETED ones used to be kept.
+ENDED_STATUSES = ("COMPLETED", "EMERGENCY")
+
+
+def mission_ended(mission: dict | None) -> bool:
+    """Whether a mission is over, so a report of it can be written."""
+    return bool(mission) and mission.get("status") in ENDED_STATUSES
+
+
+def report_json(mission: dict, victims: list, drone: dict, events: list, hazards: list = (),
+                ended_at: datetime | None = None) -> dict:
     """Everything a mission report states, taken from the mission that was flown.
 
     Counts are derived here rather than stored, so a report can never disagree with the casualty
@@ -522,7 +533,8 @@ def report_json(mission: dict, victims: list, drone: dict, events: list, hazards
     strongest = sorted(victims, key=lambda v: v.get("confidence", 0.0), reverse=True)
     return {
         "reportId": f"AS-{mission['id']}",
-        "generated": datetime.now(tz=timezone.utc).strftime("%d %b %Y, %H:%M UTC"),
+        # dated when the mission ended: fetched again later, a report still describes that flight
+        "generated": (ended_at or datetime.now(tz=timezone.utc)).strftime("%d %b %Y, %H:%M UTC"),
         "mission": mission,
         "summary": {
             "coveragePercent": mission.get("coverage", 0.0),
