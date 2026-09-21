@@ -117,7 +117,7 @@ function Panel({ title, icon, children, action }: {
   title: string; icon?: React.ReactNode; children: React.ReactNode; action?: React.ReactNode
 }) {
   return (
-    <section className="panel overflow-hidden p-3">
+    <section className="panel flex flex-col overflow-hidden p-3">
       <div className="mb-3 flex items-center justify-between text-[13px] font-bold uppercase tracking-[0.09em] text-white">
         <span className="flex items-center gap-2">{icon}{title}</span>
         {action}
@@ -240,7 +240,7 @@ function DashboardPage() {
           </Panel>
 
           <Panel title="Map view" icon={<MapPinned size={15} />}>
-            <div className="relative h-[440px] overflow-hidden rounded-md border border-white/15">
+            <div className="relative min-h-[440px] flex-1 overflow-hidden rounded-md border border-white/15">
               <MapContainer center={centre} zoom={17} style={{ height: '100%', width: '100%' }}>
                 <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <DeniedZones world={world} />
@@ -297,7 +297,8 @@ function DashboardPage() {
               const done = stageIndex > index || mission?.state === 'MISSION_COMPLETE'
               const current = stageIndex === index
               return (
-                <div key={stage.state} className="flex items-center justify-between border-b border-white/10 py-2 text-[11px] uppercase text-white/70">
+                <div key={stage.state} className={`flex items-center justify-between border-b border-white/10 py-2 text-[12px] uppercase ${
+                  current ? '-mx-2 rounded bg-[#8ae0ff]/12 px-2 font-bold text-[#c9f1ff]' : done ? 'text-white/80' : 'text-white/55'}`}>
                   <span className="flex items-center gap-2">
                     <span className={`flex h-4 w-4 items-center justify-center rounded-full border ${
                       done ? 'border-[#43d17b] text-[#43d17b]' : current ? 'border-[#8ae0ff] text-[#8ae0ff]' : 'border-white/25'}`}>
@@ -311,22 +312,6 @@ function DashboardPage() {
             })}
           </Panel>
 
-          <Panel title="Telemetry">
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                ['Battery', drone?.battery != null ? `${drone.battery.toFixed(0)}%` : '—'],
-                ['Altitude', drone ? `${drone.altitude.toFixed(1)} m` : '—'],
-                ['Speed', drone ? `${drone.speed.toFixed(1)} m/s` : '—'],
-                ['GPS', drone?.gps ?? '—'],
-              ].map(([label, value]) => (
-                <div key={label} className="rounded border border-white/15 bg-[#3a465f]/75 p-3">
-                  <div className="text-[11px] uppercase text-white/72">{label}</div>
-                  <div className="mt-3 text-[15px] font-bold text-white">{value}</div>
-                </div>
-              ))}
-            </div>
-          </Panel>
-
           <Panel title="Casualties"
                  action={<span className="text-[11px] text-white/72">{victims.length} found</span>}>
             <div className="mb-2 flex gap-2 text-[11px] uppercase text-white/70">
@@ -335,11 +320,19 @@ function DashboardPage() {
                   {priority} {value}
                 </span>
               ))}
-              {victims.length === 0 && <span className="text-white/78">None detected yet</span>}
             </div>
-            <div className="max-h-[150px] overflow-auto">
-              {victims.map((victim) => <VictimRow key={victim.id} victim={victim} />)}
-            </div>
+            {victims.length === 0 ? (
+              <div className="flex flex-1 flex-col items-center justify-center gap-1 py-6 text-center">
+                <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-white/80">None confirmed yet</span>
+                <span className="max-w-[260px] text-[12px] leading-5 text-white/60">
+                  A casualty appears here once repeated looks from different positions agree.
+                </span>
+              </div>
+            ) : (
+              <div className="min-h-0 flex-1 overflow-auto">
+                {victims.map((victim) => <VictimRow key={victim.id} victim={victim} />)}
+              </div>
+            )}
           </Panel>
 
           <Panel title="Coverage">
