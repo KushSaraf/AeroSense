@@ -148,6 +148,11 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
     // only the recorded flight has a report here; the bridge's history of other flights does not
     case '/api/reports': return rec.final.reports.filter((entry) => entry.id === rec.missionId)
     case '/api/simulation': return { running: true, processes: 0, port5760Free: false, replay: true }
+    // This flight was recorded before the 3D view existed, so there are no feature points to
+    // replay. The shape still has to be the bridge's, or the page reads points off undefined.
+    case '/api/scene': return { structures: [], points: [], obstacles: [] }
+    case '/api/routes': return { routes: [], teams: [], unassigned: [] }
+    case '/api/teams': return { teams: [], unassigned: [] }
     default:
       if (route.startsWith('/api/reports/')) return rec.final.report
       return { error: `not in the recording: ${route}` }

@@ -152,7 +152,8 @@ function ScenePage() {
     const l = layers.current
     if (!l || !scene) return
     if (l.structures.children.length === 0) refill(l.structures, structureMeshes(scene))
-    refill(l.points, scene.points.length ? [pointCloud(scene.points)] : [])
+    const cloud = scene.points ?? []
+    refill(l.points, cloud.length ? [pointCloud(cloud)] : [])
     const obstacles = scene.obstacles ?? []
     refill(l.obstacles, obstacles.length ? [obstacleMarkers(obstacles)] : [])
   }, [scene])
@@ -190,7 +191,7 @@ function ScenePage() {
     }
   }, [position, follow])
 
-  const points = scene?.points.length ?? 0
+  const points = scene?.points?.length ?? 0
   const obstacles = scene?.obstacles?.length ?? 0
   return (
     <div className="relative h-full overflow-hidden bg-[#1b2130]">

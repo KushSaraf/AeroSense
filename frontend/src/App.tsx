@@ -1,3 +1,4 @@
+import { PageErrorBoundary } from './components/PageErrorBoundary'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AppShell from './layouts/AppShell'
 import HomePage from './pages/HomePage'
@@ -20,6 +21,8 @@ function App() {
   return (
     <BrowserRouter basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <AppShell>
+        {/* inside the shell: a page that throws is replaced, the header and navigation stay */}
+        <PageErrorBoundary>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<DashboardPage />} />
@@ -34,6 +37,7 @@ function App() {
           <Route path="/dashboard/settings" element={<SettingsPage />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
+        </PageErrorBoundary>
       </AppShell>
     </BrowserRouter>
   )
