@@ -3,8 +3,9 @@ import math
 
 import pytest
 
-from aero_sense_mission.search_pattern import (Area, CoverageGrid, footprint_centre,
-                                               footprint_radius, lawnmower)
+from aero_sense_mission.search_pattern import (BASE_PRIOR, Area, CoverageGrid, Prior,
+                                               footprint_centre, footprint_radius, lawnmower,
+                                               leg_gain, next_leg, prior_at)
 
 AREA = Area(min_x=-180.0, min_y=15.0, max_x=-20.0, max_y=90.0)
 
@@ -67,3 +68,72 @@ def test_a_flown_but_unseen_strip_is_not_counted():
         for x in range(0, 101, 10):
             grid.mark_footprint(float(x), y, radius_m=8.0)
     assert grid.percent < 60.0
+
+
+# -- closed-loop search: where to look next ---------------------------------------
+
+FIELD = Area(0.0, 0.0, 200.0, 100.0)
+
+
+def _legs(spacing_m=25.0):
+    points = lawnmower(FIELD, spacing_m)
+    return [(points[i], points[i + 1]) for i in range(0, len(points) - 1, 2)]
+
+
+def test_a_cell_is_seen_only_once_the_camera_has_been_over_it():
+    coverage = CoverageGrid(FIELD, cell_m=5.0)
+    assert not coverage.seen_at(50.0, 50.0)
+
+    coverage.mark_footprint(50.0, 50.0, 8.0)
+
+    assert coverage.seen_at(50.0, 50.0) and not coverage.seen_at(150.0, 50.0)
+    assert coverage.seen_at(-10.0, 50.0)            # outside the sector: nothing to fly to
+
+
+def test_ordinary_ground_still_scores_without_a_reason_to_be_interesting():
+    """A prior of zero on open ground would have the drone abandon the sector it was sent to."""
+    assert prior_at((), 10.0, 10.0) == BASE_PRIOR
+    rubble = Prior(100.0, 50.0, 20.0, 0.75)
+    assert prior_at((rubble,), 100.0, 50.0) == BASE_PRIOR + 0.75
+    assert prior_at((rubble,), 100.0, 90.0) == BASE_PRIOR          # outside its radius
+    # overlapping reasons do not stack: the strongest reason is the reason
+    assert prior_at((rubble, Prior(100.0, 50.0, 20.0, 0.5)), 100.0, 50.0) == BASE_PRIOR + 0.75
+
+
+def test_flat_priors_fly_the_lawnmower_in_its_own_order():
+    """The adaptive search has to reduce to the pattern it started as, or a sector with nothing
+    mapped in it gets searched worse than before."""
+    coverage = CoverageGrid(FIELD, cell_m=5.0)
+    legs = _legs()
+    here = legs[0][0]
+
+    index, ends = next_leg(legs, coverage, (), here, swath_m=30.0, speed_mps=5.0)
+
+    assert index == 0 and ends == legs[0]
+
+
+def test_the_leg_over_mapped_rubble_is_flown_before_the_empty_ground_beside_it():
+    coverage = CoverageGrid(FIELD, cell_m=5.0)
+    legs = _legs()
+    rubble = (Prior(100.0, 75.0, 30.0, 0.75),)                     # a CRITICAL region up north
+    here = legs[0][0]
+
+    index, ends = next_leg(legs, coverage, rubble, here, swath_m=30.0, speed_mps=5.0)
+
+    assert ends[0][1] == pytest.approx(75.0)                       # the leg through the rubble
+    assert index > 0                                               # out of the pattern's order
+
+
+def test_a_leg_already_searched_is_worth_nothing_and_a_far_one_costs_its_flight():
+    coverage = CoverageGrid(FIELD, cell_m=5.0)
+    legs = _legs()
+    for x in range(0, 201, 5):                                     # the first leg, fully searched
+        coverage.mark_footprint(float(x), 0.0, 8.0)
+
+    assert leg_gain(legs[0], coverage, (), 30.0) == 0.0
+    assert leg_gain(legs[1], coverage, (), 30.0) > 0.0
+    # of two equally promising legs the nearer one wins: a rich leg across the sector is not free
+    near, far = legs[1], legs[-1]
+    here = near[0]
+    scored = next_leg([near, far], coverage, (), here, swath_m=30.0, speed_mps=5.0)
+    assert scored[1][0] == near[0]

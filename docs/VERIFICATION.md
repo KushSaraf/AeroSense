@@ -95,6 +95,37 @@ at (-130, 19, 19 m) after entering the southern lanes, which jam GPS. That is th
 failsafe with no vision to fall back on, not a fault - but it means a light launch
 (`vio:=false`) cannot fly the earthquake sector to the end.
 
+### Closed-loop adaptive coverage search (2026-09-21)
+
+`mission_manager._choose_next_leg` reorders the lawnmower's own legs by expected gain per second
+(`search_pattern.next_leg`): unseen ground along a leg, weighted by priors from the hazard regions
+the drone has segmented and the ground round the casualties it has found, over the flight to reach
+it. Every leg is still flown, so coverage cannot drop; only the order changes.
+
+Three earthquake missions, full stack (`logs/adaptive_ab/`, `compare_runs.py`):
+
+| Run | Legs reordered | First casualty | All 14 by | Found | Coverage |
+|---|---|---|---|---|---|
+| lawnmower (`adaptive_search` false) | - | 83 s | 584 s | 14 / 18 | 96.7 % |
+| adaptive, priors not spread | **0** | 104 s | 728 s | 14 / 18 | 98.2 % |
+| adaptive, priors spread 35 m | 2 | 104 s | 585 s | 14 / 18 | (stopped at 838 s) |
+
+**The first cut never changed a thing.** A hazard region is only ever mapped on ground the camera
+has already swept, and swept ground scores nothing, so the priors could never touch an unflown leg:
+not one reorder in a whole mission. That run is therefore a second lawnmower, and it shows the
+floor this comparison stands on - the same logic took 756 s and 963 s, 83 s and 104 s to the first
+casualty. Each region now reaches `HAZARD_SPREAD_M` (35 m, about a swath) past where it was
+measured, since rubble does not stop at the edge of a camera swath, and the order changed twice.
+
+**On this world it is neutral.** Same 14 found, the last of them at 585 s against 584 s, inside the
+run-to-run spread. Not a win, and the reason is the world rather than the method: the sector is
+eight 160 m legs, the lawnmower already sees everyone who can be seen (the four it misses are
+buried or half-hidden, V13, V14, V16, V17, and no order of legs reaches them), and a prior spread
+one swath mostly points at the leg the lawnmower was going to fly next anyway. It is left on
+(`adaptive_search` true) because it costs nothing measurable here and is what a larger sector, where
+the next leg over is minutes from the rubble just found, needs. Set it false to fly the pattern
+as laid out.
+
 ### Georeferencing with no GPS at all (2026-09-21)
 
 `SIM_GPS1_ENABLE 0` and a rebooted autopilot, so EKF3 came up having never had a fix. Before:

@@ -102,6 +102,17 @@ class CoverageGrid:
         """Row-major occupancy, 1 where searched: the shape an OccupancyGrid wants."""
         return bytes(self._seen)
 
+    def seen_at(self, x: float, y: float) -> bool:
+        """Whether the camera has already looked at the cell that point falls in.
+
+        Outside the area counts as seen: there is nothing there worth flying to.
+        """
+        if not self.area.contains(x, y):
+            return True
+        column = min(self.columns - 1, int((x - self.area.min_x) // self.cell_m))
+        row = min(self.rows - 1, int((y - self.area.min_y) // self.cell_m))
+        return bool(self._seen[row * self.columns + column])
+
     def mark_footprint(self, centre_x: float, centre_y: float, radius_m: float) -> int:
         """Mark everything the camera saw. Returns how many cells were new."""
         if radius_m <= 0:
@@ -122,3 +133,71 @@ class CoverageGrid:
                     self._seen[index] = 1
                     new += 1
         return new
+
+
+# -- where to look next -----------------------------------------------------------
+
+#: Ground with no reason to be interesting is still worth searching: this is what an ordinary
+#: cell scores against one inside a CRITICAL hazard region (1.0). Too low and the drone abandons
+#: open ground it has been sent to search; too high and the priors stop mattering.
+BASE_PRIOR = 0.25
+#: Samples along a leg are taken this many swath-widths apart: fine enough to tell a leg that is
+#: half searched from one that is untouched, coarse enough to score every leg on every decision.
+SAMPLE_STRIDE = 0.5
+
+
+@dataclass(frozen=True)
+class Prior:
+    """Somewhere a casualty is more likely than the ground average: a hazard region the drone
+    has mapped, or the ground around someone already found."""
+    x: float
+    y: float
+    radius_m: float
+    weight: float            # 0..1, added on top of BASE_PRIOR and capped there
+
+
+def prior_at(priors, x: float, y: float) -> float:
+    """How likely this ground is to hold someone, 0..1. Overlapping priors do not stack: the
+    strongest reason is the reason."""
+    strongest = max((p.weight for p in priors if math.dist((p.x, p.y), (x, y)) <= p.radius_m),
+                    default=0.0)
+    return min(1.0, BASE_PRIOR + strongest)
+
+
+def leg_gain(leg: tuple, coverage, priors, swath_m: float) -> float:
+    """What flying this leg is worth: unseen ground along it, weighted by how likely it is to
+    hold someone. Metres of unsearched flight line, not cells: the camera sweeps a swath either
+    side of the line and the cells inside it are all or nothing."""
+    (x1, y1), (x2, y2) = leg
+    length = math.dist((x1, y1), (x2, y2))
+    if length <= 0 or swath_m <= 0:
+        return 0.0
+    step = max(1, int(length / (swath_m * SAMPLE_STRIDE)))
+    gain = 0.0
+    for i in range(step + 1):
+        t = i / step
+        x, y = x1 + (x2 - x1) * t, y1 + (y2 - y1) * t
+        if not coverage.seen_at(x, y):
+            gain += prior_at(priors, x, y)
+    return gain * length / (step + 1)
+
+
+def next_leg(legs, coverage, priors, here: tuple, swath_m: float, speed_mps: float) -> tuple:
+    """(index, leg) of the leg worth flying next, its two ends whichever way round is nearer.
+
+    Expected gain per second, the flight there included: a rich leg on the far side of the
+    sector loses to a decent one underneath the drone, which is what keeps this from flying the
+    sector diagonally. With flat priors the nearest unsearched leg wins, which is the lawnmower
+    the pattern started as.
+    """
+    best, best_score = None, 0.0
+    for index, (start, end) in enumerate(legs):
+        for ends in ((start, end), (end, start)):
+            gain = leg_gain(ends, coverage, priors, swath_m)
+            if gain <= 0:
+                continue
+            seconds = (math.dist(here[:2], ends[0]) + math.dist(*ends)) / max(speed_mps, 0.1)
+            score = gain / max(seconds, 1.0)
+            if score > best_score:
+                best, best_score = (index, ends), score
+    return best or (0, legs[0]) if legs else None

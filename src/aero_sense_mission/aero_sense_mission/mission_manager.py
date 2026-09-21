@@ -31,17 +31,32 @@ from std_msgs.msg import String
 from std_srvs.srv import Trigger
 from ament_index_python.packages import get_package_share_directory
 
-from aero_sense_interfaces.msg import DroneStatus, MissionStatus, VictimArray
+from aero_sense_interfaces.msg import DroneStatus, HazardArray, MissionStatus, VictimArray
 from aero_sense_interfaces.srv import SetSearchArea, StartMission
 
 from aero_sense_perception import structure_map
 
 from . import airspace, swoop
+from . import search_pattern
 from .search_pattern import Area, CoverageGrid, footprint_centre, footprint_radius, lawnmower
 
 #: A beam return is a point, not an outline: it becomes a no-fly circle this wide, which the
 #: planner then keeps its own clearance outside of.
 DETECTED_RADIUS_M = 1.0
+#: Closed-loop search: how much likelier a casualty is on ground the drone has itself mapped as
+#: hazardous (people are where buildings fell), and around someone already found. Both are the
+#: drone's own findings - nothing here reads the answer key.
+HAZARD_PRIOR = {"CRITICAL": 0.75, "HIGH": 0.45, "MODERATE": 0.2}
+CASUALTY_PRIOR = 0.5
+CASUALTY_PRIOR_RADIUS_M = 30.0
+#: A hazard region is only ever mapped on ground the camera has already swept, and ground the
+#: camera has swept scores nothing - so unspread, the priors could never reach an unflown leg
+#: and the order never changed (flown 2026-09-21: not one leg reordered in a whole mission).
+#: Rubble does not stop at the edge of a camera swath, so each region reaches about a swath
+#: further out than it was measured.
+HAZARD_SPREAD_M = 35.0
+#: Cruise, for costing the flight to a leg that is not the next one along.
+LEG_TRANSIT_SPEED_MPS = 5.0
 
 #: Sector bounds in the map frame, matching aero_sense_gazebo/worlds/aero_sense_disaster.sdf.
 SCENARIO_AREAS = {
@@ -73,6 +88,8 @@ class MissionManager(Node):
         # 5 m above anything it overflies. At 22 m the Lepton still resolves ~15 cm per pixel.
         self.declare_parameter("inspect_altitude_m", 22.0)
         self.declare_parameter("leg_spacing_m", 25.0)
+        # false flies the lawnmower in the order it was laid out, for comparing the two
+        self.declare_parameter("adaptive_search", True)
         # the fitted thermal camera (simulation.launch.py passes the sensor table's values)
         self.declare_parameter("camera_tilt_rad", 1.5708)       # straight down
         self.declare_parameter("camera_hfov_rad", 0.9948)       # FLIR Lepton 3.5, 57 deg
@@ -115,6 +132,7 @@ class MissionManager(Node):
         self._route_goal = None
         self._structures = self._load_structures()
         self._detected = ()              # obstacles the beams found that the structure map lacks
+        self._hazards = ()               # what hazard_mapper has segmented, for the search priors
         self._base = None
         self._victims = {}
         self._inspected = {}
@@ -144,6 +162,8 @@ class MissionManager(Node):
         self.create_subscription(VictimArray, "aero_sense/perception/suspects", self._on_leads, 10)
         self.create_subscription(PointCloud2, "aero_sense/perception/obstacle_points",
                                  self._on_obstacle_points, 1)
+        self.create_subscription(HazardArray, "aero_sense/hazards",
+                                 lambda msg: setattr(self, "_hazards", tuple(msg.hazards)), 1)
         self.create_subscription(DroneStatus, "aero_sense/drone/status",
                                  lambda m: setattr(self, "_armed", m.armed), 10)
 
@@ -374,6 +394,46 @@ class MissionManager(Node):
             if self._waypoint_index % 2 == 0:
                 self._event(f"leg {self._waypoint_index // 2} of {len(self._waypoints) // 2} complete, "
                             f"coverage {self._coverage.percent:.0f}%")
+                self._choose_next_leg()
+
+    def _priors(self) -> tuple:
+        """Where the drone's own findings say a casualty is likelier than the ground average:
+        the hazard regions it has segmented, and the ground around everyone it has found."""
+        priors = [search_pattern.Prior(h.centroid.x, h.centroid.y,
+                                       math.sqrt(max(h.area_m2, 1.0) / math.pi) + HAZARD_SPREAD_M,
+                                       HAZARD_PRIOR.get(h.severity, 0.0))
+                  for h in self._hazards if h.severity in HAZARD_PRIOR]
+        priors += [search_pattern.Prior(v.position.x, v.position.y, CASUALTY_PRIOR_RADIUS_M, CASUALTY_PRIOR)
+                   for v in self._victims.values()]
+        return tuple(priors)
+
+    def _choose_next_leg(self) -> None:
+        """Put the leg most worth flying next at the front of the ones still to fly.
+
+        The pattern stays the lawnmower's legs - every one is flown in the end, so the coverage
+        the sector is scored on does not change - but the order follows what the drone has
+        learnt: the collapsed block it just mapped before the empty fields to its north. With no
+        hazards and nobody found the scores are flat and the nearest leg wins, which is the
+        lawnmower in its original order.
+        """
+        if not self.get_parameter("adaptive_search").value or self._coverage is None or self._pose is None:
+            return
+        rest = self._waypoints[self._waypoint_index:]
+        legs = [(rest[i], rest[i + 1]) for i in range(0, len(rest) - 1, 2)]
+        if len(legs) < 2:
+            return
+        altitude = self.get_parameter("search_altitude_m").value
+        swath = 2 * footprint_radius(altitude, self.get_parameter("camera_hfov_rad").value)
+        here = (self._pose.pose.position.x, self._pose.pose.position.y)
+        index, ends = search_pattern.next_leg(legs, self._coverage, self._priors(), here,
+                                              swath, LEG_TRANSIT_SPEED_MPS)
+        if (index, ends) == (0, legs[0]):
+            return
+        ordered = [ends] + [leg for i, leg in enumerate(legs) if i != index]
+        self._waypoints = self._waypoints[:self._waypoint_index] + tuple(
+            point for leg in ordered for point in leg)
+        self._event(f"search: flying the leg at ({ends[0][0]:.0f}, {ends[0][1]:.0f}) next, "
+                    f"{index} ahead of its turn in the pattern")
 
     def _next_inspection(self):
         """The casualty most worth a closer look: never inspected, or inspected while uncertain.

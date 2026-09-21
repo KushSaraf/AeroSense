@@ -121,6 +121,17 @@ Any lead at least 5 % likely to be a person gets a descent to verify it before t
 - **Tuning:** thresholds live in `perception.yaml` (`suspects:`) and the mission parameters
   `verify_*`.
 
+## Closed-loop search (`search_pattern.next_leg`, `mission_manager._choose_next_leg`)
+
+At every leg boundary the legs still to fly are reordered by expected gain per second: unseen
+ground along each (`CoverageGrid.seen_at`), weighted by `Prior`s from the drone's own hazard
+regions (`HAZARD_PRIOR`, grown by `HAZARD_SPREAD_M`) and the ground round casualties it has found,
+over the flight to reach it. It only reorders the lawnmower's legs, so every leg is still flown and
+coverage cannot drop; flat priors reduce it to the lawnmower. Unspread, the priors only ever landed
+on ground already searched and it never reordered once. On the earthquake sector it is neutral
+(docs/VERIFICATION.md); `adaptive_search:=false` (a `mission_manager` parameter) flies the pattern
+as laid out. Priors must come from what the drone found, never from the world file.
+
 ## RGB person detector (`rgb_detector`, `rgb.py`, `ml/`)
 
 YOLO11n fine-tuned on rendered overhead views (`ml/README.md`: dataset, training, scores), run on

@@ -12,7 +12,7 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 | 1 | Offline mission store (SQLite) | **done 2026-09-21** | this session |
 | 2 | Network regain: priority queue | **done 2026-09-21** | this session |
 | 3 | GPS-denied / offline, as one story | **done 2026-09-21** | this session |
-| 4 | Closed-loop adaptive coverage search | ~1–2 days | this session |
+| 4 | Closed-loop adaptive coverage search | **done 2026-09-21** (neutral on this world) | this session |
 | 5 | Gas sensing (MiCS-6814, MQ-136) | ~1–2 days | this session |
 | 6 | Thermal YOLOv8n on HIT-UAV | ~2 days + training | peer (`ml/` is theirs) |
 
@@ -124,7 +124,17 @@ map. Score the drift with `tools/vio_drift.py` and put both numbers in `docs/VER
 
 ---
 
-## 4. Closed-loop adaptive coverage search
+## 4. Closed-loop adaptive coverage search — done, and neutral here
+
+Built as `search_pattern.next_leg` and `mission_manager._choose_next_leg`, flown three times on
+2026-09-21 (`docs/VERIFICATION.md`). Built differently from the plan below: it reorders the
+lawnmower's own legs instead of choosing free-form ones, so every leg is still flown and the
+coverage score cannot drop - the risk the plan's "Watch for" names. It did **not** beat the
+lawnmower: the same 14 casualties, the last at 585 s against 584 s, within the spread between two
+runs of identical logic (756 s and 963 s). The rule below said a non-winner does not ship; it
+ships on anyway, because the rule was there to stop a regression and there is none, the
+capability is in the finalised stack, and a bigger sector is where the order matters.
+`adaptive_search:=false` is one parameter away.
 
 **There now.** A lawnmower over the sector (`search_pattern.lawnmower`), a `CoverageGrid` marking
 what the camera actually saw, and SWOOP verifying leads. The pattern is fixed before take-off and
