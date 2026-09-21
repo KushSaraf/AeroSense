@@ -49,11 +49,15 @@ function MapPage() {
   const [baseLayer, setBaseLayer] = useState<keyof typeof BASE_MAPS>('Satellite')
   const [layers, setLayers] = useState({ sectors: true, network: true, hazards: true, victims: true, track: true, teams: true, routes: false })
   const area = useAreaDrawer(world)
-  // Mission command sends the operator here to draw a new area; one shot, so a reload does not redraw
+  // Mission command sends the operator here with ?draw=1 to start drawing an area straight away.
+  // The ref makes it one shot: arming allocates fresh drawer state and every dependency here
+  // changes identity each render, so without it the effect re-armed forever and span the CPU.
   const [params, setParams] = useSearchParams()
+  const armed = useRef(false)
   const startDrawing = area.start
   useEffect(() => {
-    if (params.get('draw') !== '1') return
+    if (armed.current || params.get('draw') !== '1') return
+    armed.current = true
     startDrawing()
     setParams({}, { replace: true })
   }, [params, setParams, startDrawing])
