@@ -4,7 +4,8 @@ Search-and-rescue drone simulation for Smart India Hackathon 2026: ROS 2 Humble 
 (gz-sim 8) + ArduPilot SITL (ArduCopter 4.8), a bespoke Hexa-X hexacopter, and a React dashboard.
 Start with [README.md](README.md) (folder map, drone, world, SWOOP, casualties, tools) and
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). What was flown and scored is in
-[docs/VERIFICATION.md](docs/VERIFICATION.md).
+[docs/VERIFICATION.md](docs/VERIFICATION.md), and what is still unbuilt, with how to build and
+verify each piece, is in [docs/PLAN.md](docs/PLAN.md).
 
 ## Build, test, run
 
