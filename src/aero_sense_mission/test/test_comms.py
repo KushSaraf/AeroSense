@@ -69,3 +69,27 @@ def test_the_dead_zone_is_inside_the_earthquake_sector_and_the_search_flies_thro
     assert area.min_y <= zone.min_y and zone.max_y <= area.max_y
     legs_inside = {y for x, y in lawnmower(area, 25.0) if zone.min_y <= y <= zone.max_y}
     assert len(legs_inside) >= 2
+
+
+def test_the_backlog_goes_out_at_a_rate_not_all_at_once():
+    """A link that has just come back is not a healthy one."""
+    tokens = comms.refill(0.0, 1.0, comms.SEND_RATE_HZ[comms.CONNECTED])
+    assert tokens == comms.SEND_BURST                       # a second of waiting fills the bucket
+    assert comms.refill(0.0, 0.1, comms.SEND_RATE_HZ[comms.CONNECTED]) == 2.5
+    # a weak link drains more slowly than a strong one, and neither goes backwards
+    assert comms.refill(0.0, 0.1, comms.SEND_RATE_HZ[comms.DEGRADED]) == 0.5
+    assert comms.refill(3.0, -5.0, comms.SEND_RATE_HZ[comms.CONNECTED]) == 3.0
+
+
+def test_what_a_paced_flush_did_not_reach_is_still_held_in_order():
+    policies = {"victims": comms.LATEST, "events": comms.QUEUE}
+    held = comms.hold(comms.hold(comms.hold(
+        {}, "events", comms.QUEUE, "one"), "events", comms.QUEUE, "two"),
+        "victims", comms.LATEST, "the list")
+
+    ordered = comms.flush_order(held)
+    assert ordered[0] == ("victims", "the list")            # casualties first, always
+
+    rest = comms.regroup(ordered[1:], policies)             # only the first one got through
+    assert rest == {"events": ("one", "two")}
+    assert comms.flush_order(rest) == [("events", "one"), ("events", "two")]

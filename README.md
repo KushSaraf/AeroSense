@@ -184,7 +184,10 @@ Kalman filter is left out: casualties do not move, and the map frame removes the
 ### Network: with and without it
 
 The drone reports to the ground only over its downlink (`comms_link`), so losing the network is
-real for the dashboard. The north-east blocks of the earthquake sector have no coverage (outlined
+real for the dashboard. What it cannot send it keeps twice: in memory, and as a row in a SQLite
+outbox on the drone, so a crashed or restarted link still knows which casualties the ground has
+never heard of. When coverage returns the backlog goes out casualties first and at a measured
+rate, not as one burst into a link that has only just come back. The north-east blocks of the earthquake sector have no coverage (outlined
 in red in Gazebo, RViz and on the dashboard maps), nor do the southern lanes, which lose GPS too
 (purple), and **CUT NETWORK** on the dashboard drops it anywhere. Without a network the drone keeps searching and holds its reports; the ground sees only
 silence and cannot command it. On reconnect it sends casualties first, then the events it held,

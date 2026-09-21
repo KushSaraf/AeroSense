@@ -24,6 +24,13 @@ DROP = "drop"          # live only, worthless later: camera frames
 #: What goes first when the link comes back: casualties, then what happened, then where it is.
 FLUSH_ORDER = ("victims", "mission_state", "events")
 PRIORITIES = ("P1", "P2", "P3")
+#: How fast the backlog may go out, reports a second. A link that has just come back is not a
+#: healthy one, and a whole outage emptied into it in one tick is how the first casualty ends up
+#: arriving behind three hundred log lines.
+SEND_RATE_HZ = {CONNECTED: 25.0, DEGRADED: 5.0}
+#: The bucket's depth: this many may go at once after a quiet spell, so a short outage still
+#: clears immediately.
+SEND_BURST = 10.0
 
 
 def link_state(x: float, y: float, forced_down: bool = False, zones=NO_NETWORK_ZONES,
@@ -51,14 +58,36 @@ def hold(held: dict, key: str, policy: str, item) -> dict:
     return {**held, key: item}
 
 
+def priority(key: str) -> int:
+    """Where this kind of report sits in the queue: lower goes first (FLUSH_ORDER).
+
+    The offline store keeps this on disk, so a restarted link still sends casualties first.
+    """
+    return FLUSH_ORDER.index(key) if key in FLUSH_ORDER else len(FLUSH_ORDER)
+
+
 def flush_order(held: dict) -> list:
     """Everything held, as (key, item) in the order it should be sent."""
-    ranked = sorted(held, key=lambda key: FLUSH_ORDER.index(key) if key in FLUSH_ORDER else len(FLUSH_ORDER))
+    ranked = sorted(held, key=priority)
     ordered = []
     for key in ranked:
         items = held[key] if isinstance(held[key], tuple) else (held[key],)
         ordered.extend((key, item) for item in items)
     return ordered
+
+
+def refill(tokens: float, elapsed_s: float, rate_hz: float, burst: float = SEND_BURST) -> float:
+    """The send allowance after `elapsed_s` of waiting: a token bucket, capped at `burst`."""
+    return min(burst, tokens + max(0.0, elapsed_s) * rate_hz)
+
+
+def regroup(pairs, policies: dict) -> dict:
+    """(key, item) pairs back into a held dict: the inverse of `flush_order`, for what a paced
+    flush did not get to."""
+    held = {}
+    for key, item in pairs:
+        held = hold(held, key, policies[key], item)
+    return held
 
 
 def undelivered(victims, delivered_ids) -> dict:

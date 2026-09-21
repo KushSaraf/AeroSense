@@ -66,6 +66,14 @@ relays onboard topics to `aero_sense/downlink/...`. The bridge reads only the do
   OFFLINE, within 10 m of one it is DEGRADED (no video).
 - **Offline:** the drone keeps searching. Telemetry and the casualty list keep only the newest,
   events queue in order, frames are dropped. On reconnect casualties go first.
+- **The outbox (`event_store.py`):** everything held is also a row in
+  `~/.ros/aero_sense/downlink.sqlite` (`store_path`), so a restarted or killed `comms_link`
+  resumes the queue instead of losing it, and the sortie leaves a record. Newest-only reports
+  replace their undelivered row; frames are never stored. A store that cannot be written says so
+  once and the relay carries on without it.
+- **Pacing:** the backlog drains under a token bucket (`comms.refill`, `comms.SEND_RATE_HZ`,
+  burst 10 a tick), casualties first, so a link that has just come back is not hit with the whole
+  outage at once.
 - **By hand:** `/aero_sense/sim/network` (SetBool), or `POST /api/simulation/network {"up": false}`.
   The bridge refuses drone commands while it hears nothing.
 - **Markers:** RViz `/aero_sense/visualization/network`; the dashboard maps draw the zones red.

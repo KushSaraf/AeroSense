@@ -73,6 +73,28 @@ the drone held 7.2 m off it for the rest of the run, with 3 points of the span i
 map (`scratchpad/wire.log`). They sit below every mission altitude (cruise 30 m, inspection 22 m,
 SWOOP no lower than 10 m), so no mission was re-flown for them.
 
+### Offline store and paced queue (2026-09-21)
+
+`comms_link` now writes everything it holds to SQLite (`event_store.py`,
+`~/.ros/aero_sense/downlink.sqlite`) and drains the backlog under a token bucket
+(`comms.refill`, 25 reports a second connected, 5 degraded, burst 10).
+
+Flown, earthquake sector: the link cut by hand 2 minutes in, then 100 s offline. The outbox held
+85 events and exactly one row for each newest-only report (telemetry, the casualty list, the
+mission state), so a drone parked in a dead zone cannot fill the disk. `comms_link` was then
+killed with `kill -9` and started again: it logged "resuming the outbox ... 88 events, 1 victims"
+and carried on from there. Before this, that kill lost every casualty the ground had not yet
+heard of.
+
+Flown, flood sector, for the pacing: 30 reports held, and on restore they went out
+30 → 20 → 10 → 0 over 3.2 s, ten to a tick, casualties in the first batch - rather than the whole
+outage emptied into a link the instant it came back.
+
+Also recorded, from the same earthquake run: with `vio:=false` the drone was disarmed in flight
+at (-130, 19, 19 m) after entering the southern lanes, which jam GPS. That is the documented
+failsafe with no vision to fall back on, not a fault - but it means a light launch
+(`vio:=false`) cannot fly the earthquake sector to the end.
+
 **The pre-arm timeout said the wrong thing.** Twice, on a loaded machine, take-off failed with
 "pre-arm checks timed out after 120s (last autopilot text: DDS: No ping response, exiting)" -
 which is ArduPilot's own DDS client giving up on a micro-ROS agent this stack does not run, and

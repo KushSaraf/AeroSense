@@ -6,6 +6,9 @@ after `aero_sense/sim/network` cuts the link, nothing gets through. The drone ke
 this holds the newest telemetry and casualty list and every mission event, and on reconnect sends
 them casualties first. Camera frames are live only and are dropped, also on a weak link.
 
+The queue is also written to SQLite (`event_store.py`), so it outlives this process: a restarted
+link picks up the casualties the ground has still not heard, and the sortie leaves a record.
+
   aero_sense/communication/status            CommunicationStatus, the link as it really is (sim truth)
   aero_sense/downlink/communication/status   the same, as the ground hears it (nothing while offline)
   aero_sense/visualization/network           RViz: dead zones, and the link state over the drone
@@ -13,8 +16,10 @@ them casualties first. Camera frames are live only and are dropped, also on a we
 """
 import json
 import time
+from pathlib import Path
 
 import rclpy
+from rclpy.serialization import deserialize_message, serialize_message
 from geometry_msgs.msg import PoseStamped, TwistStamped
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile
@@ -26,6 +31,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from aero_sense_interfaces.msg import CommunicationStatus, DroneStatus, HazardArray, MissionStatus, VictimArray
 
 from . import comms
+from .event_store import EventStore
 
 TICK_HZ = 2.0
 MARKER_PERIOD_S = 1.0
@@ -46,7 +52,12 @@ ROUTES = {
     "aero_sense/perception/vio_points": ("vio_points", PointCloud2, comms.DROP),
     "aero_sense/perception/obstacle_points": ("obstacle_points", PointCloud2, comms.LATEST),
 }
+ROUTES_BY_KEY = {key: kind for key, kind, _ in ROUTES.values()}
 EVENTS_TOPIC = "aero_sense/mission/events"
+#: The outbox on disk. One per machine, not per mission: what matters is that a link coming back
+#: up - in a new process, after a crash - still knows what the ground has not been told.
+STORE_PATH = "~/.ros/aero_sense/downlink.sqlite"
+EVENT_TYPE = "event"
 LATCHED_KEYS = {"mission_state"}
 #: Where the drone is assumed to be until its first pose: on the command-base pad.
 PAD_XY = (0.0, -110.0)
@@ -86,6 +97,10 @@ class CommsLink(Node):
         self._held = {}
         self._victims = []
         self._delivered = set()
+        self.declare_parameter("store_path", STORE_PATH)
+        self._store = EventStore(Path(self.get_parameter("store_path").value).expanduser())
+        self._tokens, self._drained_at = comms.SEND_BURST, time.monotonic()
+        self._resume()
         self.create_timer(1.0 / TICK_HZ, self._tick)
         self.create_timer(MARKER_PERIOD_S, self._publish_markers)
         self.get_logger().info(f"comms link up; dead zones: {', '.join(comms.NO_NETWORK_ZONES)}")
@@ -103,14 +118,47 @@ class CommsLink(Node):
         self._send_or_hold("events", _event_item(msg.data))
 
     def _send_or_hold(self, key: str, item):
-        if comms.passes(self._state, self._policies[key]):
+        policy = self._policies[key]
+        if comms.passes(self._state, policy):
+            # a casualty is worth keeping whether or not it got through: it is the flight's record
+            if key == "victims" and not {v.victim_id for v in item.victims} <= self._delivered:
+                self._store.delivered(self._record(key, item))
             self._send(key, item)
-        else:
-            self._held = comms.hold(self._held, key, self._policies[key], item)
+            return
+        if policy == comms.DROP:                    # video and point clouds: live only, never stored
+            return
+        self._held = comms.hold(self._held, key, policy, {"msg": item, "row": self._record(key, item)})
+
+    def _record(self, key: str, item) -> int:
+        """Put one report in the outbox, and say once if the outbox is not working."""
+        payload = (json.dumps(item).encode() if key == "events" else serialize_message(item))
+        type_name = EVENT_TYPE if key == "events" else _type_name(type(item))
+        row = self._store.hold(key, payload, type_name, comms.priority(key),
+                               replace=self._policies[key] == comms.LATEST)
+        fault = self._store.unreported_fault
+        if fault:
+            self.get_logger().error(
+                f"the offline store at {self._store.path} is not writable ({fault}); reports are "
+                "still relayed and still held in memory, but they will not survive a restart")
+        return row
+
+    def _resume(self) -> None:
+        """Take back the queue a previous link left behind, so a restart loses nothing."""
+        for row, key, _priority, _stamp, type_name, payload in self._store.pending():
+            if key not in self._policies or self._policies[key] == comms.DROP:
+                continue
+            item = (json.loads(payload) if type_name == EVENT_TYPE
+                    else deserialize_message(payload, ROUTES_BY_KEY[key]))
+            self._held = comms.hold(self._held, key, self._policies[key], {"msg": item, "row": row})
+        counts = self._store.counts()
+        if counts:
+            self.get_logger().info(
+                "resuming the outbox from " + str(self._store.path) + ": "
+                + ", ".join(f"{n} {key}" for key, n in sorted(counts.items())))
 
     def _send(self, key: str, item):
         if key == "events":
-            held_s = time.monotonic() - item["at"]
+            held_s = time.time() - item["at"]
             payload = {"time": item["time"], "text": item["text"]}
             if held_s >= 1.0:
                 payload["heldS"] = round(held_s)
@@ -126,6 +174,8 @@ class CommsLink(Node):
         state = comms.link_state(x, y, self._forced_down, was_offline=self._state == comms.OFFLINE)
         if state != self._state:
             self._change(self._state, state)
+        if self._held and comms.passes(self._state, comms.LATEST):
+            self._drain()
         self._publish_status()
 
     def _change(self, before: str, after: str):
@@ -148,14 +198,33 @@ class CommsLink(Node):
         self._offline_since = None
         waiting = comms.undelivered(self._victims, self._delivered)
         casualties = ", ".join(f"{n} {p}" for p, n in waiting.items() if n) or "no new casualties"
-        held, self._held = self._held, {}
+        held = self._held
         # straight onto the downlink ahead of the backlog, so the ground reads why a burst of late
         # reports follows (published onboard it would arrive after them)
         self._send("events", _event_item(
             f"network restored after {outage_s:.0f} s: sending {casualties} and "
             f"{len(held.get('events', ()))} held events"))
-        for key, item in comms.flush_order(held):
-            self._send(key, item)
+        self._drain()                     # the rest goes out over the next ticks, at a rate
+
+    def _drain(self) -> None:
+        """Send as much of the backlog as the link is allowed right now, casualties first.
+
+        A whole outage emptied into a link the instant it returns is how the first casualty
+        arrives behind three hundred log lines, so the queue goes out at a rate (comms.refill)
+        and what does not fit waits for the next tick. Order is comms.FLUSH_ORDER, which is also
+        the order the outbox keeps on disk.
+        """
+        now = time.monotonic()
+        self._tokens = comms.refill(self._tokens, now - self._drained_at,
+                                    comms.SEND_RATE_HZ[self._state])
+        self._drained_at = now
+        ordered = comms.flush_order(self._held)
+        allowance = int(self._tokens)
+        for key, entry in ordered[:allowance]:
+            self._send(key, entry["msg"])
+            self._store.delivered(entry["row"])
+        self._tokens -= min(allowance, len(ordered))
+        self._held = comms.regroup(ordered[allowance:], self._policies)
 
     def _publish_status(self):
         msg = CommunicationStatus()
@@ -203,9 +272,19 @@ class CommsLink(Node):
         self._markers.publish(markers)
 
 
+def _type_name(kind) -> str:
+    """The ROS type as the store records it, e.g. aero_sense_interfaces/msg/VictimArray."""
+    package, _, _ = kind.__module__.partition(".")
+    return f"{package}/msg/{kind.__name__}"
+
+
 def _event_item(text: str) -> dict:
-    """An onboard event, stamped when it happened rather than when the ground hears it."""
-    return {"time": time.strftime("%H:%M:%S"), "text": text, "at": time.monotonic()}
+    """An onboard event, stamped when it happened rather than when the ground hears it.
+
+    Wall-clock rather than monotonic: an event held on disk is read back by another process,
+    whose monotonic clock starts somewhere else entirely.
+    """
+    return {"time": time.strftime("%H:%M:%S"), "text": text, "at": time.time()}
 
 
 def _marker(kind, namespace, index, position, scale, colour, stamp, frame="map") -> Marker:
@@ -227,6 +306,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        node._store.close()
         node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()

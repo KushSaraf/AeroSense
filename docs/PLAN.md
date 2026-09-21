@@ -9,8 +9,8 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 
 | # | Item | Size | Owner |
 |---|---|---|---|
-| 1 | Offline mission store (SQLite) | ~1 day | this session |
-| 2 | Network regain: priority queue | ~half a day | this session |
+| 1 | Offline mission store (SQLite) | **done 2026-09-21** | this session |
+| 2 | Network regain: priority queue | **done 2026-09-21** | this session |
 | 3 | GPS-denied / offline, as one story | ~half a day | this session |
 | 4 | Closed-loop adaptive coverage search | ~1–2 days | this session |
 | 5 | Gas sensing (MiCS-6814, MQ-136) | ~1–2 days | this session |
@@ -18,7 +18,10 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 
 ---
 
-## 1. Offline mission data storage: SQLite
+## 1. Offline mission data storage: SQLite — done
+
+Built as `aero_sense_mission/event_store.py`, wired into `comms_link`, flown 2026-09-21
+(`docs/VERIFICATION.md`). What follows is the design as it was planned and built.
 
 **There now.** `comms_link` holds what it cannot send in memory (`comms.hold`): newest-only for
 telemetry, the casualty list and the mission state, in-order for events, dropped for frames.
@@ -34,14 +37,16 @@ CREATE TABLE report (
   id        INTEGER PRIMARY KEY,   -- also the send order
   key       TEXT NOT NULL,         -- victims | events | mission_state | hazards | ...
   priority  INTEGER NOT NULL,      -- 0 first; casualties carry their triage priority
-  stamp     REAL NOT NULL,         -- seconds, monotonic at the drone
+  stamp     REAL NOT NULL,         -- seconds since the epoch, at the drone
   type      TEXT NOT NULL,         -- ROS message type, for deserialising
   payload   BLOB NOT NULL,         -- rclpy.serialization.serialize_message
   delivered INTEGER NOT NULL DEFAULT 0
 );
 ```
 
-- One file per mission: `~/.ros/aero_sense/mission_<id>.sqlite`, WAL mode, `synchronous=NORMAL`.
+- One file, `~/.ros/aero_sense/downlink.sqlite`, WAL mode, `synchronous=NORMAL`. Built per
+  machine rather than per mission as first planned: a link coming back up in a new process has
+  to find its own backlog, and it does not know which mission it died in.
 - `comms_link` writes a row for every report it holds and for every casualty whether or not the
   link is up (a casualty is the one thing worth keeping regardless), and sets `delivered` when it
   goes out. `LATEST` keys replace their undelivered row rather than adding one, so the table
@@ -58,7 +63,12 @@ the dashboard: it is the drone's outbox, not the ground's database.
 
 ---
 
-## 2. Network regain: priority queue
+## 2. Network regain: priority queue — done
+
+Built as `comms.refill` / `comms.regroup` and `CommsLink._drain`, flown 2026-09-21: a 30-report
+backlog went out 30 → 20 → 10 → 0 over 3.2 s, casualties first. The one piece deliberately not
+built is sorting *within* the casualty list: `victims` is one message carrying every casualty,
+so the ground gets them all in the same frame and there is nothing to order.
 
 **There now.** `comms.FLUSH_ORDER` sends casualties, then the mission state, then events, and
 `comms.undelivered` counts what the ground has not heard by triage priority.
