@@ -1,4 +1,5 @@
-import { BarChart3, Crosshair, MapPin, Route, ShieldCheck } from 'lucide-react'
+import { ArrowRight, BarChart3, Crosshair, LayoutDashboard, MapPin, Route, ShieldCheck } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 const capabilityItems = [
   { icon: Crosshair, label: 'DETECT', sub: 'SURVIVORS' },
@@ -27,7 +28,7 @@ function HomePage() {
           <p className="aero-micro hero-subtitle uppercase">Autonomous Search and Rescue Drone</p>
         </div>
 
-        <p className="aero-micro absolute right-[5%] top-[10%] max-w-[250px] text-[clamp(11px,0.9vw,15px)] font-bold uppercase leading-[1.8] tracking-[0.2em] text-white/85">
+        <p className="aero-micro absolute right-[5%] top-[10%] max-w-[250px] text-[clamp(11px,0.9vw,15px)] font-bold uppercase leading-[1.8] tracking-[0.12em] text-white/90">
           Intelligence
           <br />
           in every mission
@@ -36,13 +37,21 @@ function HomePage() {
         </p>
 
         <div className="aero-micro absolute left-[7%] top-[57%] border-l-2 border-white/70 pl-5 text-[clamp(11px,1vw,16px)] font-bold uppercase leading-[1.75] tracking-[0.1em] text-white">
-          From disaster
+          From disaster to hope
           <br />
-          to hope
-          <br />
-          with intelligent
-          <br />
-          drones
+          with intelligent drones
+          {/* The landing page had no way into the product: someone arriving here had to guess
+              that the sidebar icons were the navigation. */}
+          <div className="mt-6 flex flex-wrap gap-3 font-sans normal-case tracking-normal">
+            <Link to="/dashboard/missions"
+                  className="inline-flex items-center gap-2 rounded-lg bg-[#8ae0ff] px-5 py-3 text-[14px] font-bold text-[#0f1a2b] shadow-[0_8px_20px_rgba(10,20,35,0.35)] transition hover:bg-[#b3ecff]">
+              Start a mission <ArrowRight size={16} />
+            </Link>
+            <Link to="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/40 bg-[#1b2a40]/70 px-5 py-3 text-[14px] font-bold text-white backdrop-blur transition hover:bg-[#1b2a40]/90">
+              <LayoutDashboard size={16} /> Live dashboard
+            </Link>
+          </div>
         </div>
 
         <div className="absolute left-[28%] top-[26%] h-[48%] w-[66%] overflow-hidden">
@@ -56,7 +65,7 @@ function HomePage() {
                 <Icon size={42} strokeWidth={1.6} className="shrink-0 text-white" />
                 <div className="aero-micro text-left text-[clamp(10px,0.85vw,14px)] font-bold uppercase tracking-[0.07em] text-white">
                   <div>{label}</div>
-                  <div className="mt-1 text-[clamp(9px,0.65vw,11px)] text-white/70">{sub}</div>
+                  <div className="mt-1 text-[clamp(11px,0.75vw,13px)] text-white/80">{sub}</div>
                 </div>
               </div>
             ))}

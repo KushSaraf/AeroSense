@@ -85,11 +85,13 @@ button, input, select, textarea, table {
   left: 6%;
   bottom: 8%;
   margin: 0;
-  color: #111d35;
+  /* was #111d35 at 0.28em over a dark photograph: near-invisible */
+  color: #eef4fb;
   font-family: 'Rajdhani', sans-serif;
-  font-size: clamp(10px, 1vw, 16px);
+  font-size: clamp(12px, 1vw, 16px);
   font-weight: 700;
-  letter-spacing: 0.28em;
+  letter-spacing: 0.14em;
+  text-shadow: 0 1px 8px rgba(8, 16, 30, 0.7);
   white-space: nowrap;
 }
 
