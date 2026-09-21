@@ -267,7 +267,10 @@ function DashboardPage() {
 
           <Panel title="Mission events"
                  action={<span className="rounded border border-white/15 px-2 py-1 text-[11px] text-white/75">{mission?.events?.length ?? 0}</span>}>
-            <div className="max-h-[440px] space-y-2 overflow-auto">
+            {/* absolutely placed inside a growing box: the list fills the panel and scrolls
+                without its length making the whole row taller */}
+            <div className="relative min-h-[440px] flex-1">
+            <div className="no-scrollbar absolute inset-0 space-y-2 overflow-auto">
               {(mission?.events ?? []).slice().reverse().map((event, index) => (
                 <div key={`${event.time}-${index}`} className="rounded-md border border-white/10 bg-[#3a465f]/65 p-2.5">
                   <div className="flex gap-2">
@@ -287,6 +290,7 @@ function DashboardPage() {
               {!mission?.events?.length && (
                 <p className="text-[12px] uppercase tracking-[0.08em] text-white/78">No mission events yet.</p>
               )}
+            </div>
             </div>
           </Panel>
         </div>

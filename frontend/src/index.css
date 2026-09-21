@@ -5,6 +5,9 @@
 @tailwind utilities;
 
 :root {
+  /* native scrollbars, form controls and the like drawn for a dark page: the default was a
+     white scrollbar down the middle of a dark panel */
+  color-scheme: dark;
   font-family: 'Rajdhani', 'Segoe UI', sans-serif;
   line-height: 1.55;
   font-weight: 400;
@@ -385,4 +388,13 @@ p {
 .data-row > :last-child {
   text-align: right;
   min-width: 0;
+}
+
+/* Scrolls by wheel and touch without drawing a bar, for a list inside a panel. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
