@@ -145,7 +145,7 @@ function MissionsPage() {
             <Radar size={15} />
             <span>Sectors in this world</span>
             <span className="ml-auto text-white/70">{missions.length} available</span>
-            <button type="button" onClick={() => navigate('/map?draw=1')}
+            <button type="button" onClick={() => navigate('/dashboard/map?draw=1')}
                     className="flex items-center gap-2 rounded border border-white/15 bg-white/5 px-3 py-2 text-[12px] uppercase tracking-[0.09em] text-white/80 transition hover:bg-white/15">
               <SquareDashedMousePointer size={14} /> New mission: draw an area
             </button>
