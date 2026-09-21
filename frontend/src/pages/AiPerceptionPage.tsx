@@ -1,13 +1,15 @@
 import { Cpu, Eye, Radar } from 'lucide-react'
 import { useApi } from '../hooks/useApi'
 import { useMission } from '../hooks/useMission'
+import { IS_REPLAY } from '../services/replay'
 
 interface PerceptionStats {
   detector: string
   tracker: string
   thermalResolution: string | null
-  framesProcessed: number
-  rawDetectionsPerFrame: number
+  /** null while replaying: a recording keeps the final counts, not the count at each moment. */
+  framesProcessed: number | null
+  rawDetectionsPerFrame: number | null
   confirmedVictims: number
   cameras: Record<string, number>
 }
@@ -45,8 +47,10 @@ function AiPerceptionPage() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <Stat label="Detector" value={data?.detector ?? '—'} hint="thermal, not RGB: body heat is the cue" />
           <Stat label="Thermal frame" value={data?.thermalResolution ?? '—'} hint="as configured by the quality profile" />
-          <Stat label="Frames processed" value={data ? data.framesProcessed.toLocaleString() : '—'} />
-          <Stat label="Raw blobs / frame" value={data ? data.rawDetectionsPerFrame.toFixed(2) : '—'} hint="before corroboration" />
+          <Stat label="Frames processed" value={data?.framesProcessed != null ? data.framesProcessed.toLocaleString() : '—'}
+                hint={IS_REPLAY ? 'not recorded moment by moment' : undefined} />
+          <Stat label="Raw blobs / frame" value={data?.rawDetectionsPerFrame != null ? data.rawDetectionsPerFrame.toFixed(2) : '—'}
+                hint={IS_REPLAY ? 'not recorded moment by moment' : 'before corroboration'} />
         </div>
       </section>
 

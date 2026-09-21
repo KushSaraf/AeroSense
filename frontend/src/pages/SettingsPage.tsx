@@ -1,5 +1,6 @@
 import { Play, RefreshCw, RotateCcw, Square } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+import { IS_REPLAY } from '../services/replay'
 import { API_URL, simulationControl } from '../services/apiServices'
 import type { SimulationOptions, SimulationStatus } from '../services/apiServices'
 import { useDataSource } from '../hooks/useDataSource'
@@ -88,7 +89,8 @@ function SettingsPage() {
             <Row label="Status">
               <span className={`rounded px-3 py-2 text-[12px] uppercase tracking-[0.08em] ${
                 status?.running ? 'bg-emerald-500/20 text-emerald-300' : 'bg-white/10 text-text/70'}`}>
-                {status ? (status.running ? `RUNNING · ${status.processes} processes` : 'STOPPED') : 'UNKNOWN'}
+                {IS_REPLAY ? 'NO SIMULATION · PLAYING A RECORDING'
+                  : status ? (status.running ? `RUNNING · ${status.processes} processes` : 'STOPPED') : 'UNKNOWN'}
               </span>
             </Row>
             <Row label="Sensor quality">
@@ -136,13 +138,15 @@ function SettingsPage() {
             </Row>
             <Row label="Serving">
               <span className={`rounded px-3 py-2 text-[12px] uppercase tracking-[0.08em] ${
-                source === 'live' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                {source === 'live' ? 'LIVE SIMULATION' : 'NO SIMULATION'}
+                IS_REPLAY ? 'bg-[#ffd166]/20 text-[#ffd166]'
+                  : source === 'live' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                {IS_REPLAY ? 'RECORDED REPLAY' : source === 'live' ? 'LIVE SIMULATION' : 'NO SIMULATION'}
               </span>
             </Row>
             <Row label="SITL port 5760">
               <span className="rounded bg-white/10 px-3 py-2 text-[12px] uppercase tracking-[0.08em] text-text/80">
-                {status ? (status.port5760Free ? 'free' : 'in use') : 'unknown'}
+                {IS_REPLAY ? 'n/a in a replay'
+                  : status ? (status.port5760Free ? 'free' : 'in use') : 'unknown'}
               </span>
             </Row>
             <Row label="Override">

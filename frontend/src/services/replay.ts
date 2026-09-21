@@ -144,10 +144,18 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
     case '/api/alerts': return frame.alertIds.map((id) => rec.alerts[id]).filter(Boolean)
     case '/api/world': return rec.world
     case '/api/missions': return missionsAt(rec, state)
-    case '/api/perception': return rec.final.perception
+    // What the detector had found by this moment, not what it finished with: the recording keeps
+    // only the final counts, so the per-frame ones are withheld rather than guessed at.
+    case '/api/perception': return {
+      ...rec.final.perception,
+      confirmedVictims: state.victims.length,
+      framesProcessed: null,
+      rawDetectionsPerFrame: null,
+    }
     // only the recorded flight has a report here; the bridge's history of other flights does not
     case '/api/reports': return rec.final.reports.filter((entry) => entry.id === rec.missionId)
-    case '/api/simulation': return { running: true, processes: 0, port5760Free: false, replay: true }
+    // nothing is running during a replay, and saying otherwise put 'RUNNING - 0 processes' on screen
+    case '/api/simulation': return { running: false, processes: 0, port5760Free: true, replay: true }
     // This flight was recorded before the 3D view existed, so there are no feature points to
     // replay. The shape still has to be the bridge's, or the page reads points off undefined.
     case '/api/scene': return { structures: [], points: [], obstacles: [] }
