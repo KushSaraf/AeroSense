@@ -81,9 +81,6 @@ button, input, select, textarea, table {
 }
 
 .hero-subtitle {
-  position: absolute;
-  left: 6%;
-  bottom: 8%;
   margin: 0;
   /* was #111d35 at 0.28em over a dark photograph: near-invisible */
   color: #eef4fb;

@@ -25,7 +25,6 @@ function HomePage() {
           <div className="hero-corner hero-corner-bl" />
           <div className="hero-corner hero-corner-br" />
           <h1 className="hero-wordmark aero-heading uppercase">AERO<br />SENSE</h1>
-          <p className="aero-micro hero-subtitle uppercase">Autonomous Search and Rescue Drone</p>
         </div>
 
         <p className="aero-micro absolute right-[5%] top-[10%] max-w-[250px] text-[clamp(11px,0.9vw,15px)] font-bold uppercase leading-[1.8] tracking-[0.12em] text-white/90">
@@ -36,7 +35,16 @@ function HomePage() {
           a safer tomorrow
         </p>
 
-        <div className="aero-micro absolute left-[7%] top-[57%] border-l-2 border-white/70 pl-5 text-[clamp(11px,1vw,16px)] font-bold uppercase leading-[1.75] tracking-[0.1em] text-white">
+        <div className="absolute left-[28%] top-[26%] h-[48%] w-[66%] overflow-hidden">
+          <img src={`${import.meta.env.BASE_URL}drone-render.png`} alt="RAKSHAK, the Aero Sense rescue drone" className="absolute left-[-6%] top-[-24%] w-[112%] max-w-none mix-blend-multiply drop-shadow-[0_20px_22px_rgba(12,20,32,0.35)]" />
+        </div>
+
+        {/* The tagline and the capability strip were anchored separately (57% from the top, 10% from
+            the bottom) and ran into each other on a short screen. One column anchored at the bottom
+            keeps them stacked at any size. */}
+        <div className="absolute inset-x-0 bottom-[10%] flex flex-col gap-[clamp(14px,3vh,30px)] px-8">
+        <div className="aero-micro ml-[4%] self-start border-l-2 border-white/70 pl-5 text-[clamp(11px,1vw,16px)] font-bold uppercase leading-[1.75] tracking-[0.1em] text-white">
+          <p className="hero-subtitle m-0 mb-2">RAKSHAK · offline-capable autonomous SAR drone</p>
           From disaster to hope
           <br />
           with intelligent drones
@@ -54,11 +62,7 @@ function HomePage() {
           </div>
         </div>
 
-        <div className="absolute left-[28%] top-[26%] h-[48%] w-[66%] overflow-hidden">
-          <img src={`${import.meta.env.BASE_URL}drone-render.png`} alt="Aero Sense rescue drone" className="absolute left-[-6%] top-[-24%] w-[112%] max-w-none mix-blend-multiply drop-shadow-[0_20px_22px_rgba(12,20,32,0.35)]" />
-        </div>
-
-        <div className="absolute inset-x-0 bottom-[10%] flex justify-center px-8">
+        <div className="flex justify-center">
           <div className="grid w-full max-w-[1180px] grid-cols-5 border-y border-white/20 py-4">
             {capabilityItems.map(({ icon: Icon, label, sub }, index) => (
               <div key={label} className={`flex items-center justify-center gap-4 px-4 ${index > 0 ? 'border-l border-white/35' : ''}`}>
@@ -70,6 +74,7 @@ function HomePage() {
               </div>
             ))}
           </div>
+        </div>
         </div>
 
         <footer className="absolute inset-x-0 bottom-0 flex h-[7%] items-center justify-between border-t border-white/15 bg-[#1b2a40]/75 px-7 text-[12px] uppercase tracking-[0.09em] text-white/78">
