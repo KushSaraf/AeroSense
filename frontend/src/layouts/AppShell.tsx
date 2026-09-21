@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useDataSource } from '../hooks/useDataSource'
+import { useMission } from '../hooks/useMission'
 import ReplayBar from '../components/ReplayBar'
 import { IS_REPLAY } from '../services/replay'
 import {
@@ -20,27 +21,76 @@ import {
 import type { ReactNode } from 'react'
 
 /**
- * Two levels, because they answer different questions. Command items are what an operator needs
- * with or without a mission running; mission-session items only mean anything while one is in
- * progress, and reading them as peers of "Reports" made the sidebar a list of thirteen equals.
+ * Grouped by what an operator is doing: running the flight, making sense of it, then the record
+ * of it. The old split ("command" against "mission session") put the live map and the live
+ * dashboard in different groups though an operator uses them side by side.
  */
-const commandNav = [
-  { label: 'COMMAND HOME', to: '/', icon: Home },
-  { label: 'MISSION COMMAND', to: '/dashboard/missions', icon: Radar },
-  { label: 'LIVE MAP', to: '/dashboard/map', icon: Map },
-  { label: 'ALERT CENTER', to: '/dashboard/alerts', icon: Bell },
-  { label: 'REPORTS', to: '/dashboard/reports', icon: FileText },
-  { label: 'SYSTEM SETTINGS', to: '/dashboard/settings', icon: Settings },
+type NavItem = { label: string; to: string; icon: typeof Home; end?: boolean; signal?: 'live' | 'alerts' }
+
+const navSections: Array<{ title: string | null; items: NavItem[] }> = [
+  { title: null, items: [{ label: 'Command home', to: '/', icon: Home, end: true }] },
+  {
+    title: 'Operate',
+    items: [
+      { label: 'Mission command', to: '/dashboard/missions', icon: Radar },
+      { label: 'Live dashboard', to: '/dashboard', icon: Gauge, end: true, signal: 'live' },
+      { label: 'Live map', to: '/dashboard/map', icon: Map },
+      { label: '3D view', to: '/dashboard/scene', icon: Box },
+    ],
+  },
+  {
+    title: 'Analyse',
+    items: [
+      { label: 'Alert center', to: '/dashboard/alerts', icon: Bell, signal: 'alerts' },
+      { label: 'AI perception', to: '/dashboard/ai', icon: Cpu },
+      { label: 'Telemetry', to: '/dashboard/telemetry', icon: Activity },
+    ],
+  },
+  { title: 'Record', items: [{ label: 'Reports', to: '/dashboard/reports', icon: FileText }] },
 ]
+const settingsItem: NavItem = { label: 'System settings', to: '/dashboard/settings', icon: Settings }
 
-const missionNav = [
-  { label: 'LIVE DASHBOARD', to: '/dashboard', icon: Gauge },
-  { label: 'AI PERCEPTION', to: '/dashboard/ai', icon: Cpu },
-  { label: 'TELEMETRY', to: '/dashboard/telemetry', icon: Activity },
-  { label: '3D VIEW', to: '/dashboard/scene', icon: Box },
-]
-
-
+/** One style for every item: active carries an accent bar, hover only a tint, so they differ. */
+function SideLink({ item, collapsed, live, alerts }: {
+  item: NavItem; collapsed: boolean; live: boolean; alerts: number
+}) {
+  const { label, to, icon: Icon, end, signal } = item
+  const showLive = signal === 'live' && live
+  const showAlerts = signal === 'alerts' && alerts > 0
+  const count = alerts > 99 ? '99+' : String(alerts)
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      // only when collapsed: expanded, the label is already there and the tooltip covered the next item
+      title={collapsed ? label + (showAlerts ? ` (${count} alerts)` : showLive ? ' (mission flying)' : '') : undefined}
+      className={({ isActive }) => [
+        'relative flex items-center gap-3 rounded-lg py-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] transition',
+        collapsed ? 'justify-center px-0' : 'px-3',
+        isActive
+          ? 'bg-[#8ae0ff]/12 text-white before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-full before:bg-[#8ae0ff]'
+          : 'text-text/75 hover:bg-white/[0.06] hover:text-white',
+      ].join(' ')}
+    >
+      <span className="relative flex">
+        <Icon size={20} strokeWidth={1.8} />
+        {collapsed && showLive && <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full bg-[#43d17b] ring-2 ring-[#202a40]" />}
+        {collapsed && showAlerts && (
+          <span className="absolute -right-2.5 -top-2 min-w-[18px] rounded-full bg-[#e2707a] px-1 text-center text-[10px] font-bold leading-[18px] text-white ring-2 ring-[#202a40]">{count}</span>
+        )}
+      </span>
+      {!collapsed && <span className="flex-1 truncate">{label}</span>}
+      {!collapsed && showLive && (
+        <span className="flex items-center gap-1.5 text-[10px] tracking-[0.08em] text-[#86e2a4]">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-[#43d17b]" />LIVE
+        </span>
+      )}
+      {!collapsed && showAlerts && (
+        <span className="min-w-[22px] rounded-full bg-[#e2707a]/25 px-2 text-center text-[11px] leading-5 text-[#ffc7cb]">{count}</span>
+      )}
+    </NavLink>
+  )
+}
 
 const pageTitles: Record<string, string> = {
   '/': 'Command Home',
@@ -63,6 +113,9 @@ function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const dataSource = useDataSource()
   const location = useLocation()
+  const { mission, alerts } = useMission()
+  const missionLive = mission?.status === 'ACTIVE'
+  const alertCount = alerts.length
 
   useEffect(() => {
     const pageTitle = pageTitles[location.pathname] ?? 'Command Center'
@@ -90,45 +143,23 @@ function AppShell({ children }: { children: ReactNode }) {
           </button>
         </div>
 
-        <nav className="flex flex-1 flex-col gap-1 overflow-y-auto p-2 pt-3">
-          {commandNav.map(({ label, to, icon: Icon }) => (
-            <NavLink
-              key={label}
-              to={to}
-              title={label}
-              className={({ isActive }) => [
-                'flex items-center gap-3 rounded-lg border px-2 py-3 text-[12px] font-medium tracking-[0.09em] text-text/80 transition',
-                isActive ? 'border-white/20 bg-[#6f7e9b]/45 text-text' : 'border-transparent bg-transparent hover:border-white/10 hover:bg-white/5',
-                collapsed ? 'justify-center px-1' : '',
-              ].join(' ')}
-            >
-              <Icon size={25} strokeWidth={1.8} />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
-          ))}
-
-          {!collapsed && (
-            <div className="mt-4 px-3 pb-1 text-[11px] tracking-[0.22em] text-text/78">
-              MISSION SESSION
+        <nav className="no-scrollbar flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-3">
+          {navSections.map((section, index) => (
+            <div key={section.title ?? 'home'} className={index ? 'mt-3' : ''}>
+              {section.title && (collapsed
+                ? <div className="mx-3 mb-2 border-t border-white/10" aria-hidden />
+                : <div className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-text/50">{section.title}</div>)}
+              <div className="flex flex-col gap-0.5">
+                {section.items.map((item) => (
+                  <SideLink key={item.to} item={item} collapsed={collapsed} live={missionLive} alerts={alertCount} />
+                ))}
+              </div>
             </div>
-          )}
-          {missionNav.map(({ label, to, icon: Icon }) => (
-            <NavLink
-              key={label}
-              to={to}
-              title={label}
-              end={to === '/dashboard'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2 text-[13px] tracking-[0.08em] transition ${collapsed ? 'justify-center' : ''} ${
-                  isActive ? 'bg-white/15 text-white' : 'text-text/75 hover:bg-white/10 hover:text-white'
-                }`
-              }
-            >
-              <Icon size={16} />
-              {!collapsed && <span>{label}</span>}
-            </NavLink>
           ))}
-
+          {/* settings is configuration, not operation: kept out of the way at the foot */}
+          <div className="mt-auto border-t border-white/10 pt-2">
+            <SideLink item={settingsItem} collapsed={collapsed} live={false} alerts={0} />
+          </div>
         </nav>
 
         <div className="border-t border-white/10 p-3 text-center text-[12px] tracking-[0.1em] text-text/75">

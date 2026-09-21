@@ -112,7 +112,10 @@ const stateAt = (rec: Recording, t: number): LiveState => {
   const mission = frame.state.mission
     ? { ...frame.state.mission, events: rec.events.slice(0, frame.eventCount).slice(-EVENTS_SHOWN) }
     : null
-  return { ...frame.state, mission, telemetry, alerts: [], hazards: [] }
+  // the alerts the bridge was serving at that moment, as /api/alerts answers: an empty list here
+  // left everything reading the shared state (the sidebar's alert count) with no alerts at all
+  const alerts = frame.alertIds.map((id) => rec.alerts[id]).filter(Boolean)
+  return { ...frame.state, mission, telemetry, alerts, hazards: [] }
 }
 
 const missionsAt = (rec: Recording, state: LiveState): Json[] =>
@@ -133,7 +136,6 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
   }
   const route = path.split('?')[0]
   const state = stateAt(rec, replayTime())
-  const frame = rec.frames[frameIndexAt(rec.frames, replayTime())]
   ended(state)
   switch (route) {
     case '/api/state': return state
@@ -142,7 +144,7 @@ export const respond = async (method: string, path: string): Promise<unknown> =>
     case '/api/telemetry': return state.telemetry
     case '/api/mission': return state.mission
     case '/api/hazards': return []
-    case '/api/alerts': return frame.alertIds.map((id) => rec.alerts[id]).filter(Boolean)
+    case '/api/alerts': return state.alerts
     case '/api/world': return rec.world
     case '/api/missions': return missionsAt(rec, state)
     // What the detector had found by this moment, not what it finished with: the recording keeps
