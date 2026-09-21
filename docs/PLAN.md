@@ -225,10 +225,9 @@ positives and mean position error against the current detector.
 
 ## Also open
 
-- **"Probe here".** A CRITICAL structural region with no casualty found inside it is where a
-  ground team should dig. Check first whether a CRITICAL region actually covers V13, V14, V16 or
-  V17 — load the positions from `victim_table`, never type them — and if it does, publish the
-  region as a probe hint beside the casualty list.
+- **"Probe here" — checked, not built.** Of 9 CRITICAL regions with nobody found in them, one
+  hid a casualty; the rule caught 1 of the 4 the drone misses (`docs/VERIFICATION.md`). The two
+  buried casualties sit 13–15 m outside every CRITICAL region.
 - **Rendered rangefinders.** `sensors.yaml` `rangefinders.rendered: true` is still waiting on the
   gz-rendering 8 `gpu_lidar` segfault (`docs/VERIFICATION.md`). Re-test on the next Gazebo update;
   nothing onboard changes either way.

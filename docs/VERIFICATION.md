@@ -95,6 +95,26 @@ at (-130, 19, 19 m) after entering the southern lanes, which jam GPS. That is th
 failsafe with no vision to fall back on, not a fault - but it means a light launch
 (`vio:=false`) cannot fly the earthquake sector to the end.
 
+### "Probe here": do CRITICAL regions point at the casualties the drone misses? (2026-09-21)
+
+The idea: a CRITICAL structural region with no casualty found in it is where a ground team should
+dig. Tested on one full earthquake mission with hazard mapping on (MISSION_COMPLETE, 14 of 18,
+98.3 %, `logs/probe_check_hazards.json`), with the four missed casualties' positions read from
+`victims.load()`:
+
+| Missed | Why | In a CRITICAL region? |
+|---|---|---|
+| V13 | partial | yes |
+| V14 | partial | yes, but a casualty was found in that region too |
+| V16 | buried | no - 13.1 m from the nearest |
+| V17 | buried | no - 14.9 m from the nearest |
+
+159 regions were mapped, 12 of them CRITICAL. The rule would flag 9 (1550 m² to dig), and only 1
+of the 9 hides anyone; it misses 3 of the 4. Not built: on this evidence it sends ground teams to
+eight empty sites for every useful one. The buried casualties are where the segmentation sees no
+collapse at all, which is the harder problem - a thermal signature through rubble, not a map of
+it.
+
 ### Gas sensing: MiCS-6814 and MQ-136 (2026-09-21)
 
 The scenario (`aero_sense_gazebo/config/gas.yaml`) tears an ammonia refrigeration line open 12 m up
