@@ -13,7 +13,9 @@ Ogre2GpuRays in this world, though the same sensor works on a standalone model i
 What it sees: everything the world includes that `structure_map.load_obstacles` knows about -
 buildings, the radio mast, the towers, the electric poles, parked vehicles and the cordon
 barriers - as upright cylinders of their footprint radius, and only while one stands taller than
-the drone. Terrain and the flood water are not in that map, so the beams do not see them.
+the drone; plus the overhead conductors between the poles (`structure_map.load_wires`), which are
+lines at one height rather than footprints. Terrain and the flood water are not in that map, so
+the beams do not see them.
 """
 import math
 from pathlib import Path
@@ -33,6 +35,8 @@ GROUND_TRUTH_TOPIC = "aero_sense/sim/ground_truth"
 #: A structure counts as an obstacle while its roof is at least this far above the drone: lower
 #: than that the beam passes over it.
 CLEARANCE_M = 0.5
+#: Conductor thickness (tools/layout_world.CONDUCTOR_RADIUS_M): ~12 mm of aluminium.
+WIRE_RADIUS_M = 0.006
 
 
 def yaw_of(orientation) -> float:
@@ -62,6 +66,33 @@ def ray_to_circles(origin, direction, circles, max_range_m: float) -> float:
     return nearest if nearest <= max_range_m else math.inf
 
 
+def ray_to_wires(origin, direction, height: float, wires, max_range_m: float, beam_rad: float) -> float:
+    """Distance to the nearest overhead conductor the beam would return from, or inf.
+
+    The beam is a cone: at range d it covers d * tan(beam / 2) either side of its axis, and a
+    wire counts when it falls inside that, across and in height. A real TFmini often gets too
+    little energy back off a 12 mm wire to report it at all, so this is the optimistic case;
+    what it is here for is that the drone must not fly a leg through a span it cannot see.
+    """
+    ox, oy = origin
+    dx, dy = direction
+    nearest = math.inf
+    for wire in wires:
+        (ax, ay, az), (bx, by, bz) = wire.a, wire.b
+        ex, ey = bx - ax, by - ay
+        denom = dx * ey - dy * ex
+        if abs(denom) < 1e-9:                      # the beam runs along the wire: no crossing
+            continue
+        along = ((ax - ox) * ey - (ay - oy) * ex) / denom          # metres along the beam
+        across = ((ax - ox) * dy - (ay - oy) * dx) / denom         # 0..1 along the wire
+        if not (0.0 <= along <= max_range_m and 0.0 <= across <= 1.0) or along >= nearest:
+            continue
+        spread = WIRE_RADIUS_M + along * math.tan(beam_rad / 2)
+        if abs(az + across * (bz - az) - height) <= spread:
+            nearest = along
+    return nearest
+
+
 class RangefinderSim(Node):
     def __init__(self):
         super().__init__("rangefinder_sim")
@@ -75,6 +106,7 @@ class RangefinderSim(Node):
         self._ground_z = self.get_parameter("ground_z").value
         self._structures = np.array([(s.x, s.y, s.radius_m, s.height_m)
                                      for s in structure_map.load_obstacles(Path(world))])
+        self._wires = structure_map.load_wires(Path(world))
         self._noise = np.random.default_rng(2026)
         self._pubs = {beam["name"]: self.create_publisher(LaserScan, TOPIC.format(side=beam["name"]), 1)
                       for beam in self._rf["beams"]}
@@ -82,7 +114,7 @@ class RangefinderSim(Node):
         self.create_subscription(Odometry, GROUND_TRUTH_TOPIC, lambda m: setattr(self, "_pose", m.pose.pose), 1)
         self.create_timer(1.0 / self._rf["rate_hz"], self._publish)
         self.get_logger().info(
-            f"rangefinders from {len(self._structures)} obstacles: "
+            f"rangefinders from {len(self._structures)} obstacles and {len(self._wires)} conductors: "
             f"{', '.join(b['name'] + ' ' + b['part'] for b in self._rf['beams'])}")
 
     def _publish(self) -> None:
@@ -98,7 +130,9 @@ class RangefinderSim(Node):
             angle = heading + math.radians(beam["yaw_deg"])
             origin = (position.x + self._rf["mount_radius_m"] * math.cos(angle),
                       position.y + self._rf["mount_radius_m"] * math.sin(angle))
-            reading = ray_to_circles(origin, (math.cos(angle), math.sin(angle)), above[:, :3], high)
+            direction = (math.cos(angle), math.sin(angle))
+            reading = min(ray_to_circles(origin, direction, above[:, :3], high),
+                          ray_to_wires(origin, direction, position.z, self._wires, high, beam["beam_rad"]))
             if math.isfinite(reading):
                 reading = max(low, reading + float(self._noise.normal(0.0, self._rf["noise_stddev"])))
             msg = LaserScan(angle_min=0.0, angle_max=0.0, angle_increment=0.0,

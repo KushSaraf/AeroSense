@@ -134,8 +134,12 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   clears. It re-checks at 5 Hz, not per setpoint: a leg is one command. It is the last line;
   `airspace.py` is what routes round what the map knows.
 - **The map the beams hit:** `structure_map.load_obstacles` = the structures plus the electric
-  poles, parked vehicles and cordon barriers (151, against 101 structures). Terrain and the flood
-  water are in neither.
+  poles, parked vehicles and cordon barriers (151, against 101 structures), and
+  `structure_map.load_wires` = the 78 overhead conductors, which are lines at one height rather
+  than footprints (26 spans between consecutive poles, `tools/layout_world.py`, visual only: a
+  12 mm cylinder is thinner than a physics step at cruise). A beam returns a wire when the cone
+  of its own divergence covers it, which is optimistic: a real TFmini often gets too little back
+  off a wire. Terrain and the flood water are in neither map.
 - **What they find:** every return goes into a 2 m voxel map and out as
   `aero_sense/perception/obstacle_points` (relayed, drawn red in the 3D view). `mission_manager`
   turns each point more than `DETECTED_RADIUS_M` from a mapped structure into a no-fly circle and

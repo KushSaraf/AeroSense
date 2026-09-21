@@ -58,6 +58,45 @@ class Structure:
     height_m: float = 0.0
 
 
+#: The overhead line model (tools/layout_world.py), whose conductors are drawn in world
+#: coordinates: thin cylinders, each along its own z, one per span per conductor.
+POWER_LINE_MODEL = "aero_sense_power_lines"
+
+
+@dataclass(frozen=True)
+class Wire:
+    """One conductor, end to end in the map frame: (x, y, z) to (x, y, z)."""
+    name: str
+    a: tuple
+    b: tuple
+
+
+def load_wires(world: Path) -> tuple:
+    """Every overhead conductor the world strings up.
+
+    A wire is a line, not a footprint, so it is not a Structure: the rangefinder beams cast at
+    these separately, and nothing that plans in plan view uses them.
+    """
+    root = ET.parse(world).getroot()
+    models = Path(world).parent.parent / "models"
+    wires = []
+    for include in root.iter("include"):
+        if (include.findtext("uri") or "").replace("model://", "") != POWER_LINE_MODEL:
+            continue
+        for visual in ET.parse(models / POWER_LINE_MODEL / "model.sdf").getroot().iter("visual"):
+            length = visual.findtext("geometry/cylinder/length")
+            if length is None:
+                continue
+            x, y, z, _, pitch, yaw = (float(v) for v in visual.findtext("pose").split())
+            half = float(length) / 2
+            elevation = math.pi / 2 - pitch          # the cylinder is drawn along its own z
+            dx = math.cos(yaw) * math.cos(elevation) * half
+            dy = math.sin(yaw) * math.cos(elevation) * half
+            dz = math.sin(elevation) * half
+            wires.append(Wire(visual.get("name"), (x - dx, y - dy, z - dz), (x + dx, y + dy, z + dz)))
+    return tuple(wires)
+
+
 #: Generated buildings (tools/make_buildings.py) carry their footprint in their own model: the
 #: collision box covers the plot, compound wall and rubble spread included.
 BUILDING_PREFIX = "aero_sense_building_"

@@ -83,3 +83,23 @@ def test_a_beam_return_is_mapped_where_the_beam_was_looking():
     assert (round(x, 6), round(y, 6), z) == (14.0, 20.0, 8.0)
     # the sensor sits off the centre of the drone: the return is that much farther out
     assert obstacle.hit_point(here, 0.0, "front", 5.0, 0.18)[0] == pytest.approx(15.18)
+
+
+def test_a_beam_level_with_an_overhead_wire_returns_it_and_one_below_does_not():
+    """Wires are the obstacle a building map never has and a pilot never sees in time."""
+    import math
+    from aero_sense_bringup.rangefinder_sim import ray_to_wires
+    from aero_sense_perception.structure_map import Wire
+
+    span = (Wire("span", (10.0, -15.0, 8.64), (10.0, 15.0, 8.64)),)   # a wire across the path
+    beam = math.radians(3.6)                                          # the TFmini Plus
+
+    # level with it, 10 m away
+    assert ray_to_wires((0.0, 0.0), (1.0, 0.0), 8.64, span, 12.0, beam) == pytest.approx(10.0)
+    # 2 m below it: the beam is 0.3 m across at that range, so nothing comes back
+    assert ray_to_wires((0.0, 0.0), (1.0, 0.0), 6.6, span, 12.0, beam) == math.inf
+    # past the sensor's range, and pointing away from it
+    assert ray_to_wires((0.0, 0.0), (1.0, 0.0), 8.64, span, 8.0, beam) == math.inf
+    assert ray_to_wires((0.0, 0.0), (-1.0, 0.0), 8.64, span, 12.0, beam) == math.inf
+    # past the end of the span: the beam goes by the last pole
+    assert ray_to_wires((0.0, 20.0), (1.0, 0.0), 8.64, span, 12.0, beam) == math.inf

@@ -16,9 +16,11 @@ EK3_SRC3_VELZ 0
 EK3_SRC3_YAW 1
 
 # Obstacle avoidance from the four TF rangefinders (config/sensors.yaml), which drone_interface
-# sends as MAVLink DISTANCE_SENSOR. PRX1_TYPE 2 is the MAVLink proximity backend; simple
-# avoidance stops the drone short in the pilot's modes, and BendyRuler steers round an obstacle
-# in the GUIDED legs the mission flies.
+# sends as MAVLink DISTANCE_SENSOR. PRX1_TYPE 2 is the MAVLink proximity backend. ArduPilot then
+# reports the proximity sensor healthy and stops the drone short in the pilot's modes, but
+# neither simple avoidance nor BendyRuler touches the GUIDED position targets the mission flies
+# (docs/VERIFICATION.md): the drone flew into a wall its own beam was reading. These are set so
+# the autopilot has the obstacles too; what actually stops the drone is the guard in obstacle.py.
 PRX1_TYPE 2
 PRX1_ORIENT 0
 AVOID_ENABLE 2
@@ -27,3 +29,8 @@ AVOID_BEHAVE 0
 OA_TYPE 1
 OA_MARGIN_MAX 3
 OA_BR_LOOKAHEAD 8
+
+# ArduPilot's own DDS client, off: this stack talks MAVLink, there is no micro-ROS agent for it
+# to find, and its "DDS: No ping response, exiting" was the last thing it said before every
+# unrelated timeout, which sent us looking for a fault in the wrong place.
+DDS_ENABLE 0

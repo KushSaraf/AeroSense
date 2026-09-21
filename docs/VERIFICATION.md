@@ -66,6 +66,21 @@ map and published as `aero_sense/perception/obstacle_points`; `mission_manager` 
 Returns inside a mapped structure are dropped, or every wall the drone passes would fill the
 planning grid.
 
+**Overhead lines (2026-09-21).** `tools/layout_world.py` strings the three conductors between
+consecutive poles on each asphalt road, 26 spans, 78 wires at 8.64 and 9.1 m. Flown level at a
+span at 8.64 m: the beam facing the way the drone was going picked the nearest conductor up and
+the drone held 7.2 m off it for the rest of the run, with 3 points of the span in the obstacle
+map (`scratchpad/wire.log`). They sit below every mission altitude (cruise 30 m, inspection 22 m,
+SWOOP no lower than 10 m), so no mission was re-flown for them.
+
+**The pre-arm timeout said the wrong thing.** Twice, on a loaded machine, take-off failed with
+"pre-arm checks timed out after 120s (last autopilot text: DDS: No ping response, exiting)" -
+which is ArduPilot's own DDS client giving up on a micro-ROS agent this stack does not run, and
+nothing to do with arming. The same launch armed on the next try, and the lighter one
+(`vio:=false rgb:=false hazards:=false`) always did; the simulation was running at 0.53-0.9 real
+time under the full node set. So `DDS_ENABLE 0` in hexa.parm, and a pre-arm timeout now quotes
+the newest "PreArm: ..." message instead (`autopilot._reason`).
+
 **gz-rendering 8 segfaults on a gpu_lidar on this drone.** Ogre2GpuRays::UpdateRenderTarget1stPass,
 null dereference, every time, with one beam or four, in base_link or payload_link, at low quality,
 with the near plane at 0.1 or 0.5 m, with or without the ArduPilot plugin, spawned at start or into

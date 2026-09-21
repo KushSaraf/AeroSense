@@ -72,3 +72,24 @@ def test_home_moves_to_the_take_off_point_and_keeps_the_ground_altitude(monkeypa
     drone._update(lat=pad_lat, lon=149.165237)
     drone.set_home_here()
     assert conn.set_home == (pad_lat, 149.165237, 584.0)
+
+
+def test_a_pre_arm_timeout_is_reported_in_the_autopilots_own_words():
+    """The failure has to name what is unhealthy. Flown: a pre-arm timeout quoted "DDS: No ping
+    response, exiting" - the last thing the autopilot happened to say, and nothing to do with
+    arming - and it sent us looking for the fault in the wrong place."""
+    import threading
+    import time
+    from dataclasses import replace
+    from aero_sense_mission.autopilot import Autopilot, VehicleState
+
+    autopilot = Autopilot.__new__(Autopilot)
+    autopilot._lock = threading.Lock()
+    autopilot._state = VehicleState(last_text="DDS: No ping response, exiting",
+                                    last_prearm_text="PreArm: EKF3 waiting for GPS config",
+                                    last_prearm_at=time.time())
+    assert autopilot._reason("pre-arm checks") == "PreArm: EKF3 waiting for GPS config"
+    # anything else quotes the last text, and so does a pre-arm message too old to still be true
+    assert "DDS" in autopilot._reason("takeoff climb")
+    autopilot._state = replace(autopilot._state, last_prearm_at=time.time() - 600)
+    assert "DDS" in autopilot._reason("pre-arm checks")

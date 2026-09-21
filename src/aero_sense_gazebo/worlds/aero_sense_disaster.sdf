@@ -292,6 +292,7 @@
     <include><name>pole_32</name><pose>-114.32 38.24 0.00 -0.207 0.055 1.798</pose><uri>model://aero_sense_electric_pole</uri></include>
     <include><name>pole_33</name><pose>-112.17 69.64 0.00 0.000 0.000 1.304</pose><uri>model://aero_sense_electric_pole</uri></include>
     <include><name>pole_34</name><pose>-103.78 98.27 0.00 -0.037 -0.170 1.300</pose><uri>model://aero_sense_electric_pole</uri></include>
+    <include><name>power_lines</name><pose>0 0 0 0 0 0</pose><uri>model://aero_sense_power_lines</uri></include>
     <!-- END GENERATED -->
 
     <!-- ============ S2 FLOOD WATER ============ -->

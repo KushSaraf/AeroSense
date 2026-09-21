@@ -145,6 +145,11 @@ pole, a parked bus, a wall the map got wrong - so each one goes into a 2 m voxel
 the drone as `aero_sense/perception/obstacle_points`, shows red in the 3D view, and becomes a
 no-fly circle the mission plans round: the drone stops for an obstacle once, then flies round it.
 
+The society also has its overhead line: three conductors between every pair of poles along the
+asphalt roads, at 8.6 and 9.1 m. Wires are what no building map holds and what a pilot sees too
+late; the beams return one when the cone of their own divergence covers it, and flown level at a
+span the drone held 7.2 m off it.
+
 ### Hazards: what the ground is like, region by region
 
 `hazard_mapper` segments the drone's own view with SegFormer-B0 (`ml/segformer/`): the thermal

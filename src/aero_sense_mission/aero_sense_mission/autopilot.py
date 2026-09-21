@@ -26,6 +26,8 @@ ARM_TIMEOUT_S = 60
 TAKEOFF_TIMEOUT_S = 40
 CLIMB_COMPLETE_FRACTION = 0.95
 PREARM_CHECK_BIT = 0x10000000
+#: A "PreArm: ..." older than this is stale: ArduPilot repeats the live ones every 30 s or so.
+PREARM_TEXT_S = 60.0
 STREAM_RATE_HZ = 10
 #: Faster streams for the messages the pose history is built from (msg id -> Hz).
 POSE_STREAM_HZ = {30: 50, 32: 20}          # ATTITUDE, LOCAL_POSITION_NED
@@ -116,6 +118,9 @@ class VehicleState:
     gps_hacc_m: float = math.nan
     gps_sats: int = 0
     last_text: str = ""
+    #: The newest "PreArm: ..." the autopilot sent, and when: the reason a pre-arm wait failed.
+    last_prearm_text: str = ""
+    last_prearm_at: float = 0.0
     home_lat: float = math.nan
     home_lon: float = math.nan
     home_alt_m: float = math.nan   # AMSL
@@ -224,6 +229,8 @@ class Autopilot:
                          prearm_ok=bool(msg.onboard_control_sensors_health & PREARM_CHECK_BIT))
         elif kind == "STATUSTEXT":
             self._update(last_text=msg.text)
+            if msg.text.lower().startswith("prearm"):    # ArduPilot repeats these while unhealthy
+                self._update(last_prearm_text=msg.text, last_prearm_at=time.time())
         elif kind == "COMMAND_ACK":
             with self._lock:
                 self._acks = {**self._acks, msg.command: msg.result}
@@ -237,8 +244,20 @@ class Autopilot:
             if predicate(self.state):
                 return
             time.sleep(0.2)
-        raise TimeoutError(f"{what} timed out after {timeout:.0f}s (last autopilot text: "
-                           f"{self.state.last_text or 'none'})")
+        raise TimeoutError(f"{what} timed out after {timeout:.0f}s ({self._reason(what)})")
+
+    def _reason(self, what: str) -> str:
+        """Why a wait failed, in the autopilot's own words.
+
+        A wait on the pre-arm checks quotes the newest "PreArm: ..." message, which says what is
+        actually unhealthy. `last_text` is whatever the autopilot happened to say last, and on a
+        loaded machine that was its DDS client giving up - unrelated, and it sent us looking for
+        a fault in the wrong place.
+        """
+        state = self.state
+        if "arm" in what and state.last_prearm_text and time.time() - state.last_prearm_at <= PREARM_TEXT_S:
+            return state.last_prearm_text
+        return f"last autopilot text: {state.last_text or 'none'}"
 
     # -- commands ---------------------------------------------------------------
 
@@ -315,8 +334,7 @@ class Autopilot:
             time.sleep(MODE_RESEND_S)
             if self.state.mode == mode:
                 return
-        raise TimeoutError(f"mode {mode} timed out after {MODE_TIMEOUT_S:.0f}s (last autopilot "
-                           f"text: {self.state.last_text or 'none'})")
+        raise TimeoutError(f"mode {mode} timed out after {MODE_TIMEOUT_S:.0f}s ({self._reason(mode)})")
 
     def wait_armable(self, timeout: float = ARM_TIMEOUT_S) -> None:
         self._wait(lambda s: s.prearm_ok, timeout, "pre-arm checks")

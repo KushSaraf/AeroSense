@@ -75,3 +75,18 @@ def test_the_obstacle_map_adds_what_a_beam_can_hit_but_a_responder_map_does_not_
     assert poles and all(s.height_m == 9.2 for s in poles)      # taller than a low inspection leg
     # every structure is still in it, unchanged
     assert set(structures) <= set(obstacles)
+
+
+def test_the_overhead_line_is_strung_between_the_poles():
+    """The conductors are what a drone at pole height hits and no building map holds."""
+    wires = structure_map.load_wires(WORLD)
+    poles = [s for s in structure_map.load_obstacles(WORLD) if s.kind == "aero_sense_electric_pole"]
+
+    assert len(wires) >= 3 and len(wires) % 3 == 0          # three conductors to a span
+    for wire in wires:
+        span = math.dist(wire.a[:2], wire.b[:2])
+        assert 5.0 < span <= 45.0                            # consecutive poles, never across a gap
+        assert 8.0 < wire.a[2] < 9.5 and abs(wire.a[2] - wire.b[2]) < 2.0   # on the cross-arms
+        # both ends are at a pole (0.8 m out along the cross-arm at most)
+        for end in (wire.a, wire.b):
+            assert min(math.dist(end[:2], (p.x, p.y)) for p in poles) < 1.0
