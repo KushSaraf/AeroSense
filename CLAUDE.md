@@ -232,7 +232,11 @@ in three steps, 0.31 / 0.73 / 1.0, and every step must start one or V05 is lost)
 within the association radius in one frame is the same body; tracks that settle within it are
 folded into the older name. Each track keeps its best single look (`strength`): working it back out
 of the capped confidence divided by 0.6 ** (hits - 1), which underflows after ~1400 looks and
-crashed the detector. `/aero_sense/victims` is always the whole list, so consumers replace
+crashed the detector. A look is only as well placed as the drone: `victim_detector` gives each
+one a radius from `DroneStatus.navigation` (6 m on GPS, 10 m on OpenVINS, `perception.yaml`
+`navigation:`) and holds looks back with no position or for 20 s after the EKF changes source (it
+re-anchors: 11 m off after "GPS back" once); positions are weighted towards GPS looks. Without it a
+casualty seen again on vision became a second one. `/aero_sense/victims` is always the whole list, so consumers replace
 theirs rather than accumulate. Compare trackers by replaying a bag of
 `/aero_sense/perception/detections` (`logs/flight_bytetrack*`), not by flying twice.
 

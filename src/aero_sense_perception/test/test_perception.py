@@ -163,6 +163,48 @@ def test_a_body_split_by_rubble_stays_one_casualty():
 
 
 
+#: What victim_detector gives a look taken while the drone navigates on OpenVINS (perception.yaml).
+VISION_RADIUS_M = CFG["navigation"]["vision_associate_radius_m"]
+GPS_RADIUS_M = CFG["tracker"]["associate_radius_m"]
+
+
+def on_vision(position, confidence=0.9):
+    return (*seen(position, confidence, 309.0), VISION_RADIUS_M)
+
+
+def test_a_casualty_found_on_gps_and_seen_again_on_vision_stays_one():
+    """flight_thermal_yolo: V01 found on GPS, then seen 7.8 m west while the drone flew on OpenVINS;
+    that look started a second casualty. It now joins the first and barely moves it."""
+    t = tracker()
+    for i in range(3):
+        t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0)], float(i))
+    for i in range(3, 6):
+        confirmed = t.update([on_vision((-7.8, 0.0, 0.0))], float(i))
+    assert [tr.track_id for tr in confirmed] == ["V-001"]
+    assert -2.5 < confirmed[0].position[0] < 0.0 and confirmed[0].radius_m == GPS_RADIUS_M
+
+
+def test_on_gps_a_look_eight_metres_off_is_still_someone_else():
+    t = tracker()
+    for i in range(3):
+        t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0)], float(i))
+    for i in range(3, 6):
+        confirmed = t.update([seen((-7.8, 0.0, 0.0), STRONG, 309.0)], float(i))
+    assert len(confirmed) == 2
+
+
+def test_a_casualty_placed_on_vision_is_pulled_onto_them_by_gps_looks():
+    t = tracker()
+    for i in range(3):
+        t.update([on_vision((8.0, 0.0, 0.0))], float(i))
+    for i in range(3, 6):
+        confirmed = t.update([seen((0.0, 0.0, 0.0), STRONG, 309.0)], float(i))
+    vision_weight = 3 * (GPS_RADIUS_M / VISION_RADIUS_M) ** 2      # three looks, each (6/10)^2 of a GPS look
+    assert len(confirmed) == 1
+    assert confirmed[0].position[0] == pytest.approx(8.0 * vision_weight / (vision_weight + 3))
+    assert VISION_RADIUS_M < 13.0, "wider than the closest two casualties (V15, V21) would merge them"
+
+
 def test_two_tracks_that_settle_on_one_casualty_become_one():
     """First looks 7 m apart start two tracks; later looks in between pull them together, and the
     older name survives."""
@@ -325,3 +367,11 @@ def test_each_camera_the_yolo_node_serves_has_its_settings():
     from aero_sense_perception.rgb_detector import CAMERAS
     for section, _topic, floor in CAMERAS.values():
         assert {"model", "imgsz", "rate_hz", "max_off_nadir_deg", floor} <= set(CFG[section])
+
+
+def test_looks_are_held_while_the_drone_does_not_know_where_it_is():
+    from aero_sense_perception.victim_detector import look_radius
+    assert look_radius("GPS", False, 6.0, 10.0) == 6.0
+    assert look_radius("VISION", False, 6.0, 10.0) == 10.0
+    assert look_radius("NONE", False, 6.0, 10.0) is None
+    assert look_radius("GPS", True, 6.0, 10.0) is None          # re-anchoring after "GPS back"

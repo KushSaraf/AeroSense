@@ -86,3 +86,12 @@ thermal_yolo:
   min_confidence: 0.25
   max_off_nadir_deg: 35.0           # the 57 deg lens never reaches it level; kept for the shared node
   # kelvin reaches the model through thermal_yolo.WINDOW_K, as in training: change it there and retrain
+
+# How well placed a look is depends on what the drone navigates on (DroneStatus.navigation).
+navigation:
+  # On OpenVINS a look may land this far from the casualty and still be them: flight_thermal_yolo
+  # measured 7.8 m of drift after 57 s on vision. Under 13 m, the closest two casualties (V15, V21).
+  vision_associate_radius_m: 10.0
+  # For this long after the EKF changes source (GPS <-> vision) looks are not used: it re-anchors,
+  # and flight_thermal_yolo placed people 11 m off for 15 s after "GPS back". Nor with no position.
+  settle_s: 20.0

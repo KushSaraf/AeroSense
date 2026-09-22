@@ -71,6 +71,10 @@ REACHED_M = 4.0
 #: How close to the pad counts as home, and how long to let the autopilot fly there.
 HOME_RADIUS_M = 8.0
 RETURN_TIMEOUT_S = 300.0
+#: Once over the pad the descent gets its own budget: from 30 m it takes under a minute, and
+#: sharing the return's 300 s declared an emergency 1 m from the pad mid-descent after a return
+#: slowed by a spell with no position (flight_thermal_yolo).
+LANDING_TIMEOUT_S = 120.0
 LANDED_ALTITUDE_M = 1.5
 #: States in which the drone must be armed and flying. Disarming in one of them is a crash.
 FLYING_STATES = ("SEARCHING", "VICTIM_DETECTED", "VERIFYING")
@@ -593,6 +597,7 @@ class MissionManager(Node):
                     if self._state != "LANDING":
                         self._transition("LANDING", "over the pad, descending")
                         self._call(self._land)        # only once we are actually above home
+                        deadline = time.time() + LANDING_TIMEOUT_S
             time.sleep(1.0)
 
         if not landed_at_home:
@@ -600,8 +605,9 @@ class MissionManager(Node):
             if self._pose is not None:
                 here = self._pose.pose.position
                 where = f" at ({here.x:.0f}, {here.y:.0f})"
-            self._transition("EMERGENCY", f"did not reach the pad within "
-                                          f"{RETURN_TIMEOUT_S:.0f}s{where}")
+            failed = (f"did not land within {LANDING_TIMEOUT_S:.0f}s over the pad" if self._state == "LANDING"
+                      else f"did not reach the pad within {RETURN_TIMEOUT_S:.0f}s")
+            self._transition("EMERGENCY", f"{failed}{where}")
             return
         summary = (f"{len(self._victims)} casualties found, "
                    f"{self._coverage.percent:.0f}% of the sector searched") if self._coverage \

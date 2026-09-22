@@ -61,17 +61,46 @@ The mission found 14 of 18 (V09 by RGB; V13, V14, V16, V17 missed as on every ea
 
 - **Two casualties counted twice.** Both extra tracks are 8 m due west of V01 and V18, confirmed on
   the return just after "GPS back", and both streams have them: the drone's own position was off,
-  not a warm object.
+  not a warm object. Fixed the same day (next section).
 - **EMERGENCY at the pad.** On the return OpenVINS drifted to 59.6 m RMS off GPS and was benched,
-  GPS then dropped with no vision behind it, and the 300 s return budget ran out 1 m from the pad.
-  Nothing onboard reads the thermal YOLO, but it is another torch process on a machine where load
-  has stopped sims arming before; one flight cannot rule that in or out.
+  GPS then dropped with no vision behind it, and the 300 s return budget ran out 1 m from the pad,
+  mid-descent. Fixed the same day (next section). Nothing onboard reads the thermal YOLO, but it is
+  another torch process on a machine where load has stopped sims arming before; one flight cannot
+  rule that in or out.
 
 So YOLO finds the same people, as precisely, and in flight throws more stray looks. It does not
 beat the blob detector here, and cannot: nothing in this world but a person is warmer than 301 K.
 Per the plan it stays beside it, off by default (`thermal_yolo:=false`), until footage with warm
 clutter (engines, animals, sun-baked roofs) can show it better; only then would its score replace
 the blob detector's three-step confidence, with `tracker.new_track_confidence` re-tuned.
+
+### A look is only as well placed as the drone (2026-09-22)
+
+The two double-counted casualties above, looked into with the recorded looks: at V01 and V18 they
+were 7-8 m west while the drone was still on OpenVINS (57 s since GPS went), 11 m west 12 s after
+"GPS back", and back to 1 m at 15 s, once the EKF had re-anchored on GPS. The tracker's 6 m radius
+made each of those a new casualty.
+
+- `victim_detector` follows `DroneStatus.navigation`: on GPS a look joins a casualty within the
+  tracker's 6 m, on OpenVINS within 10 m (7.8 m of drift measured; the closest two casualties, V15
+  and V21, are 13 m apart), and with no position, or for 20 s after the EKF changes source, looks
+  are held back from the tracker and SWOOP (raw detections are still published).
+- `tracker.py`: a casualty's position is weighted by (6 / look radius)^2, so looks taken on GPS
+  outweigh looks on a drifting estimate, and a casualty first placed on vision is pulled onto them.
+- `mission_manager`: once over the pad the descent has its own 120 s instead of what the return's
+  300 s left, and an EMERGENCY now says which of the two ran out.
+
+**Replay of flight_thermal_yolo's looks** (every raw look, navigation changes from its log): the
+tracker as flown gives 15 tracks for 13 casualties, the two extras exactly where they were confirmed
+(8.6 m off V01, 8.1 m off V18); the tracker now gives 13 for 13, none more than 6 m off; 471 looks
+held across 8 navigation changes.
+
+**Flight** (`logs/flight_nav_settle/`, same load, `thermal_yolo:=true`, pose, status and ground
+truth recorded): MISSION_COMPLETE, 14 of 18, 0 false positives, 98.9 %, 993 s, 0.97 m mean error,
+12 navigation changes. OpenVINS behaved this time (worst 2.3 m off ground truth on vision, against
+7-11 m before), so the flight shows the gate costs the search nothing; the drift case itself is the
+replay. The slow return was not repeated either: nothing recorded the drone's position that time,
+so why RTL took 272 s is still unknown, and this flight records it for next time.
 
 ### Obstacle avoidance: the four TF rangefinders (2026-09-20)
 

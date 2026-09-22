@@ -7,6 +7,11 @@ evaluation can score these detections against it.
                   -> nearest-neighbour track -> /aero_sense/victims
                   -> faint or tiny warm patches, rated -> /aero_sense/perception/suspects (SWOOP)
     RGB people (rgb_detector) -> SWOOP leads from any height; casualties from low down (rgb.py)
+
+A look is placed with the drone's own position, so how far to trust it follows what the drone
+navigates on (DroneStatus.navigation): on GPS the tracker's radius, on OpenVINS a wider one, and
+none at all with no position or while the EKF re-anchors after changing source (perception.yaml
+`navigation:`).
 """
 import math
 from pathlib import Path
@@ -21,7 +26,7 @@ from sensor_msgs.msg import CameraInfo, Image
 from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 
-from aero_sense_interfaces.msg import TriageScore, VictimArray, VictimDetection
+from aero_sense_interfaces.msg import DroneStatus, TriageScore, VictimArray, VictimDetection
 
 from . import detector, geolocate, rgb, structure_map, suspects, triage
 from .tracker import Tracker
@@ -29,7 +34,16 @@ from .tracker import Tracker
 DETECTIONS_TOPIC = "aero_sense/perception/detections"
 VICTIMS_TOPIC = "aero_sense/victims"
 SUSPECTS_TOPIC = "aero_sense/perception/suspects"
+STATUS_TOPIC = "aero_sense/drone/status"
 EARTH_RADIUS_M = 6378137.0
+
+
+def look_radius(navigation: str, settling: bool, gps_radius_m: float, vision_radius_m: float):
+    """How far a look may land from its casualty, from what the drone navigates on; None when it
+    must not be used: no position at all, or the EKF re-anchoring after changing source."""
+    if settling or navigation == "NONE":
+        return None
+    return vision_radius_m if navigation == "VISION" else gps_radius_m
 
 
 def load_config(path: str = "") -> dict:
@@ -54,12 +68,15 @@ class VictimDetector(Node):
         self._detector_cfg = {k: v for k, v in config["detector"].items() if k != "min_blob_m2"}
         self._min_blob_m2 = config["detector"]["min_blob_m2"]
         self._tracker = Tracker(**config["tracker"])
+        self._tracker_radius_m = config["tracker"]["associate_radius_m"]
         self._suspect_cfg = {k: v for k, v in config["suspects"].items()
                              if k not in ("associate_radius_m", "min_height_m", "min_looks")}
         self._lead_radius_m = config["suspects"]["associate_radius_m"]
         self._lead_min_height_m = config["suspects"]["min_height_m"]
         self._lead_min_looks = config["suspects"]["min_looks"]
         self._rgb_cfg = config["rgb"]
+        self._nav_cfg = config["navigation"]
+        self._navigation, self._navigation_since = "GPS", None   # until the drone says otherwise
         self._leads = ()
         self._scale = self.get_parameter("thermal_resolution_k").value
         self._origin = (self.get_parameter("origin_latitude").value,
@@ -76,6 +93,7 @@ class VictimDetector(Node):
                                  lambda m: setattr(self, "_info", m), 1)
         self.create_subscription(Image, "aero_sense/camera/thermal/image_raw", self._on_thermal, 1)
         self.create_subscription(VictimArray, rgb.RGB_DETECTIONS_TOPIC, self._on_rgb, 10)
+        self.create_subscription(DroneStatus, STATUS_TOPIC, self._on_status, 10)
         self.create_service(Trigger, "aero_sense/perception/reset", self._reset)
         self._raw_pub = self.create_publisher(VictimArray, DETECTIONS_TOPIC, 10)
         self._victims_pub = self.create_publisher(VictimArray, VICTIMS_TOPIC, 10)
@@ -116,6 +134,22 @@ class VictimDetector(Node):
 
     # -- pipeline ---------------------------------------------------------------
 
+    def _on_status(self, msg: DroneStatus):
+        if msg.navigation and msg.navigation != self._navigation:
+            self._navigation, self._navigation_since = msg.navigation, self._now_s()
+            self.get_logger().info(f"navigating on {msg.navigation}: looks "
+                                   f"{'held' if self._look_radius() is None else 'used'} for now")
+
+    def _now_s(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _look_radius(self):
+        """How far a look taken now may land from its casualty (navigation.look_radius)."""
+        settling = self._navigation_since is not None and \
+            self._now_s() - self._navigation_since < self._nav_cfg["settle_s"]
+        return look_radius(self._navigation, settling, self._tracker_radius_m,
+                           self._nav_cfg["vision_associate_radius_m"])
+
     def _camera_pose(self, stamp):
         """(position, rotation) of the camera in `map` when the frame was taken (geolocate.camera_pose)."""
         pose = geolocate.camera_pose(self._tf, self._map_frame, self._camera_frame, stamp)
@@ -128,7 +162,8 @@ class VictimDetector(Node):
         """RGB people into SWOOP's leads and, from low down, the tracker (rgb.py). Both are published
         with the next thermal frame, a tenth of a second on."""
         pose = self._camera_pose(msg.header.stamp)
-        if pose is None:
+        radius = self._look_radius()
+        if pose is None or radius is None:
             return
         height_m = float(pose[0][2] - self._ground_z)
         seen = [((v.position.x, v.position.y, v.position.z), v.confidence) for v in msg.victims]
@@ -138,7 +173,7 @@ class VictimDetector(Node):
         found = rgb.casualties(seen, height_m, min_height_m, cfg["confirm_confidence"], cfg["confirm_max_height_m"],
                                self._ambient_k)
         if found:
-            self._tracker.update(found, msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
+            self._tracker.update([(*f, radius) for f in found], msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9)
 
     def _on_thermal(self, msg: Image):
         if self._info is None:
@@ -165,8 +200,11 @@ class VictimDetector(Node):
                                           triage.cos_incidence(position, point))
             detections.append((tuple(point), blob.confidence, blob.peak_k, exposure, blob.surround_k))
         self._publish_raw(msg.header.stamp, detections)
-        self._publish_victims(msg.header.stamp, detections)
-        self._publish_suspects(msg.header.stamp, kelvin, scale, position, rotation, height_m)
+        radius = self._look_radius()
+        # with the drone's own position in doubt a look would land a casualty metres from where they are
+        self._publish_victims(msg.header.stamp, [] if radius is None else [(*d, radius) for d in detections])
+        self._publish_suspects(msg.header.stamp, kelvin, scale, position, rotation, height_m,
+                               placed=radius is not None)
 
     def _geodetic(self, x: float, y: float) -> tuple:
         lat = self._origin[0] + math.degrees(y / EARTH_RADIUS_M)
@@ -219,12 +257,13 @@ class VictimDetector(Node):
                                     t.exposure, t.surround_k) for t in confirmed]
         self._victims_pub.publish(msg)
 
-    def _publish_suspects(self, stamp, kelvin, scale, position, rotation, height_m):
+    def _publish_suspects(self, stamp, kelvin, scale, position, rotation, height_m, placed=True):
         """SWOOP's leads: every faint warm patch rated at least `min_probability`, kept as one
         lead per place so the mission can fly down to it. Not below `min_height_m`: the finder's
         filter is sized to a person at this height, and on the pad (0.3 m) one frame took 4.2 s
-        and held the detector's core through every take-off and landing."""
-        if height_m < self._lead_min_height_m:
+        and held the detector's core through every take-off and landing. Nor while the drone's own
+        position is in doubt (`placed` False): the descent would go where nobody is."""
+        if not placed or height_m < self._lead_min_height_m:
             found = ()
         else:
             found = suspects.find(kelvin, height_m, self.get_parameter("camera_hfov_rad").value,
