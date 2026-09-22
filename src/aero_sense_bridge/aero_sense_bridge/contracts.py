@@ -70,7 +70,7 @@ def drone_json(status, pose, velocity, battery, flight_seconds: float, fix=None,
     flying = bool(status and status.armed)
     return {
         "id": getattr(status, "drone_id", "") or "AS-01",
-        "name": "Aero Sense 01",
+        "name": "RAKSHAK",
         "model": "Hexacopter, Hexa-X (ArduCopter SITL)",
         "status": "ACTIVE" if flying else "STANDBY",
         "mode": getattr(status, "mode", "") or "UNKNOWN",
