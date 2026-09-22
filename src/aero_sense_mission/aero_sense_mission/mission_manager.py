@@ -635,16 +635,18 @@ class MissionManager(Node):
         The route is planned once per goal and flown waypoint by waypoint, so a detour is a
         committed path round the obstacle rather than something re-decided every tick.
         """
-        goal = (round(x, 1), round(y, 1), round(altitude, 1))
         here = self._pose.pose.position
-        if goal != self._route_goal:
+        if self._needs_route(x, y, altitude):
             # plan for the lower of where we are and where we are going: a descent to inspect
             # passes through altitudes the cruise never flies
             self._route, names = self._plan((here.x, here.y, here.z), x, y, altitude)
-            self._route_goal = goal
+            self._route_goal = (x, y, altitude)
             if names:
                 self._event(f"obstacle avoidance: routing round {', '.join(names)} "
                             f"on the way to ({x:.0f}, {y:.0f})")
+        else:
+            # the same destination, crept a little: keep the committed detour, move only its end
+            self._route = (*self._route[:-1], (x, y))
         wx, wy = self._route[0]
         if len(self._route) > 1 and self._distance_to(wx, wy, altitude) < REACHED_M:
             self._route = self._route[1:]
@@ -652,6 +654,21 @@ class MissionManager(Node):
         final = len(self._route) == 1
         self._fly_to(wx, wy, altitude, yaw if final else None)
         return final and self._distance_to(wx, wy, altitude) < REACHED_M
+
+    def _needs_route(self, x: float, y: float, altitude: float) -> bool:
+        """Whether (x, y, altitude) is a new destination rather than the planned one crept a little.
+
+        The inspection stand-off point is recomputed every tick from the drone's bearing to the
+        casualty, so it creeps a fraction of a metre at a time. Taken as a new goal each time, the
+        committed detour was thrown away, planned again and announced again every tick. A goal
+        within REACHED_M of where the route was planned is the same one: that is the distance that
+        counts as arrived anyway. Measured from the planned goal, not the last tick, so creep that
+        adds up past it is still planned for.
+        """
+        if self._route_goal is None or not self._route:
+            return True
+        gx, gy, galt = self._route_goal
+        return math.hypot(x - gx, y - gy) > REACHED_M or abs(altitude - galt) > REACHED_M
 
     def _plan(self, here: tuple, x: float, y: float, altitude: float) -> tuple:
         """Waypoints to (x, y) at `altitude` round everything tall, and the names gone round.
