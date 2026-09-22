@@ -156,7 +156,9 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   (PRX1_TYPE 2), but **its avoidance does not steer GUIDED targets**, which is why the guard exists.
 - **The guard:** `obstacle.blocked` picks the beam facing the way the drone is going and holds the
   leg while it reads under 12 m, backing off to a 3 m stand-off and flying the leg again when it
-  clears. It re-checks at 5 Hz, not per setpoint: a leg is one command. It is the last line;
+  clears. A leg ending 3 m or more short of the reading is not held, and the mission resending the
+  same leg (within 1 m) keeps the hold: each resend used to release it and the drone crept at the
+  wall. It re-checks at 5 Hz, not per setpoint: a leg is one command. It is the last line;
   `airspace.py` is what routes round what the map knows.
 - **The map the beams hit:** `structure_map.load_obstacles` = the structures plus the electric
   poles, parked vehicles and cordon barriers (151, against 101 structures), and

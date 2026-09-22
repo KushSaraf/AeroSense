@@ -73,6 +73,16 @@ the drone held 7.2 m off it for the rest of the run, with 3 points of the span i
 map (`scratchpad/wire.log`). They sit below every mission altitude (cruise 30 m, inspection 22 m,
 SWOOP no lower than 10 m), so no mission was re-flown for them.
 
+**The guard in a mission (2026-09-22).** The earthquake mission logged "holding short" 572 times in
+one flight while the gap closed from 11.9 to 5.9 m. The mission re-sends its leg every 0.5 s and
+each resend released the hold, so the drone flew at the obstacle again until the next 0.2 s guard
+tick. Behind that: the inspection beside the radio mast was sent to a point 2.3 m off the mast,
+because a goal that crept kept its route but swapped the planner's safe end for the raw one. Fixed:
+a resent leg keeps its hold, a route keeps its safe end, and a leg that ends at least the 3 m
+stand-off short of what the beam sees is not held. Flown (`logs/flight_hold3_eval.log`):
+MISSION_COMPLETE in 933 s (1493 s before), 14 of 18, 0 false positives, 0.91 m mean error, 96 %
+searched, one hold in the whole flight.
+
 ### Offline store and paced queue (2026-09-21)
 
 `comms_link` now writes everything it holds to SQLite (`event_store.py`,

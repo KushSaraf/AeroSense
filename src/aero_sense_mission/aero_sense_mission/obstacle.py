@@ -36,16 +36,19 @@ def blocked(beams: dict, here, target, yaw: float, margin_m: float = STOP_MARGIN
     """(side, metres) of the obstacle in the way of the leg here -> target, or None if it is clear.
 
     `beams` is side -> metres (inf for nothing in range), `yaw` the drone's heading in the map.
-    A leg that only climbs or descends is never blocked: these beams look sideways.
+    A leg that only climbs or descends is never blocked: these beams look sideways. Nor is one that
+    ends at least STANDOFF_M short of what the beam sees: the drone stops at its target, so what
+    stands beyond it is not in the way (the planner already keeps targets clear of structures).
     """
     east, north = target[0] - here[0], target[1] - here[1]
-    if math.hypot(east, north) < 1e-3:
+    length = math.hypot(east, north)
+    if length < 1e-3:
         return None
     side = facing(wrap(math.atan2(north, east) - yaw))
     if not side:
         return None
     distance = beams.get(side, math.inf)
-    return (side, distance) if distance <= margin_m else None
+    return (side, distance) if distance <= min(margin_m, length + STANDOFF_M) else None
 
 
 #: Hold this far off whatever the beam sees. The drone stops short of the obstacle rather than

@@ -644,9 +644,8 @@ class MissionManager(Node):
             if names:
                 self._event(f"obstacle avoidance: routing round {', '.join(names)} "
                             f"on the way to ({x:.0f}, {y:.0f})")
-        else:
-            # the same destination, crept a little: keep the committed detour, move only its end
-            self._route = (*self._route[:-1], (x, y))
+        # else the same destination, crept a little: keep the committed route, its end included,
+        # which is the planner's safe goal (moved out of any no-fly circle), not the raw one
         wx, wy = self._route[0]
         if len(self._route) > 1 and self._distance_to(wx, wy, altitude) < REACHED_M:
             self._route = self._route[1:]

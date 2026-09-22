@@ -10,6 +10,8 @@ from types import SimpleNamespace
 from aero_sense_mission.mission_manager import REACHED_M, MissionManager
 
 DETOUR = (20.0, 20.0)
+#: How far the planner moves the goal to get it out of a no-fly circle.
+SAFE_SHIFT_M = 6.0
 
 
 class Pilot:
@@ -24,7 +26,7 @@ class Pilot:
 
     def _plan(self, here, x, y, altitude):
         self.plans += 1
-        return (DETOUR, (x, y)), ["s1_water_tower"]
+        return (DETOUR, (x + SAFE_SHIFT_M, y)), ["s1_water_tower"]    # safe_goal moved it out
 
     def _event(self, text):
         self.events.append(text)
@@ -46,9 +48,10 @@ def test_a_goal_that_creeps_keeps_its_detour_and_is_announced_once():
     creep(pilot, ticks=8)                               # 3.5 m in all, inside the arrival radius
     assert pilot.plans == 1
     assert len(pilot.events) == 1
-    # still going round the obstacle, and the route's end follows the goal as it creeps
+    # still going round the obstacle, to the safe end the planner chose: the raw goal it crept
+    # to was inside the radio mast's circle, 2.3 m off the mast, and the guard held short forever
     assert tuple(pilot._route[0]) == DETOUR
-    assert tuple(pilot._route[-1]) == (-15.0, 34.5)
+    assert tuple(pilot._route[-1]) == (-15.0 + SAFE_SHIFT_M, 31.0)
 
 
 def test_creep_is_measured_from_where_the_route_was_planned():

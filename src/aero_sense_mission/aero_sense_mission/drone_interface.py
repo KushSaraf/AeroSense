@@ -68,6 +68,9 @@ LAUNCH_FIX_WAIT_S = 20.0
 DISTANCE_SEND_HZ = 10.0
 #: How often the guard may say the same thing, so a held leg does not fill the event log.
 OBSTACLE_EVENT_S = 5.0
+#: A setpoint this close to the one being flown is the mission resending its leg (every 0.5 s),
+#: not a new leg: it must not release a hold, or the drone creeps at the obstacle.
+SAME_LEG_M = 1.0
 #: The guard re-checks the beams this often, not only when a setpoint arrives: a leg is one
 #: command and the drone covers 4 m a second under it.
 GUARD_PERIOD_S = 0.2
@@ -414,7 +417,10 @@ class DroneInterface(Node):
             self.get_logger().warn(f"ignoring setpoint in frame {msg.header.frame_id!r}")
             return
         pos, o = msg.pose.position, msg.pose.orientation
+        same_leg = self._target is not None and math.dist(self._target[:3], (pos.x, pos.y, pos.z)) < SAME_LEG_M
         self._target = (pos.x, pos.y, pos.z, enu_yaw_to_ned(quaternion_to_yaw(o.x, o.y, o.z, o.w)))
+        if same_leg and self._hold is not None:
+            return                                   # the leg resent: still held, the guard decides
         self._hold = None                            # a new leg: judge it on this tick's beams
         self._fly(self._target)
 

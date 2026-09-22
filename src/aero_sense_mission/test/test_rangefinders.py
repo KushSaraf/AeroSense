@@ -61,6 +61,11 @@ def test_the_guard_holds_only_when_a_beam_faces_the_way_we_are_going():
     beyond = obstacle.STOP_MARGIN_M + 1.0
     assert obstacle.blocked({**clear, "front": beyond}, here, north, yaw=math.pi / 2) is None
     assert obstacle.blocked({**clear, "front": 1.0}, here, (0.0, 0.0, 30.0), yaw=math.pi / 2) is None
+    # a leg that ends short of the obstacle, stand-off to spare, is not in its way: an inspection
+    # beside the radio mast was held 10.6 m off it forever, 4 m from where it was going
+    short = (0.0, 4.0, 10.0)
+    assert obstacle.blocked({**clear, "front": 10.0}, here, short, yaw=math.pi / 2) is None
+    assert obstacle.blocked({**clear, "front": 6.0}, here, short, yaw=math.pi / 2) == ("front", 6.0)
     assert obstacle.hold_at(here, north) == (0.0, 0.0, 10.0)      # hold, at the leg's altitude
     # stopped 1 m off a wall: back away to the stand-off, along the leg, keeping its altitude
     backed = obstacle.hold_at(here, north, distance_m=1.0, standoff_m=3.0)
