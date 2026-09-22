@@ -305,3 +305,23 @@ def test_rgb_people_far_off_nadir_are_left_out():
     assert rgb.off_nadir_deg(480, 300, k, down) == pytest.approx(0.0, abs=1e-6)
     assert rgb.off_nadir_deg(900, 300, k, down) > CFG["rgb"]["max_off_nadir_deg"]      # the frame's edge
     assert rgb.off_nadir_deg(480 + 240 * math.tan(math.radians(30)), 300, k, down) == pytest.approx(30.0)
+
+
+def test_the_thermal_model_sees_a_body_white_and_the_ground_grey():
+    """thermal_yolo.to_image, the one way kelvin reaches the thermal YOLO in training and onboard:
+    white-hot like HIT-UAV, water dark, ground mid-grey, a live body near white, nothing wrapping."""
+    from aero_sense_perception import thermal_yolo
+    image = thermal_yolo.to_image(np.array([[285.0, 291.0, 298.0, 306.0, 550.0]]))
+    assert image.shape == (1, 5, 3) and image.dtype == np.uint8
+    grey = image[0, :, 0].tolist()
+    assert grey[0] == 0 and grey[-1] == 255                  # clipped, not wrapped
+    assert grey[1] < 30 and 100 < grey[2] < 140 and grey[3] > 230
+    assert (image[..., 0] == image[..., 2]).all()
+
+
+def test_each_camera_the_yolo_node_serves_has_its_settings():
+    """rgb_detector reads a perception.yaml section per camera: a missing key would only show when
+    the node starts in a flight."""
+    from aero_sense_perception.rgb_detector import CAMERAS
+    for section, _topic, floor in CAMERAS.values():
+        assert {"model", "imgsz", "rate_hz", "max_off_nadir_deg", floor} <= set(CFG[section])

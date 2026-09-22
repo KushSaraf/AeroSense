@@ -31,6 +31,48 @@ Flights before 2026-09-18 flew on SITL's perfect simulated state (`AHRS_EKF_TYPE
 "GPS-denied navigation"), not on the drone's own sensors. Their search and SWOOP results stand;
 their navigation never depended on GPS.
 
+### Thermal YOLOv8n beside the blob detector (2026-09-22)
+
+YOLOv8n on HIT-UAV's real LWIR, then on 4,192 frames of this world's people through the drone's
+own thermal camera (`ml/thermal/README.md`). HIT-UAV test split: P 0.853, R 0.772, mAP50 0.856.
+
+**Offline, same frames** (`ml/thermal/compare.py`: the scenario's 23 casualties from 8 heights,
+184 frames, 132 people boxed):
+
+| | recall | false positives | stray |
+|---|---|---|---|
+| blob detector (today) | 0.886 | 55 (a second blob on the same person) | 0 |
+| YOLOv8n, HIT-UAV only | 0.356 | 66 | 47 |
+| YOLOv8n, both stages | 0.871 | 4 | 0 |
+| blob proposes, YOLO scores | 0.856 | 51 | 0 |
+
+The blob detector misses only V09 (deceased, ambient: RGB finds them) and one look at V21.
+
+**One flight** (`tools/mission_evaluation.py earthquake`, `thermal_yolo:=true`, both streams
+recorded and scored per look by `tools/score_detections.py`, `logs/flight_thermal_yolo/`):
+
+| stream | looks | casualties with a look | false looks (places) | mean error |
+|---|---|---|---|---|
+| blob detector, `perception/detections` | 3,699 | 13 | 9 (2) | 1.09 m |
+| thermal YOLO, `perception/thermal_yolo` (3 Hz) | 658 | the same 13 | 27 (19) | 1.07 m |
+
+The mission found 14 of 18 (V09 by RGB; V13, V14, V16, V17 missed as on every earthquake flight),
+0.95 m mean error. Two findings were not the detectors':
+
+- **Two casualties counted twice.** Both extra tracks are 8 m due west of V01 and V18, confirmed on
+  the return just after "GPS back", and both streams have them: the drone's own position was off,
+  not a warm object.
+- **EMERGENCY at the pad.** On the return OpenVINS drifted to 59.6 m RMS off GPS and was benched,
+  GPS then dropped with no vision behind it, and the 300 s return budget ran out 1 m from the pad.
+  Nothing onboard reads the thermal YOLO, but it is another torch process on a machine where load
+  has stopped sims arming before; one flight cannot rule that in or out.
+
+So YOLO finds the same people, as precisely, and in flight throws more stray looks. It does not
+beat the blob detector here, and cannot: nothing in this world but a person is warmer than 301 K.
+Per the plan it stays beside it, off by default (`thermal_yolo:=false`), until footage with warm
+clutter (engines, animals, sun-baked roofs) can show it better; only then would its score replace
+the blob detector's three-step confidence, with `tracker.new_track_confidence` re-tuned.
+
 ### Obstacle avoidance: the four TF rangefinders (2026-09-20)
 
 The drone carries a Benewake TFmini Plus forward and three TFMini-S Micro on the other sides

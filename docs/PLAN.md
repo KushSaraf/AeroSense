@@ -14,7 +14,7 @@ then **4**, then **5**, then **6** (peer-owned and the heaviest to train).
 | 3 | GPS-denied / offline, as one story | **done 2026-09-21** | this session |
 | 4 | Closed-loop adaptive coverage search | **done 2026-09-21** (neutral on this world) | this session |
 | 5 | Gas sensing (MiCS-6814, MQ-136) | **done 2026-09-21** | this session |
-| 6 | Thermal YOLOv8n on HIT-UAV | ~2 days + training | peer (`ml/` is theirs) |
+| 6 | Thermal YOLOv8n on HIT-UAV | **done 2026-09-22** (runs beside; does not beat the blob detector here) | this session, at the user's request |
 
 ---
 
@@ -196,7 +196,21 @@ exactly the kind of invented data this project does not ship.
 
 ---
 
-## 6. Thermal human detection: YOLOv8n on HIT-UAV (peer)
+## 6. Thermal human detection: YOLOv8n on HIT-UAV — done, beside the blob detector
+
+**Done 2026-09-22** (`ml/thermal/`, `thermal_yolo.py`, `rgb_detector camera:=thermal`,
+docs/VERIFICATION.md). Both stages trained; on the scenario's casualties it matches the blob detector
+(0.871 against 0.886, 0 stray) and in one flight found the same 13 with more stray looks. It is not
+shown better, so its score does not replace the three-step confidence: it runs beside, off by
+default (`thermal_yolo:=false`). Two changes from the plan: it is its own node's output
+(`aero_sense/perception/thermal_yolo`) rather than a step inside `victim_detector`, so it costs the
+blob pipeline nothing; and the comparison ran on rendered frames (`compare.py`, the blob detector on
+the very same kelvin frames) rather than a replayed bag, which has no images to run YOLO on.
+**What would show it better:** footage with warm things that are not people. This world has none
+(nothing but a person above 301 K), so the blob detector cannot be beaten in it.
+
+The plan as it was written:
+
 
 **There now.** The thermal detector is a hand-tuned top-hat blob detector with confidence in
 three steps (0.31 / 0.73 / 1.0) and a minimum blob area in ground metres, plus YOLO11n on RGB.

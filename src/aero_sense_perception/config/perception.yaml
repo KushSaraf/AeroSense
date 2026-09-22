@@ -75,3 +75,14 @@ rgb:
   # 15 m ruled them out); still below inspection (22 m) and search (30 m)
   confirm_confidence: 0.5
   confirm_max_height_m: 20.0
+
+# The thermal person detector (rgb_detector camera:=thermal, ml/models/yolov8n_thermal: YOLOv8n on
+# HIT-UAV's real LWIR, then this world's renders, ml/thermal/). It runs beside the blob detector
+# (`detector:`) and publishes on aero_sense/perception/thermal_yolo; nothing onboard acts on it yet.
+thermal_yolo:
+  model: yolov8n_thermal.pt         # in this package's share/models (ml/models/yolov8n_thermal)
+  imgsz: 640                        # trained at 640: the 256 px frame scaled up, as in training
+  rate_hz: 3.0
+  min_confidence: 0.25
+  max_off_nadir_deg: 35.0           # the 57 deg lens never reaches it level; kept for the shared node
+  # kelvin reaches the model through thermal_yolo.WINDOW_K, as in training: change it there and retrain

@@ -1,0 +1,295 @@
+{
+ "model": "/home/kushsaraf/sih_2026/ml/models/yolov8n_thermal/yolov8n_thermal.pt",
+ "data": "/home/kushsaraf/sih_2026/ml/thermal/datasets/world_scenario",
+ "split": "test",
+ "conf": 0.25,
+ "frames": 184,
+ "blob": {
+  "recall": {
+   "people": 132,
+   "recall": 0.886
+  },
+  "false_positives": 55,
+  "stray_false_positives": 0,
+  "by_height": {
+   "0-15 m": {
+    "people": 40,
+    "recall": 0.925
+   },
+   "15-25 m": {
+    "people": 34,
+    "recall": 0.882
+   },
+   "25-40 m": {
+    "people": 58,
+    "recall": 0.862
+   }
+  },
+  "by_condition": {
+   "V01": {
+    "people": 10,
+    "recall": 1.0
+   },
+   "V02": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V03": {
+    "people": 10,
+    "recall": 1.0
+   },
+   "V04": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V05": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V06": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V07": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V08": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V09": {
+    "people": 14,
+    "recall": 0.0
+   },
+   "V10": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V11": {
+    "people": 6,
+    "recall": 1.0
+   },
+   "V12": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V15": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V18": {
+    "people": 9,
+    "recall": 1.0
+   },
+   "V19": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V20": {
+    "people": 2,
+    "recall": 1.0
+   },
+   "V21": {
+    "people": 5,
+    "recall": 0.8
+   },
+   "V22": {
+    "people": 7,
+    "recall": 1.0
+   }
+  }
+ },
+ "yolo": {
+  "recall": {
+   "people": 132,
+   "recall": 0.871
+  },
+  "false_positives": 4,
+  "stray_false_positives": 0,
+  "by_height": {
+   "0-15 m": {
+    "people": 40,
+    "recall": 0.95
+   },
+   "15-25 m": {
+    "people": 34,
+    "recall": 0.882
+   },
+   "25-40 m": {
+    "people": 58,
+    "recall": 0.81
+   }
+  },
+  "by_condition": {
+   "V01": {
+    "people": 10,
+    "recall": 1.0
+   },
+   "V02": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V03": {
+    "people": 10,
+    "recall": 1.0
+   },
+   "V04": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V05": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V06": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V07": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V08": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V09": {
+    "people": 14,
+    "recall": 0.0
+   },
+   "V10": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V11": {
+    "people": 6,
+    "recall": 1.0
+   },
+   "V12": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V15": {
+    "people": 7,
+    "recall": 0.857
+   },
+   "V18": {
+    "people": 9,
+    "recall": 1.0
+   },
+   "V19": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V20": {
+    "people": 2,
+    "recall": 1.0
+   },
+   "V21": {
+    "people": 5,
+    "recall": 0.8
+   },
+   "V22": {
+    "people": 7,
+    "recall": 0.857
+   }
+  }
+ },
+ "blob+yolo": {
+  "recall": {
+   "people": 132,
+   "recall": 0.856
+  },
+  "false_positives": 51,
+  "stray_false_positives": 0,
+  "by_height": {
+   "0-15 m": {
+    "people": 40,
+    "recall": 0.925
+   },
+   "15-25 m": {
+    "people": 34,
+    "recall": 0.882
+   },
+   "25-40 m": {
+    "people": 58,
+    "recall": 0.793
+   }
+  },
+  "by_condition": {
+   "V01": {
+    "people": 10,
+    "recall": 1.0
+   },
+   "V02": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V03": {
+    "people": 10,
+    "recall": 0.9
+   },
+   "V04": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V05": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V06": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V07": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V08": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V09": {
+    "people": 14,
+    "recall": 0.0
+   },
+   "V10": {
+    "people": 8,
+    "recall": 1.0
+   },
+   "V11": {
+    "people": 6,
+    "recall": 1.0
+   },
+   "V12": {
+    "people": 4,
+    "recall": 1.0
+   },
+   "V15": {
+    "people": 7,
+    "recall": 0.857
+   },
+   "V18": {
+    "people": 9,
+    "recall": 1.0
+   },
+   "V19": {
+    "people": 7,
+    "recall": 1.0
+   },
+   "V20": {
+    "people": 2,
+    "recall": 1.0
+   },
+   "V21": {
+    "people": 5,
+    "recall": 0.6
+   },
+   "V22": {
+    "people": 7,
+    "recall": 0.857
+   }
+  }
+ }
+}

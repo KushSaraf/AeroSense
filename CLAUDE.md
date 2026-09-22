@@ -147,7 +147,25 @@ the RGB camera at 3 Hz. Weights: `ml/models/yolo11n_aerial/`, installed through 
   walls, and people 5 m up on terraces projected onto z 0, made leads nobody was at.
 - Retrain with `ml/make_dataset.py` + `ml/train.py`; score with `ml/evaluate.py`.
 
-## Obstacle avoidance (`obstacle.py`, `rangefinder_sim`, `sensors.yaml` `rangefinders`)
+## Thermal person detector (`thermal_yolo.py`, `rgb_detector camera:=thermal`, `ml/thermal/`)
+
+YOLOv8n on HIT-UAV's real LWIR, then on this world's people rendered through the drone's thermal
+camera (`ml/thermal/README.md`). Weights `ml/models/yolov8n_thermal/`, installed through the symlink
+in `src/aero_sense_perception/models/`. `thermal_yolo:=true` launches it (off by default).
+
+- **Beside, not instead:** it publishes `aero_sense/perception/thermal_yolo` and nothing onboard acts
+  on it. On the scenario's casualties it matches the blob detector (0.871 vs 0.886) and in flight
+  throws more stray looks; this world has nothing but people above 301 K, so it cannot be beaten
+  here (docs/VERIFICATION.md). Replacing the three-step confidence means re-tuning
+  `tracker.new_track_confidence`.
+- **One image mapping:** kelvin reaches the model only through `thermal_yolo.to_image`
+  (`WINDOW_K` 290-307 K, white-hot like HIT-UAV), in training and onboard. Change it there and retrain.
+- **Compare detectors on the same frames:** `ml/thermal/compare.py` (the blob detector on the saved
+  kelvin, YOLO on its image); a flight's streams per look with `tools/score_detections.py`.
+- **Rendering:** a thermal-only camera needs `Sim.move` dating frames from the thermal topic
+  (`ml/thermal/make_dataset.py`): the base class uses the RGB frames and hands back stale ones.
+
+`obstacle.py`, `rangefinder_sim`, `sensors.yaml` `rangefinders`)
 
 - **Parts:** TFmini Plus forward, three TFMini-S Micro on the other sides, 0.1-12 m. Meshes from
   the vendor's STEP (`hardware/cad/tfmini_*`, `tools/step_to_mesh.py`).

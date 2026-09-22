@@ -23,3 +23,8 @@ ml/models/runs/
 !src/aero_sense_perception/models/*.pt
 # The disaster segmentation dataset (ml/segformer/make_dataset.py); the trained weights are committed.
 ml/segformer/datasets/
+# The thermal detector datasets and runs (ml/thermal/); the trained weights are committed.
+ml/thermal/datasets/
+ml/thermal/runs/
+!ml/models/yolov8n_thermal/*.pt
+!ml/thermal/models/*.pt

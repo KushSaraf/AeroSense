@@ -2,7 +2,7 @@
 drone_interface + sensor TFs.
 
     ros2 launch aero_sense_bringup simulation.launch.py [world:=aero_sense_disaster] [gui:=true]
-        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=true] [rgb:=true]
+        [namespace:=] [quality:=medium] [victims:=true] [cruise_speed:=4.0] [vio:=true] [rgb:=true] [thermal_yolo:=false]
 
 Perception runs on the sensor stream only; the scenario's ground truth stays on its own topic
 for evaluation.
@@ -193,6 +193,11 @@ def _launch(context, *args, **kwargs):
     # people in the RGB camera (ml/models/yolo11n_aerial): SWOOP leads, and the deceased casualty
     rgb_people = Node(package="aero_sense_perception", executable="rgb_detector", namespace=namespace,
                       output="screen", parameters=[{"camera_frame": f"{frame_prefix}camera_optical"}])
+    # the thermal YOLOv8n (ml/thermal), beside the blob detector: published, not yet acted on
+    thermal_people = Node(package="aero_sense_perception", executable="rgb_detector", name="thermal_yolo_detector",
+                          namespace=namespace, output="screen",
+                          parameters=[{"camera": "thermal", "thermal_resolution_k": cfg["thermal"]["resolution_k"],
+                                       "camera_frame": f"{frame_prefix}camera_optical"}])
     # disaster segmentation (ml/segformer) into hazard regions for the map and ground routing
     hazards = Node(package="aero_sense_perception", executable="hazard_mapper", namespace=namespace,
                    output="screen",
@@ -235,6 +240,8 @@ def _launch(context, *args, **kwargs):
         actions.append(_openvins(GENERATED_DIR / drone_name / "openvins" / "estimator_config.yaml", namespace))
     if LaunchConfiguration("rgb").perform(context).lower() in ("true", "1"):
         actions.append(rgb_people)
+    if LaunchConfiguration("thermal_yolo").perform(context).lower() in ("true", "1"):
+        actions.append(thermal_people)
     if LaunchConfiguration("hazards").perform(context).lower() in ("true", "1"):
         actions.append(hazards)
     if LaunchConfiguration("victims").perform(context).lower() in ("true", "1"):
@@ -253,6 +260,8 @@ def generate_launch_description() -> LaunchDescription:
                               description="sensor quality profile (resolution / rate)"),
         DeclareLaunchArgument("rgb", default_value="true", choices=["true", "false"],
                               description="run the RGB person detector (ml/models/yolo11n_aerial) beside thermal"),
+        DeclareLaunchArgument("thermal_yolo", default_value="false", choices=["true", "false"],
+                              description="run the thermal YOLOv8n (ml/models/yolov8n_thermal) beside the blob detector"),
         DeclareLaunchArgument("hazards", default_value="true", choices=["true", "false"],
                               description="map hazards: SegFormer-B0 disaster segmentation into HSI regions"),
         DeclareLaunchArgument("victims", default_value="true", choices=["true", "false"],
